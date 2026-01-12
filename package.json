@@ -19,7 +19,8 @@
     "native",
     "expo",
     "push-notifications",
-    "biometrics"
+    "biometrics",
+    "sdk"
   ],
   "type": "module",
   "main": "./dist/index.cjs",
