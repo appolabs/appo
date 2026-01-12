@@ -1,6 +1,6 @@
 {
   "name": "@appolabs/appo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "JavaScript bridge SDK for native app features in React Native WebViews",
   "license": "MIT",
   "repository": {
