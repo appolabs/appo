@@ -20,7 +20,8 @@
     "expo",
     "push-notifications",
     "biometrics",
-    "sdk"
+    "sdk",
+    "mobile"
   ],
   "type": "module",
   "main": "./dist/index.cjs",
