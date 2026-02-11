@@ -8,7 +8,7 @@ export function baseOptions(lang: string): BaseLayoutProps {
     links: [
       {
         text: 'Documentation',
-        url: `/${lang}/docs`,
+        url: `/${lang}/getting-started`,
         active: 'nested-url',
       },
     ],

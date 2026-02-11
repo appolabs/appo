@@ -6,7 +6,7 @@ import {
   DocsTitle,
   DocsDescription,
 } from 'fumadocs-ui/page';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getMDXComponents } from '@/mdx-components';
 
 type Page = InferPageType<typeof source>;
@@ -17,6 +17,11 @@ export default async function DocsSlugPage(props: {
   params: Promise<{ lang: string; slug?: string[] }>;
 }) {
   const params = await props.params;
+
+  if (!params.slug) {
+    redirect(`/${params.lang}/getting-started`);
+  }
+
   const page = source.getPage(params.slug, params.lang) as Page | undefined;
   if (!page) notFound();
 
