@@ -1,0 +1,14 @@
+{
+  "title": "Riferimento API",
+  "pages": [
+    "push",
+    "biometrics",
+    "camera",
+    "location",
+    "haptics",
+    "storage",
+    "share",
+    "network",
+    "device"
+  ]
+}

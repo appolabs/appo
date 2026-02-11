@@ -1,0 +1,68 @@
+---
+title: Pubblicazione Android
+description: Processo di revisione Play Store e linee guida per la tua app Appo.
+---
+
+Appo compila, firma e invia la tua app Android al Google Play Store sotto l'account sviluppatore di Appo.
+
+## Cosa Gestisce Appo
+
+- **Account Google Play Developer** — Pubblicato sotto l'account di Appo, nessun costo di $25 per te
+- **Firma dell'app** — Upload key e firma gestite automaticamente
+- **Build** — AAB (Android App Bundle) compilato nel cloud, il formato richiesto per Google Play
+- **Scheda dello store** — Auto-generata dai metadati del tuo sito web (nome, descrizioni, icona)
+- **Scheda Play Console** — Creata e inviata da Appo
+- **Classificazione dei contenuti** — Questionario compilato da Appo in base alle funzionalità della tua app
+- **Sicurezza dei dati** — Dichiarazione compilata da Appo in base alle funzionalità SDK utilizzate
+
+## Cosa Fornisci
+
+Tramite la [dashboard Appo](https://goappo.io):
+
+- **URL del sito web** — La tua applicazione web
+- **Nome dell'app** — Modificabile dopo la generazione automatica
+- **Icona dell'app** — Modificabile dopo la generazione automatica (oppure Appo usa quella generata)
+- **Screenshot** — Caricamento dalla dashboard
+
+Appo genera automaticamente i metadati della scheda dello store dal contenuto del tuo sito web. La modifica della scheda dello store è in fase di sviluppo per un maggiore controllo.
+
+## Classificazione dei Contenuti e Sicurezza dei Dati
+
+Appo compila il questionario sulla classificazione dei contenuti e il modulo sulla sicurezza dei dati per tuo conto in base alle funzionalità utilizzate dalla tua app. Se la tua app raccoglie dati specifici oltre a quelli forniti dall'SDK (es. account utente, analytics), comunicalo ad Appo tramite il canale di supporto affinché le dichiarazioni siano accurate.
+
+### La sicurezza dei dati copre:
+
+- Quali dati raccoglie la tua app (token push, posizione, identificatori del dispositivo, ecc.)
+- Se i dati vengono condivisi con terze parti
+- Se i dati sono crittografati in transito
+- Se gli utenti possono richiedere la cancellazione dei dati
+
+## Revisione del Play Store
+
+Google revisiona tutte le sottomissioni. Il processo di revisione è tipicamente più rapido di quello di Apple (da poche ore a qualche giorno).
+
+### Perché le app Appo superano la revisione
+
+Le app Appo forniscono integrazione nativa del dispositivo (notifiche push, biometria, fotocamera, ecc.) attraverso il bridge SDK. Questa funzionalità nativa soddisfa l'aspettativa di Google che le app forniscano valore oltre a un sito web mobile.
+
+### Policy rilevanti
+
+- **[Minimum Functionality](https://support.google.com/googleplay/android-developer/answer/9888379)** — Le app devono fornire un'esperienza utente stabile e reattiva. Le app WebView vengono accettate quando offrono funzionalità oltre a un semplice wrapper web.
+- **[Data Safety](https://support.google.com/googleplay/android-developer/answer/10787469)** — Raccolta e utilizzo dei dati dichiarati accuratamente da Appo in base alle funzionalità della tua app.
+- **[Target API Level](https://developer.android.com/google/play/requirements/target-sdk)** — Google Play richiede che le app puntino a un livello API Android recente. Appo mantiene le build conformi ai requisiti correnti.
+
+## Problemi Comuni
+
+### Informazioni sulla sicurezza dei dati mancanti
+
+**Problema:** La dichiarazione sulla sicurezza dei dati non corrisponde al comportamento effettivo dell'app.
+
+**Soluzione:** Se la tua web app raccoglie dati oltre a quelli forniti dalle funzionalità dell'SDK (es. account utente, analytics), comunica ad Appo tramite il canale di supporto affinché il modulo sulla sicurezza dei dati sia accurato.
+
+### Target API level troppo basso
+
+**Problema:** La Play Console avverte che l'app punta a un livello API obsoleto.
+
+**Soluzione:** Contatta il supporto Appo — il problema si risolve con una ricompilazione con configurazione di build aggiornata.
+
+Per i requisiti dettagliati, consulta il [Google Play Developer Policy Center](https://play.google.com/about/developer-content-policy/).

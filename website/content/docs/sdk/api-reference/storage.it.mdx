@@ -1,0 +1,41 @@
+---
+title: Archiviazione
+description: Archiviazione sicura chiave-valore con fallback su localStorage.
+---
+
+Accessibile tramite `appo.storage`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="StorageApi" />
+
+## Utilizzo
+
+### Salvare un Valore
+
+```typescript
+await appo.storage.set('auth_token', 'abc123');
+```
+
+### Recuperare un Valore
+
+```typescript
+const token = await appo.storage.get('auth_token');
+// token: string | null
+```
+
+### Eliminare un Valore
+
+```typescript
+await appo.storage.delete('auth_token');
+```
+
+## Fallback nel Browser
+
+Tutti i metodi di archiviazione utilizzano `localStorage` quando l'esecuzione avviene al di fuori di un contenitore nativo.
+
+| Metodo | Fallback |
+|--------|----------|
+| `get()` | `localStorage.getItem()` |
+| `set()` | `localStorage.setItem()` |
+| `delete()` | `localStorage.removeItem()` |

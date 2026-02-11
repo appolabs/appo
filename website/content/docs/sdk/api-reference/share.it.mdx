@@ -1,0 +1,36 @@
+---
+title: Condivisione
+description: Apertura del foglio di condivisione nativo.
+---
+
+Accessibile tramite `appo.share`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="ShareApi" />
+
+## Utilizzo
+
+```typescript
+const result = await appo.share.open({
+  title: 'Guarda questo',
+  message: 'Contenuto da condividere',
+  url: 'https://example.com',
+});
+
+if (result.success) {
+  console.log('Condiviso tramite:', result.action);
+}
+```
+
+## Tipi Correlati
+
+<AutoTypeTable path="../src/types.ts" name="ShareOptions" />
+
+<AutoTypeTable path="../src/types.ts" name="ShareResult" />
+
+## Fallback nel Browser
+
+| Metodo | Fallback |
+|--------|----------|
+| `open()` | Utilizza `navigator.share` se disponibile, altrimenti restituisce `{ success: false }` |

@@ -1,0 +1,40 @@
+---
+title: Location
+description: Request location permission and retrieve GPS position.
+---
+
+Access via `appo.location`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="LocationApi" />
+
+## Usage
+
+### Request Permission
+
+```typescript
+const status = await appo.location.requestPermission();
+// status: 'granted' | 'denied' | 'undetermined'
+```
+
+### Get Current Position
+
+```typescript
+if (status === 'granted') {
+  const position = await appo.location.getCurrentPosition();
+  console.log(position.latitude, position.longitude);
+  // Optional: position.altitude, position.accuracy, position.timestamp
+}
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="Position" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `requestPermission()` | Returns `'denied'` |
+| `getCurrentPosition()` | Throws `Error` |

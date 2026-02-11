@@ -1,0 +1,153 @@
+---
+title: Event Broadcasting
+description: How the native app broadcasts events to your web application.
+---
+
+## What is Event Broadcasting?
+
+Event broadcasting is the mechanism for the native app to push events to the web layer without a prior request from the SDK. Unlike the request/response pattern (where the web app initiates communication), broadcasts are native-initiated — triggered by system events like incoming push notifications or network changes.
+
+## Event Format
+
+Broadcast events use a distinct format from request/response messages. They contain an `event` field instead of an `id` field:
+
+```json
+{
+  "event": "push.message",
+  "data": {
+    "title": "New message",
+    "body": "You have a new notification",
+    "data": { "threadId": "abc123" }
+  }
+}
+```
+
+The SDK distinguishes broadcasts from responses by checking for the `event` field. Messages with an `id` field are responses to pending requests; messages with an `event` field are broadcasts.
+
+## Available Event Channels
+
+### `push.message`
+
+Fired when a push notification is received while the app is in the foreground.
+
+**Data shape:** `PushMessage`
+
+```json
+{
+  "event": "push.message",
+  "data": {
+    "title": "Order Update",
+    "body": "Your order has shipped",
+    "data": { "orderId": "12345" }
+  }
+}
+```
+
+**Subscribe from SDK:**
+
+```typescript
+const unsubscribe = appo.push.onMessage((message) => {
+  console.log('Notification received:', message.title);
+});
+
+// Later: stop listening
+unsubscribe();
+```
+
+### `push.response`
+
+Fired when the user taps a notification. This works for both warm start (app was in background) and cold start (app was terminated).
+
+**Data shape:** `PushResponse`
+
+```json
+{
+  "event": "push.response",
+  "data": {
+    "actionIdentifier": "default",
+    "notification": {
+      "title": "New message",
+      "body": "Check your inbox",
+      "data": { "screen": "inbox" }
+    }
+  }
+}
+```
+
+**Subscribe from SDK:**
+
+```typescript
+const unsubscribe = appo.push.onResponse((response) => {
+  // Navigate to the relevant screen
+  navigateTo(response.notification.data.screen);
+});
+```
+
+### `network.change`
+
+Fired when the device's network connectivity state changes (e.g., switching from Wi-Fi to cellular, going offline).
+
+**Data shape:** `NetworkStatus`
+
+```json
+{
+  "event": "network.change",
+  "data": {
+    "isConnected": true,
+    "type": "wifi"
+  }
+}
+```
+
+**Subscribe from SDK:**
+
+```typescript
+const unsubscribe = appo.network.onChange((status) => {
+  if (!status.isConnected) {
+    showOfflineBanner();
+  }
+});
+```
+
+## Cold Start Handling
+
+When a user taps a notification while the app is terminated, the following sequence occurs:
+
+1. The OS launches the app.
+2. The WebView loads your web application.
+3. Once the web app is ready, the native layer delivers the pending `push.response` event.
+4. The SDK dispatches the event to any registered `onResponse` listeners.
+
+To handle cold start notifications, register your `push.onResponse` listener early in your application's initialization — before any async operations that might delay listener registration.
+
+```typescript
+import { getAppo } from '@appolabs/appo';
+
+const appo = getAppo();
+
+// Register immediately on app init
+appo.push.onResponse((response) => {
+  const { screen } = response.notification.data;
+  navigateTo(screen);
+});
+```
+
+## Subscribing to Events
+
+All event subscriptions follow the same pattern:
+
+1. Call the subscription method (e.g., `appo.push.onMessage(callback)`).
+2. The method returns an `unsubscribe` function.
+3. Call the unsubscribe function to stop receiving events.
+
+```typescript
+// Subscribe
+const unsubscribe = appo.push.onMessage(handleNotification);
+
+// Unsubscribe when no longer needed (e.g., component unmount)
+unsubscribe();
+```
+
+Event listeners are managed by the SDK's bridge layer using `addEventListener`. Multiple listeners can be registered for the same event channel — each receives its own copy of the event data.
+
+For the full event protocol, see [Architecture](/docs/sdk/architecture).

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/index.ts"],
+  "out": "docs",
+  "exclude": ["**/*.test.ts", "**/tests/**"],
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "readme": "none",
+  "name": "@appolabs/appo",
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "outputFileStrategy": "modules"
+}

@@ -1,0 +1,45 @@
+---
+title: Panoramica Pubblicazione
+description: Come Appo compila e pubblica la tua app su App Store e Play Store.
+---
+
+Appo gestisce l'intera pipeline di build e pubblicazione. Una volta che la tua app è pronta nella [dashboard](https://goappo.io), Appo compila i binari nativi e li pubblica su App Store e Play Store per tuo conto.
+
+## Flusso di Lavoro
+
+1. **Integra l'SDK** — Aggiungi `@appolabs/appo` alla tua applicazione web
+2. **Crea l'app** — Fornisci l'URL del tuo sito web nella dashboard Appo
+3. **Preparazione dell'app** — Appo genera il nome dell'app, l'icona e i metadati della scheda dello store dal tuo sito web. Lo stato passa a **Pronta** una volta completato.
+4. **Anteprima** — Testa l'app sul tuo dispositivo usando l'anteprima della dashboard
+5. **Pubblica** — Seleziona gli store di destinazione (iOS, Android o entrambi), scegli un piano di abbonamento e conferma
+6. **Revisione** — Apple e Google revisionano la sottomissione
+7. **Online** — App disponibile agli utenti
+
+## Nessun Account Store Necessario
+
+Appo pubblica le app sotto i propri account sviluppatore App Store e Play Store. Non devi creare o pagare per un account Apple Developer Program o Google Play Developer. Appo gestisce tutte le commissioni degli store, la firma del codice e la logistica di invio.
+
+## Scheda dello Store
+
+Appo genera automaticamente i metadati della scheda dello store (nome, descrizione, parole chiave) dal contenuto del tuo sito web. Puoi caricare screenshot dalla dashboard.
+
+La modifica della scheda dello store è in fase di sviluppo — attualmente i metadati auto-generati vengono revisionati e finalizzati da Appo prima dell'invio.
+
+## Cosa Gestisce Appo
+
+- **Account sviluppatore** — App pubblicate sotto gli account store di Appo
+- **Scheda dello store** — Auto-generata dal tuo sito web, revisionata prima dell'invio
+- **Build nel cloud** — Binari nativi compilati nel cloud
+- **Firma del codice** — Certificati e provisioning profile gestiti automaticamente
+- **Invio agli store** — Binari caricati e schede create su App Store Connect e Google Play Console
+- **Aggiornamenti** — Ricompilazione e reinvio quando aggiorni la tua app
+
+## Abbonamento
+
+La pubblicazione richiede un abbonamento Appo attivo. I piani (Starter, Pro, Business) vengono selezionati durante il flusso di pubblicazione. Gli abbonamenti vengono gestiti tramite la dashboard e fatturati tramite Stripe.
+
+## Prossimi Passi
+
+- [Test](/docs/publishing/testing) — Anteprima dell'app su dispositivi reali
+- [Pubblicazione iOS](/docs/publishing/ios) — Processo di revisione e linee guida App Store
+- [Pubblicazione Android](/docs/publishing/android) — Processo di revisione e linee guida Play Store

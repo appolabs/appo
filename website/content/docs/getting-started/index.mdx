@@ -1,0 +1,56 @@
+---
+title: What is Appo?
+description: Turn any website into a native iOS and Android app with native device features.
+---
+
+## What is Appo?
+
+Appo turns your existing website into a native iOS and Android app. You integrate the Appo SDK into your web application to access native device features, then Appo handles creating, building, and publishing the app to the App Store and Play Store.
+
+### How it works
+
+1. **You have a website** — any web application (React, Vue, plain HTML, Shopify, etc.)
+2. **Integrate the SDK** — add `@appolabs/appo` to access native features like push notifications, camera, biometrics
+3. **Create the app** — use the [Appo dashboard](https://goappo.io) or a platform plugin (e.g., Shopify) to create your native app
+4. **Appo publishes it** — Appo builds and submits your app to the App Store and Play Store
+
+You write web code. Appo handles everything native.
+
+## Features
+
+- **Push Notifications** — Permission requests, token retrieval, message and tap event subscriptions
+- **Biometrics** — Face ID / Touch ID availability check and authentication
+- **Camera** — Permission requests and photo capture
+- **Location** — Permission requests and GPS position retrieval
+- **Haptics** — Impact and notification haptic feedback
+- **Storage** — Secure key-value storage with localStorage fallback
+- **Share** — Native share sheet with Web Share API fallback
+- **Network** — Connectivity status and change subscriptions
+- **Device** — Hardware and software information
+
+## Design Principles
+
+**Graceful fallbacks** — Every API returns a sensible default when running outside a native container. Your web app works in browsers and in the native app.
+
+**Zero dependencies** — No runtime dependencies.
+
+**Type safety** — Full TypeScript with exported interfaces.
+
+## Quick Example
+
+```typescript
+import { getAppo } from '@appolabs/appo';
+
+const appo = getAppo();
+
+if (appo.isNative) {
+  const status = await appo.push.requestPermission();
+  if (status === 'granted') {
+    const token = await appo.push.getToken();
+  }
+}
+
+// Storage works in both environments
+await appo.storage.set('key', 'value');
+const value = await appo.storage.get('key');
+```

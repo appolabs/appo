@@ -1,0 +1,13 @@
+{
+  "title": "SDK Reference",
+  "root": true,
+  "pages": [
+    "index",
+    "architecture",
+    "error-handling",
+    "logging",
+    "browser-fallbacks",
+    "---API Reference---",
+    "...api-reference"
+  ]
+}

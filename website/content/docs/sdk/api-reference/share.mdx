@@ -1,0 +1,36 @@
+---
+title: Share
+description: Open the native share sheet.
+---
+
+Access via `appo.share`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="ShareApi" />
+
+## Usage
+
+```typescript
+const result = await appo.share.open({
+  title: 'Check this out',
+  message: 'Content to share',
+  url: 'https://example.com',
+});
+
+if (result.success) {
+  console.log('Shared via:', result.action);
+}
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="ShareOptions" />
+
+<AutoTypeTable path="../src/types.ts" name="ShareResult" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `open()` | Uses `navigator.share` if available, otherwise returns `{ success: false }` |

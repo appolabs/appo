@@ -1,0 +1,5 @@
+{
+  "title": "Per Iniziare",
+  "root": true,
+  "pages": ["index", "installation", "environment"]
+}

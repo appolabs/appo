@@ -1,0 +1,71 @@
+---
+title: Creating Your App
+description: Create a native app from your website using the Appo dashboard or a platform plugin.
+---
+
+## Creating Your App
+
+Appo creates your native app from your website URL. You provide the URL — Appo generates the app name, icon, and all native configuration automatically.
+
+### From the Dashboard
+
+**New users:**
+
+1. Go to [goappo.io/new](https://goappo.io/new).
+2. Enter your **name**, **email**, and **password** to create an account.
+3. Enter your **website URL** — the web application that will run inside the native app.
+4. Appo fetches your website metadata and generates the app name and icon automatically.
+5. Review and edit the app name or upload a custom icon if needed.
+
+**Existing users:**
+
+1. Sign in at [goappo.io](https://goappo.io).
+2. Enter your **website URL** to create a new app.
+3. Appo generates the app name and icon from your website.
+
+After creation, your app status is **Pending** while Appo prepares the native build. Once ready, you can preview it on your device and publish to the stores.
+
+### From a Plugin
+
+Appo integrates with platforms like Shopify. When using a plugin:
+
+1. Install the Appo plugin from your platform's marketplace.
+2. Connect your Appo account.
+3. The plugin configures the app automatically from your existing store or site settings.
+
+More platform plugins will be available in the future.
+
+## What You Can Edit
+
+After creation, you can update these settings from the dashboard:
+
+- **App name** — The display name on the home screen and stores
+- **App icon** — Upload a custom PNG, JPEG, or WebP image (max 5MB)
+- **Base URL** — The website URL loaded in the native app
+- **Custom CSS** — Inject CSS into the WebView
+- **Custom JavaScript** — Inject JavaScript into the WebView
+
+## SDK Integration
+
+For the native bridge to work, your website needs the Appo SDK installed. See [Installation](/docs/getting-started/installation) for setup instructions.
+
+Once the SDK is loaded, your web app can call native features like `appo.push.requestPermission()`. These calls are bridged to the native layer automatically — no additional configuration is needed on the native side.
+
+## What Appo Manages
+
+Appo handles the native side entirely:
+
+- **Native app wrapper** — The app that hosts your WebView
+- **Feature handlers** — Native implementations for push notifications, biometrics, camera, and all other SDK features
+- **Event broadcasting** — Push notification and network change events forwarded to your web app
+- **Bundle IDs** — iOS bundle ID and Android package name generated automatically
+- **Build pipeline** — Cloud builds for iOS and Android
+- **Store submission** — Publishing to the App Store and Play Store
+
+You focus on your web application. Appo handles the rest.
+
+## Next Steps
+
+- [Configure your app](/docs/native-app/configuration) — Understand permissions, deep links, and platform settings.
+- [Feature Handlers](/docs/native-app/handlers) — How native handlers process SDK requests.
+- [Publishing](/docs/publishing) — How Appo builds and publishes your app.

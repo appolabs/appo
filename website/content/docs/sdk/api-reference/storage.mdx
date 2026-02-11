@@ -1,0 +1,41 @@
+---
+title: Storage
+description: Secure key-value storage with localStorage fallback.
+---
+
+Access via `appo.storage`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="StorageApi" />
+
+## Usage
+
+### Store a Value
+
+```typescript
+await appo.storage.set('auth_token', 'abc123');
+```
+
+### Retrieve a Value
+
+```typescript
+const token = await appo.storage.get('auth_token');
+// token: string | null
+```
+
+### Delete a Value
+
+```typescript
+await appo.storage.delete('auth_token');
+```
+
+## Browser Fallback
+
+All storage methods use `localStorage` when running outside a native container.
+
+| Method | Fallback |
+|--------|----------|
+| `get()` | `localStorage.getItem()` |
+| `set()` | `localStorage.setItem()` |
+| `delete()` | `localStorage.removeItem()` |

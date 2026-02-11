@@ -1,0 +1,69 @@
+---
+title: Pubblicazione iOS
+description: Processo di revisione App Store e linee guida per la tua app Appo.
+---
+
+Appo compila, firma e invia la tua app iOS all'App Store sotto l'account sviluppatore di Appo.
+
+## Cosa Gestisce Appo
+
+- **Account Apple Developer** — Pubblicato sotto l'account di Appo, nessun costo di $99/anno per te
+- **App ID e Bundle ID** — Creati e gestiti da Appo
+- **Firma del codice** — Certificati di distribuzione e provisioning profile
+- **Build** — Binario `.ipa` compilato nel cloud
+- **Scheda dello store** — Auto-generata dai metadati del tuo sito web (nome, descrizione, parole chiave, icona)
+- **Scheda App Store Connect** — Creata e inviata da Appo
+- **Dichiarazioni App Privacy** — Configurate in base alle funzionalità SDK utilizzate dalla tua app
+
+## Cosa Fornisci
+
+Tramite la [dashboard Appo](https://goappo.io):
+
+- **URL del sito web** — La tua applicazione web
+- **Nome dell'app** — Modificabile dopo la generazione automatica
+- **Icona dell'app** — Modificabile dopo la generazione automatica (oppure Appo usa quella generata)
+- **Screenshot** — Caricamento dalla dashboard
+
+Appo genera automaticamente i metadati della scheda dello store dal contenuto del tuo sito web. La modifica della scheda dello store è in fase di sviluppo per un maggiore controllo.
+
+## Linee Guida per la Revisione
+
+Apple revisiona tutte le sottomissioni all'App Store. Le app basate su WebView vengono accettate quando forniscono funzionalità native significative oltre a un sito web.
+
+### Perché le app Appo superano la revisione
+
+Le app Appo integrano funzionalità native del dispositivo (notifiche push, biometria, fotocamera, feedback aptico, ecc.) attraverso il bridge SDK. Queste capability native differenziano l'app da un semplice wrapper web e soddisfano il requisito di Apple per funzionalità avanzate.
+
+### Linee guida rilevanti
+
+- **[4.2 Minimum Functionality](https://developer.apple.com/app-store/review/guidelines/#minimum-functionality)** — Le app devono fornire valore oltre a un sito web riconfezionato. Le funzionalità native di Appo (push, biometria, fotocamera, ecc.) soddisfano questo requisito.
+- **[5.1.1 Data Collection and Storage](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage)** — Tutti i dati raccolti dalla tua app sono dichiarati nella sezione App Privacy.
+- **[5.1.2 Data Use and Sharing](https://developer.apple.com/app-store/review/guidelines/#data-use-and-sharing)** — Se la tua web app usa analytics o pubblicità che tracciano gli utenti tra le app, abilita il permesso Tracciamento nella dashboard affinché App Tracking Transparency sia incluso.
+
+## Motivi Comuni di Rifiuto
+
+### Funzionalità minima
+
+**Problema:** App rifiutata perché considerata un "sito web riconfezionato."
+
+**Soluzione:** Assicurati che la tua app utilizzi in modo significativo le funzionalità native. Se l'app usa notifiche push, biometria o accesso alla fotocamera tramite l'SDK Appo, queste vengono documentate nella scheda dello store durante l'invio.
+
+### Privacy policy mancante
+
+**Problema:** App rifiutata per URL della privacy policy mancante.
+
+**Soluzione:** Assicurati che il tuo sito web abbia una pagina di privacy policy accessibile. Appo include l'URL nella scheda dello store.
+
+### App Tracking Transparency
+
+**Problema:** App rifiutata perché accede all'identificatore pubblicitario senza prompt ATT.
+
+**Soluzione:** Se la tua applicazione web usa analytics o pubblicità che tracciano gli utenti tra le app, abilita il permesso **Tracciamento** nella dashboard Appo con una descrizione appropriata.
+
+### Stringhe di scopo mancanti
+
+**Problema:** App rifiutata per stringhe di descrizione d'uso mancanti (es. fotocamera, posizione).
+
+**Soluzione:** Assicurati che i permessi necessari alla tua app siano configurati nella dashboard Appo. Appo include le voci `Info.plist` corrette in base alla tua configurazione.
+
+Per i requisiti dettagliati, consulta le [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).

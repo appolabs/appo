@@ -1,0 +1,78 @@
+{
+  "name": "@appolabs/appo",
+  "version": "2.0.0",
+  "description": "JavaScript bridge SDK for native app features in React Native WebViews",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appolabs/appo.git"
+  },
+  "homepage": "https://github.com/appolabs/appo#readme",
+  "bugs": {
+    "url": "https://github.com/appolabs/appo/issues"
+  },
+  "keywords": [
+    "appo",
+    "react-native",
+    "webview",
+    "bridge",
+    "native",
+    "expo",
+    "push-notifications",
+    "biometrics",
+    "sdk",
+    "mobile"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration/",
+    "test:watch": "vitest",
+    "docs": "typedoc",
+    "docs:check": "typedoc --emit none",
+    "playground": "node playground/serve.mjs",
+    "prepublishOnly": "pnpm build",
+    "docs:dev": "cd website && pnpm dev",
+    "docs:build": "cd website && pnpm build"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "tsup": "^8.0.0",
+    "typedoc": "^0.28.16",
+    "typedoc-plugin-markdown": "^4.10.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

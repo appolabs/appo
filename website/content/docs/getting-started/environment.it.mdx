@@ -1,0 +1,33 @@
+---
+title: Rilevamento dell'Ambiente
+description: Rileva se l'SDK è in esecuzione all'interno di un container nativo Appo o nel browser.
+---
+
+## isNative
+
+La proprietà `isNative` indica se l'SDK è in esecuzione all'interno di un container nativo Appo (`true`) o in un normale browser (`false`):
+
+```typescript
+const appo = getAppo();
+console.log(appo.isNative); // true nell'app Appo, false nel browser
+console.log(appo.version);  // stringa della versione dell'SDK
+```
+
+## Utilizzo delle API
+
+Tutte le API delle funzionalità sono accessibili come proprietà dell'istanza Appo:
+
+```typescript
+const appo = getAppo();
+
+// Richiedi permesso push (restituisce 'denied' nel browser)
+const status = await appo.push.requestPermission();
+
+// Verifica disponibilità biometria (restituisce false nel browser)
+const available = await appo.biometrics.isAvailable();
+
+// Salva un valore (usa localStorage nel browser)
+await appo.storage.set('key', 'value');
+```
+
+Tutte le API forniscono fallback ragionevoli nel browser. Vedi [Fallback Browser](/docs/sdk/browser-fallbacks) per la tabella completa dei fallback.

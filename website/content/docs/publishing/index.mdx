@@ -1,0 +1,45 @@
+---
+title: Publishing Overview
+description: How Appo builds and publishes your app to the App Store and Play Store.
+---
+
+Appo handles the entire build and publishing pipeline. Once your app is ready in the [dashboard](https://goappo.io), Appo builds native binaries and publishes them to the App Store and Play Store on your behalf.
+
+## Workflow
+
+1. **Integrate the SDK** — Add `@appolabs/appo` to your web application
+2. **Create the app** — Provide your website URL in the Appo dashboard
+3. **App preparation** — Appo generates your app name, icon, and store listing metadata from your website. Status moves to **Ready** when complete.
+4. **Preview** — Test the app on your device using the dashboard preview
+5. **Publish** — Select your target stores (iOS, Android, or both), choose a subscription plan, and confirm
+6. **Review** — Apple and Google review the submission
+7. **Live** — App available to users
+
+## No Store Accounts Needed
+
+Appo publishes apps under its own App Store and Play Store developer accounts. You do not need to create or pay for Apple Developer Program or Google Play Developer accounts. Appo handles all store fees, code signing, and submission logistics.
+
+## Store Listing
+
+Appo auto-generates your store listing metadata (name, description, keywords) from your website content. You can upload screenshots from the dashboard.
+
+Store listing editing is being developed — currently the auto-generated metadata is reviewed and finalized by Appo before submission.
+
+## What Appo Handles
+
+- **Developer accounts** — Apps published under Appo's store accounts
+- **Store listing** — Auto-generated from your website, reviewed before submission
+- **Cloud builds** — Native binaries compiled in the cloud
+- **Code signing** — Certificates and provisioning profiles managed automatically
+- **Store submission** — Binaries uploaded and listings created in App Store Connect and Google Play Console
+- **Updates** — Rebuild and resubmit when you update your app
+
+## Subscription
+
+Publishing requires an active Appo subscription. Plans (Starter, Pro, Business) are selected during the publish flow. Subscriptions are managed through the dashboard and billed via Stripe.
+
+## Next Steps
+
+- [Testing](/docs/publishing/testing) — Preview your app on real devices
+- [iOS Publishing](/docs/publishing/ios) — App Store review process and guidelines
+- [Android Publishing](/docs/publishing/android) — Play Store review process and guidelines

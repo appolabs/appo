@@ -1,0 +1,13 @@
+{
+  "title": "Riferimento SDK",
+  "root": true,
+  "pages": [
+    "index",
+    "architecture",
+    "error-handling",
+    "logging",
+    "browser-fallbacks",
+    "---Riferimento API---",
+    "...api-reference"
+  ]
+}

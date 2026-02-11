@@ -1,0 +1,37 @@
+---
+title: Feedback Aptico
+description: Attivazione di feedback aptico di impatto e notifica.
+---
+
+Accessibile tramite `appo.haptics`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="HapticsApi" />
+
+## Utilizzo
+
+### Feedback di Impatto
+
+```typescript
+appo.haptics.impact('light');  // 'light' | 'medium' | 'heavy'
+```
+
+### Feedback di Notifica
+
+```typescript
+appo.haptics.notification('success'); // 'success' | 'warning' | 'error'
+```
+
+## Tipi Correlati
+
+<AutoTypeTable path="../src/types.ts" name="HapticImpactStyle" />
+
+<AutoTypeTable path="../src/types.ts" name="HapticNotificationType" />
+
+## Fallback nel Browser
+
+| Metodo | Fallback |
+|--------|----------|
+| `impact()` | Nessuna operazione |
+| `notification()` | Nessuna operazione |

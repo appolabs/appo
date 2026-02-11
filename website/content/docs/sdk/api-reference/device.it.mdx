@@ -1,0 +1,32 @@
+---
+title: Dispositivo
+description: Recupero delle informazioni hardware e software del dispositivo.
+---
+
+Accessibile tramite `appo.device`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="DeviceApi" />
+
+## Utilizzo
+
+```typescript
+const info = await appo.device.getInfo();
+console.log(info.platform);    // 'ios' | 'android'
+console.log(info.osVersion);   // es. '17.4'
+console.log(info.appVersion);  // es. '1.2.0'
+console.log(info.deviceId);    // Identificativo univoco del dispositivo
+console.log(info.deviceName);  // es. 'iPhone 15 Pro'
+console.log(info.isTablet);    // true | false
+```
+
+## Tipi Correlati
+
+<AutoTypeTable path="../src/types.ts" name="DeviceInfo" />
+
+## Fallback nel Browser
+
+| Metodo | Fallback |
+|--------|----------|
+| `getInfo()` | Restituisce informazioni basate sullo user agent con `osVersion: 'web'` |

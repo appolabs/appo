@@ -1,0 +1,96 @@
+---
+title: Configurazione
+description: Impostazioni dell'app, permessi e deep link per la tua app nativa Appo.
+---
+
+## Configurazione dell'App
+
+La configurazione dell'app è gestita tramite la [dashboard Appo](https://goappo.io). Le impostazioni configurate nella dashboard vengono applicate all'app nativa durante il processo di build.
+
+### Impostazioni Base
+
+- **Nome dell'app** — Nome visualizzato sulla schermata home e negli store (max 255 caratteri)
+- **Icona dell'app** — Carica un'immagine personalizzata (PNG, JPEG o WebP, max 5MB). Se non fornita, Appo ne genera una dal tuo sito web.
+- **Base URL** — L'URL del sito web caricato nella WebView
+
+### Impostazioni Auto-Generate
+
+Queste vengono create da Appo e non possono essere modificate manualmente:
+
+- **iOS Bundle ID** — Generato come `com.appo.{app-slug}`
+- **Android Package Name** — Generato come `com.appo.{app-slug}`
+- **Schema URL** — Schema personalizzato per i deep link (es. `myapp://`)
+
+## Permessi
+
+Ogni funzionalità dell'SDK richiede permessi specifici della piattaforma. Appo configura i permessi necessari in base alle funzionalità utilizzate dalla tua app.
+
+### Permessi Configurabili
+
+I seguenti permessi possono essere attivati nella dashboard con descrizioni d'uso personalizzate:
+
+| Permesso | Descrizione |
+|----------|-------------|
+| Tracciamento | App Tracking Transparency (iOS). Richiesto se la tua web app usa analytics o pubblicità che tracciano gli utenti tra le app. |
+| Fotocamera | Accesso alla fotocamera per acquisizione foto |
+| Microfono | Accesso al microfono per registrazione audio |
+
+### Permessi Automatici
+
+I permessi rimanenti sono configurati automaticamente dal sistema di build in base alle funzionalità SDK utilizzate dalla tua app:
+
+**iOS:**
+
+| Funzionalità SDK | Permesso | Configurazione |
+|-------------------|----------|----------------|
+| Notifiche Push | Permesso notifiche | Automatica |
+| Posizione (primo piano) | Posizione durante l'uso | Automatica |
+| Posizione (background) | Posizione sempre | Automatica |
+| Biometria | Face ID | Automatica |
+
+**Android:**
+
+| Funzionalità SDK | Permesso Android | Configurazione |
+|-------------------|------------------|----------------|
+| Notifiche Push | `RECEIVE_BOOT_COMPLETED`, `VIBRATE` | Automatica |
+| Posizione (precisa) | `ACCESS_FINE_LOCATION` | Automatica |
+| Posizione (approssimativa) | `ACCESS_COARSE_LOCATION` | Automatica |
+| Stato Rete | `ACCESS_NETWORK_STATE` | Automatica |
+| Biometria | `USE_BIOMETRIC`, `USE_FINGERPRINT` | Automatica |
+| Vibrazione (aptica) | `VIBRATE` | Automatica |
+
+## Universal Link e Deep Link
+
+I deep link permettono a URL esterni di aprirsi direttamente nella tua app. La dashboard Appo include una procedura guidata per la configurazione.
+
+### Universal Link (iOS)
+
+Per far sì che URL HTTPS (es. `https://myapp.com/invite/abc`) aprano la tua app, devi ospitare un file `apple-app-site-association` su:
+
+```
+https://tuodominio.com/.well-known/apple-app-site-association
+```
+
+La procedura guidata della dashboard fornisce il contenuto esatto del file e ti guida nella configurazione.
+
+### App Link (Android)
+
+Per Android, ospita un file `assetlinks.json` su:
+
+```
+https://tuodominio.com/.well-known/assetlinks.json
+```
+
+La procedura guidata della dashboard fornisce il contenuto corretto del file per la tua app.
+
+## Configurazione WebView
+
+La WebView carica la tua applicazione web e gestisce la comunicazione bridge. Impostazioni predefinite:
+
+- **User Agent** — Include `AppoNative` per il rilevamento dell'ambiente SDK
+- **JavaScript** — Sempre abilitato (necessario per il bridge)
+- **DOM Storage** — Abilitato per il fallback su localStorage nel modulo storage dell'SDK
+- **Gesti di navigazione avanti/indietro** — Abilitati per impostazione predefinita
+- **Scroll bounce** — Disabilitato per impostazione predefinita
+
+Queste impostazioni predefinite funzionano per la maggior parte delle applicazioni. Contatta il supporto se necessiti di configurazione WebView personalizzata.

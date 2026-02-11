@@ -1,0 +1,96 @@
+---
+title: Configuration
+description: App settings, permissions, and deep links for your native Appo app.
+---
+
+## App Configuration
+
+App configuration is managed through the [Appo dashboard](https://goappo.io). Settings you configure in the dashboard are applied to the native app during the build process.
+
+### Basic Settings
+
+- **App name** — Display name on the home screen and stores (max 255 characters)
+- **App icon** — Upload a custom image (PNG, JPEG, or WebP, max 5MB). If not provided, Appo generates one from your website.
+- **Base URL** — The website URL loaded in the WebView
+
+### Auto-Generated Settings
+
+These are created by Appo and cannot be changed manually:
+
+- **iOS Bundle ID** — Generated as `com.appo.{app-slug}`
+- **Android Package Name** — Generated as `com.appo.{app-slug}`
+- **URL Scheme** — Custom scheme for deep links (e.g., `myapp://`)
+
+## Permissions
+
+Each SDK feature requires platform-specific permissions. Appo configures the necessary permissions based on the features your app uses.
+
+### Configurable Permissions
+
+The following permissions can be toggled in the dashboard with custom usage descriptions:
+
+| Permission | Description |
+|------------|-------------|
+| Tracking | App Tracking Transparency (iOS). Required if your web app uses analytics or advertising that tracks users across apps. |
+| Camera | Camera access for photo capture |
+| Microphone | Microphone access for audio recording |
+
+### Automatic Permissions
+
+The remaining permissions are configured automatically by the build system based on the SDK features your app uses:
+
+**iOS:**
+
+| SDK Feature | Permission | Configured |
+|-------------|-----------|------------|
+| Push Notifications | Notification permission | Automatic |
+| Location (foreground) | Location when in use | Automatic |
+| Location (background) | Location always | Automatic |
+| Biometrics | Face ID | Automatic |
+
+**Android:**
+
+| SDK Feature | Android Permission | Configured |
+|-------------|-------------------|------------|
+| Push Notifications | `RECEIVE_BOOT_COMPLETED`, `VIBRATE` | Automatic |
+| Location (fine) | `ACCESS_FINE_LOCATION` | Automatic |
+| Location (coarse) | `ACCESS_COARSE_LOCATION` | Automatic |
+| Network Status | `ACCESS_NETWORK_STATE` | Automatic |
+| Biometrics | `USE_BIOMETRIC`, `USE_FINGERPRINT` | Automatic |
+| Vibration (haptics) | `VIBRATE` | Automatic |
+
+## Universal Links and Deep Links
+
+Deep links allow external URLs to open directly in your app. The Appo dashboard includes a setup wizard to guide you through configuration.
+
+### Universal Links (iOS)
+
+For HTTPS URLs (e.g., `https://myapp.com/invite/abc`) to open in your app, you need to host an `apple-app-site-association` file at:
+
+```
+https://yourdomain.com/.well-known/apple-app-site-association
+```
+
+The dashboard wizard provides the exact file contents and walks you through the setup.
+
+### App Links (Android)
+
+For Android, host an `assetlinks.json` file at:
+
+```
+https://yourdomain.com/.well-known/assetlinks.json
+```
+
+The dashboard wizard provides the correct file contents for your app.
+
+## WebView Configuration
+
+The WebView loads your web application and handles the bridge communication. Default settings:
+
+- **User Agent** — Includes `AppoNative` for SDK environment detection
+- **JavaScript** — Always enabled (required for the bridge)
+- **DOM Storage** — Enabled for localStorage fallback in the SDK storage module
+- **Back/forward navigation gestures** — Enabled by default
+- **Scroll bounce** — Disabled by default
+
+These defaults work for most applications. Contact support if you need custom WebView configuration.

@@ -1,0 +1,68 @@
+---
+title: Notifiche Push
+description: Richiesta permessi, recupero token e sottoscrizione agli eventi di notifica push.
+---
+
+Accessibile tramite `appo.push`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="PushApi" />
+
+## Utilizzo
+
+### Richiesta Permesso
+
+```typescript
+const status = await appo.push.requestPermission();
+// stato: 'granted' | 'denied' | 'undetermined'
+```
+
+### Ottenere il Token Push
+
+```typescript
+if (status === 'granted') {
+  const token = await appo.push.getToken();
+  // token: string | null
+}
+```
+
+### Sottoscriversi ai Messaggi
+
+Si attiva quando una notifica push viene ricevuta mentre l'app e in primo piano. Ascolta sul canale evento `push.message`.
+
+```typescript
+const unsubscribe = appo.push.onMessage((message) => {
+  console.log(message.title, message.body, message.data);
+});
+
+// Smetti di ascoltare
+unsubscribe();
+```
+
+### Sottoscriversi ai Tap sulle Notifiche
+
+Si attiva quando l'utente tocca una notifica (avvio a caldo, tiepido o a freddo). Ascolta sul canale evento `push.response`.
+
+```typescript
+const unsubscribe = appo.push.onResponse((response) => {
+  console.log(response.title, response.body, response.actionIdentifier);
+});
+```
+
+## Tipi Correlati
+
+<AutoTypeTable path="../src/types.ts" name="PushMessage" />
+
+<AutoTypeTable path="../src/types.ts" name="PushResponse" />
+
+<AutoTypeTable path="../src/types.ts" name="PermissionStatus" />
+
+## Fallback nel Browser
+
+| Metodo | Fallback |
+|--------|----------|
+| `requestPermission()` | Restituisce `'denied'` |
+| `getToken()` | Restituisce `null` |
+| `onMessage()` | Restituisce una funzione di annullamento inattiva |
+| `onResponse()` | Restituisce una funzione di annullamento inattiva |

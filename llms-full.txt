@@ -1,0 +1,357 @@
+# @appolabs/appo
+
+> JavaScript bridge SDK for native app features in React Native WebViews.
+
+The SDK provides a unified API for accessing native device capabilities from web applications running inside React Native WebViews. Communication uses a request/response bridge over `window.ReactNativeWebView.postMessage()`. All APIs provide automatic browser fallbacks when not running in a native environment.
+
+## Installation
+
+```bash
+npm install @appolabs/appo
+```
+
+## Initialization
+
+```typescript
+import { getAppo } from '@appolabs/appo';
+
+const appo = getAppo(); // Singleton, initializes on first call
+```
+
+- `getAppo(): Appo` — Returns the SDK instance. Initializes on first call, returns existing instance after.
+- `initAppo(): Appo` — Explicit initialization. Attaches to `window.appo`. Throws if `window` is undefined.
+- Auto-initializes when loaded via `<script>` tag.
+- `appo.isNative: boolean` — `true` inside a native Appo container, `false` in browser.
+- `appo.version: string` — SDK version string.
+
+## Types
+
+### PermissionStatus
+
+```typescript
+type PermissionStatus = 'granted' | 'denied' | 'undetermined';
+```
+
+### PushMessage
+
+```typescript
+interface PushMessage {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}
+```
+
+### PushResponse
+
+```typescript
+interface PushResponse {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  actionIdentifier: string;
+}
+```
+
+### CameraResult
+
+```typescript
+interface CameraResult {
+  uri: string;
+  base64?: string;
+  width: number;
+  height: number;
+}
+```
+
+### Position
+
+```typescript
+interface Position {
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+  accuracy?: number;
+  timestamp: number;
+}
+```
+
+### ShareOptions
+
+```typescript
+interface ShareOptions {
+  title?: string;
+  message?: string;
+  url?: string;
+}
+```
+
+### ShareResult
+
+```typescript
+interface ShareResult {
+  success: boolean;
+  action?: string;
+}
+```
+
+### NetworkStatus
+
+```typescript
+interface NetworkStatus {
+  isConnected: boolean;
+  type: 'wifi' | 'cellular' | 'none' | 'unknown';
+}
+```
+
+### DeviceInfo
+
+```typescript
+interface DeviceInfo {
+  platform: 'ios' | 'android';
+  osVersion: string;
+  appVersion: string;
+  deviceId: string;
+  deviceName: string;
+  isTablet: boolean;
+}
+```
+
+### HapticImpactStyle
+
+```typescript
+type HapticImpactStyle = 'light' | 'medium' | 'heavy';
+```
+
+### HapticNotificationType
+
+```typescript
+type HapticNotificationType = 'success' | 'warning' | 'error';
+```
+
+## Feature APIs
+
+### Push Notifications — `appo.push`
+
+```typescript
+interface PushApi {
+  requestPermission(): Promise<PermissionStatus>;
+  getToken(): Promise<string | null>;
+  onMessage(callback: (message: PushMessage) => void): () => void;
+  onResponse(callback: (response: PushResponse) => void): () => void;
+}
+```
+
+- `requestPermission()` — Requests push notification permission. Browser fallback: returns `'denied'`.
+- `getToken()` — Retrieves the device push token. Browser fallback: returns `null`.
+- `onMessage(callback)` — Subscribes to incoming push notifications on the `push.message` event channel. Returns unsubscribe function.
+- `onResponse(callback)` — Subscribes to notification tap events on the `push.response` event channel. Includes cold-start tap events. Returns unsubscribe function.
+
+### Biometrics — `appo.biometrics`
+
+```typescript
+interface BiometricsApi {
+  isAvailable(): Promise<boolean>;
+  authenticate(reason: string): Promise<boolean>;
+}
+```
+
+- `isAvailable()` — Checks if biometric authentication (Face ID / Touch ID) is available. Browser fallback: returns `false`.
+- `authenticate(reason)` — Prompts for biometric authentication with the given reason string. Browser fallback: returns `false`.
+
+### Camera — `appo.camera`
+
+```typescript
+interface CameraApi {
+  requestPermission(): Promise<PermissionStatus>;
+  takePicture(): Promise<CameraResult>;
+}
+```
+
+- `requestPermission()` — Requests camera permission. Browser fallback: returns `'denied'`.
+- `takePicture()` — Opens the native camera to capture a photo. Browser fallback: throws `Error`.
+
+### Location — `appo.location`
+
+```typescript
+interface LocationApi {
+  requestPermission(): Promise<PermissionStatus>;
+  getCurrentPosition(): Promise<Position>;
+}
+```
+
+- `requestPermission()` — Requests location permission. Browser fallback: returns `'denied'`.
+- `getCurrentPosition()` — Retrieves the current geographic position. Browser fallback: throws `Error`.
+
+### Haptics — `appo.haptics`
+
+```typescript
+interface HapticsApi {
+  impact(style: HapticImpactStyle): void;
+  notification(type: HapticNotificationType): void;
+}
+```
+
+- `impact(style)` — Triggers haptic impact feedback. Browser fallback: no-op.
+- `notification(type)` — Triggers haptic notification feedback. Browser fallback: no-op.
+
+### Storage — `appo.storage`
+
+```typescript
+interface StorageApi {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+```
+
+- `get(key)` — Retrieves a value from native secure storage. Browser fallback: uses `localStorage`.
+- `set(key, value)` — Stores a key-value pair in native secure storage. Browser fallback: uses `localStorage`.
+- `delete(key)` — Removes a key-value pair from native secure storage. Browser fallback: uses `localStorage`.
+
+### Share — `appo.share`
+
+```typescript
+interface ShareApi {
+  open(options: ShareOptions): Promise<ShareResult>;
+}
+```
+
+- `open(options)` — Opens the native share sheet. Browser fallback: uses `navigator.share` if available, otherwise returns `{ success: false }`.
+
+### Network — `appo.network`
+
+```typescript
+interface NetworkApi {
+  getStatus(): Promise<NetworkStatus>;
+  onChange(callback: (status: NetworkStatus) => void): () => void;
+}
+```
+
+- `getStatus()` — Retrieves current network status. Browser fallback: returns `{ isConnected: navigator.onLine, type: 'unknown' }`.
+- `onChange(callback)` — Subscribes to network status changes on the `network.change` event channel. Browser fallback: listens to `online`/`offline` window events. Returns unsubscribe function.
+
+### Device — `appo.device`
+
+```typescript
+interface DeviceApi {
+  getInfo(): Promise<DeviceInfo>;
+}
+```
+
+- `getInfo()` — Retrieves device hardware and software information. Browser fallback: returns user agent-based info with `osVersion: 'web'`.
+
+## Error Handling
+
+```typescript
+class AppoError extends Error {
+  readonly code: AppoErrorCode;
+  readonly detail?: string;
+}
+
+enum AppoErrorCode {
+  NOT_NATIVE = 'NOT_NATIVE',       // Not running inside a native Appo app
+  TIMEOUT = 'TIMEOUT',             // Native layer did not respond within timeout (default 30s)
+  NATIVE_ERROR = 'NATIVE_ERROR',   // Native handler returned an error
+  BRIDGE_UNAVAILABLE = 'BRIDGE_UNAVAILABLE', // Bridge communication channel unavailable
+}
+```
+
+All bridge operations that require a native environment throw `AppoError`. The `detail` field contains the bridge message type when available.
+
+## Logging
+
+```typescript
+import { setLogger } from '@appolabs/appo';
+
+setLogger((level: 'debug' | 'warn' | 'error', message: string, data?: unknown) => {
+  console.log(`[appo:${level}]`, message, data);
+});
+
+setLogger(null); // Disable
+```
+
+The SDK produces no console output by default. Log events include message sends, responses received, timeouts, and parse failures. Payloads are excluded to prevent leaking sensitive information.
+
+## Bridge Protocol
+
+### Request (Web to Native)
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "type": "push.requestPermission",
+  "payload": {}
+}
+```
+
+### Response (Native to Web)
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "success": true,
+  "data": "granted"
+}
+```
+
+### Error Response
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "success": false,
+  "error": "Permission denied by user"
+}
+```
+
+### Event Broadcast (Native to Web)
+
+```json
+{
+  "event": "push.message",
+  "data": { "title": "Hello", "body": "World" }
+}
+```
+
+## Event Channels
+
+| Channel | Trigger | Data Shape |
+|---------|---------|------------|
+| `push.message` | Push notification received while app is foregrounded | `PushMessage` |
+| `push.response` | User taps a notification (warm/hot start or cold-start) | `PushResponse` |
+| `network.change` | Network connectivity state changes | `NetworkStatus` |
+
+## Type Guards
+
+```typescript
+import { isBridgeResponse, isBridgeEvent } from '@appolabs/appo';
+
+isBridgeResponse(data: unknown): data is BridgeResponse
+isBridgeEvent(data: unknown): data is BridgeEvent
+```
+
+- `isBridgeResponse` — Validates that data has `id: string` and `success: boolean` fields.
+- `isBridgeEvent` — Validates that data has `event: string` field.
+
+## Browser Fallback Summary
+
+| Feature | Method | Fallback |
+|---------|--------|----------|
+| Push | `requestPermission()` | `'denied'` |
+| Push | `getToken()` | `null` |
+| Push | `onMessage()` | No-op unsubscribe |
+| Push | `onResponse()` | No-op unsubscribe |
+| Biometrics | `isAvailable()` | `false` |
+| Biometrics | `authenticate()` | `false` |
+| Camera | `requestPermission()` | `'denied'` |
+| Camera | `takePicture()` | Throws `Error` |
+| Location | `requestPermission()` | `'denied'` |
+| Location | `getCurrentPosition()` | Throws `Error` |
+| Haptics | `impact()` | No-op |
+| Haptics | `notification()` | No-op |
+| Storage | `get()` / `set()` / `delete()` | `localStorage` |
+| Share | `open()` | `navigator.share` or `{ success: false }` |
+| Network | `getStatus()` | `{ isConnected: navigator.onLine, type: 'unknown' }` |
+| Network | `onChange()` | Browser `online`/`offline` events |
+| Device | `getInfo()` | User agent info, `osVersion: 'web'` |

@@ -1,0 +1,44 @@
+---
+title: Rete
+description: Interrogazione dello stato di connettivita di rete e sottoscrizione ai cambiamenti.
+---
+
+Accessibile tramite `appo.network`.
+
+## Definizione del Tipo
+
+<AutoTypeTable path="../src/types.ts" name="NetworkApi" />
+
+## Utilizzo
+
+### Ottenere lo Stato Attuale
+
+```typescript
+const status = await appo.network.getStatus();
+console.log(status.isConnected, status.type);
+// tipo: 'wifi' | 'cellular' | 'none' | 'unknown'
+```
+
+### Sottoscriversi ai Cambiamenti
+
+Ascolta sul canale evento `network.change`.
+
+```typescript
+const unsubscribe = appo.network.onChange((status) => {
+  console.log('Rete cambiata:', status.isConnected, status.type);
+});
+
+// Smetti di ascoltare
+unsubscribe();
+```
+
+## Tipi Correlati
+
+<AutoTypeTable path="../src/types.ts" name="NetworkStatus" />
+
+## Fallback nel Browser
+
+| Metodo | Fallback |
+|--------|----------|
+| `getStatus()` | Restituisce `{ isConnected: navigator.onLine, type: 'unknown' }` |
+| `onChange()` | Ascolta gli eventi `online`/`offline` del browser |

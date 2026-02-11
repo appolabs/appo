@@ -1,0 +1,112 @@
+---
+title: Architecture
+description: Bridge protocol, message correlation, and event channels.
+---
+
+## Bridge Communication
+
+The SDK communicates with the native React Native layer through `window.ReactNativeWebView.postMessage()`.
+
+### Request/Response Flow
+
+```
+Web App (SDK)                          React Native App
+─────────────────                      ─────────────────
+sendMessage(type, payload)
+  │
+  ├─ Generate unique ID
+  ├─ Register pending callback
+  ├─ postMessage({ id, type, payload })
+  │                                    onMessage(event)
+  │                                      ├─ Parse message
+  │                                      ├─ Dispatch to handler
+  │                                      └─ Send response ──────┐
+  │                                                              │
+  ◄──────────────────── { id, success, data } ──────────────────┘
+  │
+  ├─ Match response to pending request by ID
+  ├─ Resolve/reject promise
+  └─ Return data to caller
+```
+
+### Event Broadcast Flow
+
+```
+React Native App                       Web App (SDK)
+─────────────────                      ─────────────────
+Native event fires
+  │
+  ├─ broadcastEvent({ event, data })
+  │                                    handleNativeMessage()
+  │                                      ├─ Detect event (no id field)
+  │                                      └─ Notify registered listeners
+  │
+  └─ Example events:
+     'push.message'    → push.onMessage() callbacks
+     'push.response'   → push.onResponse() callbacks
+     'network.change'  → network.onChange() callbacks
+```
+
+## Message Protocol
+
+### Request (Web to Native)
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "type": "push.requestPermission",
+  "payload": {}
+}
+```
+
+### Response (Native to Web)
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "success": true,
+  "data": "granted"
+}
+```
+
+### Error Response
+
+```json
+{
+  "id": "msg_1234567890_1",
+  "success": false,
+  "error": "Permission denied by user"
+}
+```
+
+### Event Broadcast (Native to Web)
+
+```json
+{
+  "event": "push.message",
+  "data": { "title": "Hello", "body": "World" }
+}
+```
+
+## Event Channels
+
+| Channel | Trigger | Data Shape |
+|---------|---------|------------|
+| `push.message` | Push notification received while app is foregrounded | `PushMessage` |
+| `push.response` | User taps a notification (warm/hot or cold start) | `PushResponse` |
+| `network.change` | Network connectivity state changes | `NetworkStatus` |
+
+## Message Correlation
+
+Message IDs use the format `msg_{timestamp}_{counter}` for request/response correlation. All `sendMessage` calls have a default 30-second timeout.
+
+## Type Guards
+
+The SDK exports type guards for validating incoming messages:
+
+```typescript
+import { isBridgeResponse, isBridgeEvent } from '@appolabs/appo';
+
+isBridgeResponse(data); // Validates { id: string, success: boolean }
+isBridgeEvent(data);    // Validates { event: string }
+```

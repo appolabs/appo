@@ -1,0 +1,153 @@
+---
+title: Trasmissione Eventi
+description: Come l'app nativa trasmette eventi alla tua applicazione web.
+---
+
+## Cos'e la Trasmissione Eventi?
+
+La trasmissione eventi e il meccanismo con cui l'app nativa invia eventi al layer web senza una richiesta preventiva dall'SDK. A differenza del pattern richiesta/risposta (dove la web app inizia la comunicazione), le trasmissioni sono iniziate dal nativo -- attivate da eventi di sistema come notifiche push in arrivo o cambiamenti di rete.
+
+## Formato degli Eventi
+
+Gli eventi broadcast usano un formato distinto dai messaggi richiesta/risposta. Contengono un campo `event` invece di un campo `id`:
+
+```json
+{
+  "event": "push.message",
+  "data": {
+    "title": "New message",
+    "body": "You have a new notification",
+    "data": { "threadId": "abc123" }
+  }
+}
+```
+
+L'SDK distingue i broadcast dalle risposte verificando la presenza del campo `event`. I messaggi con un campo `id` sono risposte a richieste in sospeso; i messaggi con un campo `event` sono broadcast.
+
+## Canali di Eventi Disponibili
+
+### `push.message`
+
+Emesso quando una notifica push viene ricevuta mentre l'app e in primo piano.
+
+**Struttura dati:** `PushMessage`
+
+```json
+{
+  "event": "push.message",
+  "data": {
+    "title": "Order Update",
+    "body": "Your order has shipped",
+    "data": { "orderId": "12345" }
+  }
+}
+```
+
+**Sottoscrizione dall'SDK:**
+
+```typescript
+const unsubscribe = appo.push.onMessage((message) => {
+  console.log('Notification received:', message.title);
+});
+
+// Successivamente: smetti di ascoltare
+unsubscribe();
+```
+
+### `push.response`
+
+Emesso quando l'utente tocca una notifica. Funziona sia per l'avvio caldo (app in background) che per l'avvio freddo (app terminata).
+
+**Struttura dati:** `PushResponse`
+
+```json
+{
+  "event": "push.response",
+  "data": {
+    "actionIdentifier": "default",
+    "notification": {
+      "title": "New message",
+      "body": "Check your inbox",
+      "data": { "screen": "inbox" }
+    }
+  }
+}
+```
+
+**Sottoscrizione dall'SDK:**
+
+```typescript
+const unsubscribe = appo.push.onResponse((response) => {
+  // Naviga alla schermata pertinente
+  navigateTo(response.notification.data.screen);
+});
+```
+
+### `network.change`
+
+Emesso quando lo stato di connettivita di rete del dispositivo cambia (es. passaggio da Wi-Fi a cellulare, disconnessione).
+
+**Struttura dati:** `NetworkStatus`
+
+```json
+{
+  "event": "network.change",
+  "data": {
+    "isConnected": true,
+    "type": "wifi"
+  }
+}
+```
+
+**Sottoscrizione dall'SDK:**
+
+```typescript
+const unsubscribe = appo.network.onChange((status) => {
+  if (!status.isConnected) {
+    showOfflineBanner();
+  }
+});
+```
+
+## Gestione Avvio Freddo
+
+Quando un utente tocca una notifica mentre l'app e terminata, la sequenza e la seguente:
+
+1. Il sistema operativo avvia l'app.
+2. La WebView carica la tua applicazione web.
+3. Una volta che la web app e pronta, il layer nativo consegna l'evento `push.response` in sospeso.
+4. L'SDK distribuisce l'evento ai listener `onResponse` registrati.
+
+Per gestire le notifiche da avvio freddo, registra il listener `push.onResponse` nelle fasi iniziali dell'inizializzazione della tua applicazione -- prima di qualsiasi operazione asincrona che potrebbe ritardare la registrazione del listener.
+
+```typescript
+import { getAppo } from '@appolabs/appo';
+
+const appo = getAppo();
+
+// Registra immediatamente all'inizializzazione dell'app
+appo.push.onResponse((response) => {
+  const { screen } = response.notification.data;
+  navigateTo(screen);
+});
+```
+
+## Sottoscrizione agli Eventi
+
+Tutte le sottoscrizioni agli eventi seguono lo stesso pattern:
+
+1. Invoca il metodo di sottoscrizione (es. `appo.push.onMessage(callback)`).
+2. Il metodo restituisce una funzione `unsubscribe`.
+3. Invoca la funzione unsubscribe per smettere di ricevere eventi.
+
+```typescript
+// Sottoscrivi
+const unsubscribe = appo.push.onMessage(handleNotification);
+
+// Annulla sottoscrizione quando non piu necessario (es. smontaggio componente)
+unsubscribe();
+```
+
+I listener degli eventi sono gestiti dal layer bridge dell'SDK tramite `addEventListener`. Piu listener possono essere registrati per lo stesso canale di eventi -- ciascuno riceve la propria copia dei dati dell'evento.
+
+Per il protocollo completo degli eventi, vedi [Architettura](/docs/sdk/architecture).

@@ -1,0 +1,55 @@
+---
+title: Error Handling
+description: Structured errors with categorized codes for programmatic handling.
+---
+
+All bridge operations that require a native environment throw `AppoError` with categorized error codes.
+
+## AppoError
+
+`AppoError` extends `Error`, so existing `catch` blocks work without modification.
+
+```typescript
+import { AppoError, AppoErrorCode } from '@appolabs/appo';
+
+try {
+  const token = await appo.push.getToken();
+} catch (error) {
+  if (error instanceof AppoError) {
+    switch (error.code) {
+      case AppoErrorCode.NOT_NATIVE:
+        // Not running inside a native Appo app
+        break;
+      case AppoErrorCode.TIMEOUT:
+        // Native layer did not respond within 30s
+        break;
+      case AppoErrorCode.NATIVE_ERROR:
+        // Native handler returned an error
+        break;
+      case AppoErrorCode.BRIDGE_UNAVAILABLE:
+        // Bridge communication channel unavailable
+        break;
+    }
+    console.log(error.message, error.detail);
+  }
+}
+```
+
+## Error Codes
+
+| Code | Value | Description |
+|------|-------|-------------|
+| `NOT_NATIVE` | `'NOT_NATIVE'` | Not running inside a native Appo app |
+| `TIMEOUT` | `'TIMEOUT'` | Native layer did not respond within the timeout (default 30s) |
+| `NATIVE_ERROR` | `'NATIVE_ERROR'` | Native handler returned an error |
+| `BRIDGE_UNAVAILABLE` | `'BRIDGE_UNAVAILABLE'` | Bridge communication channel is unavailable |
+
+## Error Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `code` | `AppoErrorCode` | Categorized error code |
+| `message` | `string` | Human-readable error message |
+| `detail` | `string \| undefined` | Bridge message type when available |
+
+The `detail` field contains the bridge message type (e.g., `'push.getToken'`) for operations that failed, providing context for debugging.

@@ -1,0 +1,56 @@
+---
+title: Cos'è Appo?
+description: Trasforma qualsiasi sito web in un'app nativa iOS e Android con funzionalità native del dispositivo.
+---
+
+## Cos'è Appo?
+
+Appo trasforma il tuo sito web esistente in un'app nativa iOS e Android. Integri l'SDK Appo nella tua applicazione web per accedere alle funzionalità native del dispositivo, poi Appo gestisce la creazione, la build e la pubblicazione dell'app su App Store e Play Store.
+
+### Come funziona
+
+1. **Hai un sito web** — qualsiasi applicazione web (React, Vue, HTML semplice, Shopify, ecc.)
+2. **Integra l'SDK** — aggiungi `@appolabs/appo` per accedere a funzionalità native come notifiche push, fotocamera, biometria
+3. **Crea l'app** — usa la [dashboard Appo](https://goappo.io) o un plugin di piattaforma (es. Shopify) per creare la tua app nativa
+4. **Appo la pubblica** — Appo compila e invia la tua app su App Store e Play Store
+
+Tu scrivi codice web. Appo gestisce tutto il lato nativo.
+
+## Funzionalità
+
+- **Notifiche Push** — Richiesta permessi, recupero token, sottoscrizione a eventi di messaggio e tap
+- **Biometria** — Verifica disponibilità Face ID / Touch ID e autenticazione
+- **Fotocamera** — Richiesta permessi e acquisizione foto
+- **Posizione** — Richiesta permessi e recupero posizione GPS
+- **Feedback Aptico** — Feedback aptico di impatto e notifica
+- **Archiviazione** — Archiviazione chiave-valore sicura con fallback su localStorage
+- **Condivisione** — Foglio di condivisione nativo con fallback su Web Share API
+- **Rete** — Stato della connettività e sottoscrizione ai cambiamenti
+- **Dispositivo** — Informazioni hardware e software
+
+## Principi di Design
+
+**Fallback graduali** — Ogni API restituisce un valore predefinito ragionevole quando eseguita al di fuori di un container nativo. La tua web app funziona sia nei browser che nell'app nativa.
+
+**Zero dipendenze** — Nessuna dipendenza a runtime.
+
+**Sicurezza dei tipi** — TypeScript completo con interfacce esportate.
+
+## Esempio Rapido
+
+```typescript
+import { getAppo } from '@appolabs/appo';
+
+const appo = getAppo();
+
+if (appo.isNative) {
+  const status = await appo.push.requestPermission();
+  if (status === 'granted') {
+    const token = await appo.push.getToken();
+  }
+}
+
+// L'archiviazione funziona in entrambi gli ambienti
+await appo.storage.set('key', 'value');
+const value = await appo.storage.get('key');
+```

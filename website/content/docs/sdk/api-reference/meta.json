@@ -1,0 +1,14 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "push",
+    "biometrics",
+    "camera",
+    "location",
+    "haptics",
+    "storage",
+    "share",
+    "network",
+    "device"
+  ]
+}

@@ -1,0 +1,54 @@
+---
+title: Browser Fallbacks
+description: Fallback behavior for every API when running outside a native container.
+---
+
+All APIs provide fallback behavior when running outside a native Appo container. This allows you to develop and test in a browser without conditional imports or mocking.
+
+## Fallback Table
+
+| Feature | Method | Fallback |
+|---------|--------|----------|
+| Push | `requestPermission()` | Returns `'denied'` |
+| Push | `getToken()` | Returns `null` |
+| Push | `onMessage()` | Returns no-op unsubscribe |
+| Push | `onResponse()` | Returns no-op unsubscribe |
+| Biometrics | `isAvailable()` | Returns `false` |
+| Biometrics | `authenticate()` | Returns `false` |
+| Camera | `requestPermission()` | Returns `'denied'` |
+| Camera | `takePicture()` | Throws `Error` |
+| Location | `requestPermission()` | Returns `'denied'` |
+| Location | `getCurrentPosition()` | Throws `Error` |
+| Haptics | `impact()` | No-op |
+| Haptics | `notification()` | No-op |
+| Storage | `get()` / `set()` / `delete()` | Uses `localStorage` |
+| Share | `open()` | Uses `navigator.share` if available, otherwise `{ success: false }` |
+| Network | `getStatus()` | Returns `{ isConnected: navigator.onLine, type: 'unknown' }` |
+| Network | `onChange()` | Listens to browser `online`/`offline` events |
+| Device | `getInfo()` | Returns user agent-based info with `osVersion: 'web'` |
+
+## Environment Detection
+
+Use `isNative` to conditionally execute native-only logic:
+
+```typescript
+const appo = getAppo();
+
+if (appo.isNative) {
+  // Only runs inside a native Appo container
+  const token = await appo.push.getToken();
+} else {
+  // Browser environment
+  console.log('Running in browser mode');
+}
+```
+
+## Storage Behavior
+
+Storage has a transparent fallback — it uses `localStorage` in the browser and native secure storage in the app. This means you can use `appo.storage` unconditionally:
+
+```typescript
+// Works in both environments
+await appo.storage.set('preference', 'dark');
+const pref = await appo.storage.get('preference');
+```

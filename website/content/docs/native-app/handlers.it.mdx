@@ -1,0 +1,112 @@
+---
+title: Gestori Funzionalita
+description: Come i gestori nativi processano le richieste dell'SDK usando i pacchetti Expo.
+---
+
+## Architettura dei Gestori
+
+Quando l'SDK invia un messaggio al layer nativo, il message dispatcher lo instrada al gestore di funzionalita appropriato in base alla stringa del tipo di messaggio. Ogni gestore wrappa un pacchetto Expo (o un'API React Native) e traduce la richiesta dell'SDK in una chiamata nativa.
+
+```
+Richiesta SDK                           App Nativa
+───────────                             ──────────
+{ type: "push.requestPermission" }
+         │
+         ▼
+    Message Dispatcher
+    ├─ "push.*"        → Push Handler
+    ├─ "biometrics.*"  → Biometrics Handler
+    ├─ "camera.*"      → Camera Handler
+    ├─ "location.*"    → Location Handler
+    ├─ "haptics.*"     → Haptics Handler
+    ├─ "storage.*"     → Storage Handler
+    ├─ "share.*"       → Share Handler
+    ├─ "network.*"     → Network Handler
+    └─ "device.*"      → Device Handler
+```
+
+Il dispatcher divide il tipo di messaggio al primo `.` per determinare il gestore, poi passa il resto come nome dell'azione.
+
+## Riferimento Gestori
+
+Ogni gestore mappa i metodi dell'SDK alla loro implementazione nel pacchetto Expo corrispondente.
+
+| Funzionalita SDK | Gestore | Pacchetto Expo |
+|------------------|---------|----------------|
+| `push.*` | Push | `expo-notifications` |
+| `biometrics.*` | Biometrics | `expo-local-authentication` |
+| `camera.*` | Camera | `expo-image-picker` |
+| `location.*` | Location | `expo-location` |
+| `haptics.*` | Haptics | `expo-haptics` |
+| `storage.*` | Storage | `@react-native-async-storage/async-storage` |
+| `share.*` | Share | React Native `Share` API |
+| `network.*` | Network | `@react-native-community/netinfo` |
+| `device.*` | Device | `expo-device` |
+
+## Flusso di Dispatch
+
+Quando la WebView riceve un messaggio dall'SDK:
+
+1. **Parsing** -- La stringa grezza del messaggio viene analizzata come JSON.
+2. **Validazione** -- Il messaggio deve contenere i campi `id` (stringa) e `type` (stringa). I messaggi con un campo `event` sono trattati come eventi legacy e ignorati dal dispatcher.
+3. **Instradamento** -- Il campo `type` (es. `"push.requestPermission"`) viene diviso nel nome del gestore (`"push"`) e nell'azione (`"requestPermission"`).
+4. **Esecuzione** -- La funzione del gestore viene invocata con il nome dell'azione e l'eventuale payload.
+5. **Risposta** -- Il risultato viene inviato alla WebView come risposta JSON.
+
+## Formato della Risposta
+
+### Successo
+
+```json
+{
+  "id": "msg_1707654321_1",
+  "success": true,
+  "data": "granted"
+}
+```
+
+### Errore
+
+```json
+{
+  "id": "msg_1707654321_1",
+  "success": false,
+  "error": "Location permission denied by user"
+}
+```
+
+La risposta viene consegnata alla WebView tramite `injectJavaScript`, che invoca `window.postMessage` lato web. L'SDK associa l'`id` della risposta alla richiesta in sospeso originale e risolve o rifiuta la Promise di conseguenza.
+
+## Aggiungere Gestori Personalizzati
+
+Per estendere l'app nativa con funzionalita native aggiuntive:
+
+**1. Crea la funzione gestore:**
+
+```typescript
+async function handleMyFeature(
+  action: string,
+  payload: Record<string, unknown>
+): Promise<unknown> {
+  switch (action) {
+    case 'doSomething':
+      // Chiama API nativa
+      const result = await NativeModule.doSomething(payload.param);
+      return result;
+    default:
+      throw new Error(`Unknown action: myfeature.${action}`);
+  }
+}
+```
+
+**2. Registra il gestore nel dispatcher:**
+
+Aggiungi il gestore alla mappa di dispatch in modo che i messaggi con tipo `"myfeature.*"` vengano instradati alla tua funzione.
+
+**3. Aggiungi la funzionalita SDK corrispondente:**
+
+Crea un modulo funzionalita corrispondente nell'SDK in modo che `appo.myfeature.doSomething()` invii il tipo di messaggio corretto. Vedi l'[architettura dell'SDK](/docs/sdk/architecture) per il protocollo dei messaggi.
+
+**4. Dichiara i permessi:**
+
+Se l'API nativa richiede permessi della piattaforma, aggiungili a `app.json` come descritto in [Configurazione](/docs/native-app/configuration).

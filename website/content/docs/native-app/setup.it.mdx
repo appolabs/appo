@@ -1,0 +1,71 @@
+---
+title: Creare la Tua App
+description: Crea un'app nativa dal tuo sito web usando la dashboard Appo o un plugin di piattaforma.
+---
+
+## Creare la Tua App
+
+Appo crea la tua app nativa a partire dall'URL del tuo sito web. Tu fornisci l'URL — Appo genera automaticamente il nome dell'app, l'icona e tutta la configurazione nativa.
+
+### Dalla Dashboard
+
+**Nuovi utenti:**
+
+1. Vai su [goappo.io/new](https://goappo.io/new).
+2. Inserisci **nome**, **email** e **password** per creare un account.
+3. Inserisci l'**URL del tuo sito web** — l'applicazione web che verrà eseguita all'interno dell'app nativa.
+4. Appo recupera i metadati del sito web e genera automaticamente il nome e l'icona dell'app.
+5. Rivedi e modifica il nome dell'app o carica un'icona personalizzata se necessario.
+
+**Utenti esistenti:**
+
+1. Accedi su [goappo.io](https://goappo.io).
+2. Inserisci l'**URL del tuo sito web** per creare una nuova app.
+3. Appo genera il nome e l'icona dell'app dal tuo sito web.
+
+Dopo la creazione, lo stato della tua app è **In attesa** mentre Appo prepara la build nativa. Una volta pronta, puoi visualizzarla in anteprima sul tuo dispositivo e pubblicarla sugli store.
+
+### Da un Plugin
+
+Appo si integra con piattaforme come Shopify. Quando usi un plugin:
+
+1. Installa il plugin Appo dal marketplace della piattaforma.
+2. Collega il tuo account Appo.
+3. Il plugin configura l'app automaticamente dalle impostazioni esistenti del tuo store o sito.
+
+Altri plugin di piattaforma saranno disponibili in futuro.
+
+## Cosa Puoi Modificare
+
+Dopo la creazione, puoi aggiornare queste impostazioni dalla dashboard:
+
+- **Nome dell'app** — Il nome visualizzato sulla schermata home e negli store
+- **Icona dell'app** — Carica un'immagine personalizzata in formato PNG, JPEG o WebP (max 5MB)
+- **Base URL** — L'URL del sito web caricato nell'app nativa
+- **CSS personalizzato** — Inietta CSS nella WebView
+- **JavaScript personalizzato** — Inietta JavaScript nella WebView
+
+## Integrazione SDK
+
+Affinché il bridge nativo funzioni, il tuo sito web necessita dell'SDK Appo installato. Vedi [Installazione](/docs/getting-started/installation) per le istruzioni di configurazione.
+
+Una volta caricato l'SDK, la tua web app può invocare funzionalità native come `appo.push.requestPermission()`. Queste chiamate vengono inoltrate al livello nativo automaticamente — non è necessaria configurazione aggiuntiva sul lato nativo.
+
+## Cosa Gestisce Appo
+
+Appo gestisce interamente il lato nativo:
+
+- **Wrapper dell'app nativa** — L'app che ospita la tua WebView
+- **Gestori funzionalità** — Implementazioni native per notifiche push, biometria, fotocamera e tutte le altre funzionalità dell'SDK
+- **Trasmissione eventi** — Eventi di notifiche push e cambiamenti di rete inoltrati alla tua web app
+- **Bundle ID** — Bundle ID iOS e package name Android generati automaticamente
+- **Pipeline di build** — Build nel cloud per iOS e Android
+- **Invio agli store** — Pubblicazione su App Store e Play Store
+
+Tu ti concentri sulla tua applicazione web. Appo gestisce il resto.
+
+## Prossimi Passi
+
+- [Configura la tua app](/docs/native-app/configuration) — Permessi, deep link e impostazioni di piattaforma.
+- [Gestori Funzionalità](/docs/native-app/handlers) — Come i gestori nativi elaborano le richieste dell'SDK.
+- [Pubblicazione](/docs/publishing) — Come Appo compila e pubblica la tua app.

@@ -1,0 +1,36 @@
+---
+title: Logging
+description: Osserva l'attivita del bridge con la callback setLogger.
+---
+
+L'SDK non produce output in console per impostazione predefinita. Usa `setLogger` per osservare l'attivita del bridge.
+
+## Configurazione
+
+```typescript
+import { setLogger } from '@appolabs/appo';
+
+setLogger((level, message, data) => {
+  // level: 'debug' | 'warn' | 'error'
+  console.log(`[appo:${level}]`, message, data);
+});
+```
+
+## Disabilitare il Logging
+
+```typescript
+setLogger(null);
+```
+
+## Eventi di Log
+
+| Livello | Evento | Descrizione |
+|---------|--------|-------------|
+| `debug` | Sending message | Un messaggio bridge viene inviato al layer nativo |
+| `debug` | Received response | Una risposta e stata ricevuta per una richiesta in sospeso |
+| `debug` | Received event | Un evento broadcast e stato ricevuto dal layer nativo |
+| `warn` | Request timed out | Il layer nativo non ha risposto entro il timeout |
+| `warn` | Failed to parse message | Un messaggio in arrivo non e stato analizzato come JSON |
+| `warn` | Invalid message structure | Un messaggio ricevuto non e ne una risposta ne un evento |
+
+I payload sono esclusi dai dati di log per evitare la divulgazione di informazioni sensibili. Il parametro `data` contiene metadati come ID e tipi dei messaggi.

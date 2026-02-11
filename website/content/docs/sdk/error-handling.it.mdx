@@ -1,0 +1,55 @@
+---
+title: Gestione degli Errori
+description: Errori strutturati con codici categorizzati per la gestione programmatica.
+---
+
+Tutte le operazioni bridge che richiedono un ambiente nativo lanciano `AppoError` con codici di errore categorizzati.
+
+## AppoError
+
+`AppoError` estende `Error`, quindi i blocchi `catch` esistenti funzionano senza modifiche.
+
+```typescript
+import { AppoError, AppoErrorCode } from '@appolabs/appo';
+
+try {
+  const token = await appo.push.getToken();
+} catch (error) {
+  if (error instanceof AppoError) {
+    switch (error.code) {
+      case AppoErrorCode.NOT_NATIVE:
+        // Non in esecuzione all'interno di un'app nativa Appo
+        break;
+      case AppoErrorCode.TIMEOUT:
+        // Il layer nativo non ha risposto entro 30s
+        break;
+      case AppoErrorCode.NATIVE_ERROR:
+        // L'handler nativo ha restituito un errore
+        break;
+      case AppoErrorCode.BRIDGE_UNAVAILABLE:
+        // Canale di comunicazione bridge non disponibile
+        break;
+    }
+    console.log(error.message, error.detail);
+  }
+}
+```
+
+## Codici di Errore
+
+| Codice | Valore | Descrizione |
+|--------|--------|-------------|
+| `NOT_NATIVE` | `'NOT_NATIVE'` | Non in esecuzione all'interno di un'app nativa Appo |
+| `TIMEOUT` | `'TIMEOUT'` | Il layer nativo non ha risposto entro il timeout (predefinito 30s) |
+| `NATIVE_ERROR` | `'NATIVE_ERROR'` | L'handler nativo ha restituito un errore |
+| `BRIDGE_UNAVAILABLE` | `'BRIDGE_UNAVAILABLE'` | Il canale di comunicazione bridge non e disponibile |
+
+## Proprieta dell'Errore
+
+| Proprieta | Tipo | Descrizione |
+|-----------|------|-------------|
+| `code` | `AppoErrorCode` | Codice di errore categorizzato |
+| `message` | `string` | Messaggio di errore leggibile |
+| `detail` | `string \| undefined` | Tipo di messaggio bridge quando disponibile |
+
+Il campo `detail` contiene il tipo di messaggio bridge (es. `'push.getToken'`) per le operazioni fallite, fornendo contesto per il debug.

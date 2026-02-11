@@ -1,0 +1,64 @@
+---
+title: Native App Overview
+description: How Appo wraps your web app as a native mobile app.
+---
+
+## How It Works
+
+When you create an app through the [Appo dashboard](https://goappo.io) or a platform plugin, Appo generates a native mobile app that loads your website inside a WebView. The native layer bridges device features — push notifications, biometrics, camera, location, and more — to your JavaScript code through a message-based protocol.
+
+You write your application as a standard web app with the Appo SDK. The native wrapper handles everything platform-specific: permissions, hardware access, app store packaging, and native UI integration.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│            Your Web App                  │
+│                                          │
+│  appo.push.requestPermission()           │
+│         │                                │
+│         ▼                                │
+│  ┌──────────────────────────────┐       │
+│  │       @appolabs/appo SDK     │       │
+│  │  postMessage({ type, id })   │       │
+│  └──────────────┬───────────────┘       │
+└─────────────────┼────────────────────────┘
+                  │  window.ReactNativeWebView.postMessage()
+                  ▼
+┌─────────────────────────────────────────┐
+│    Native App (managed by Appo)          │
+│                                          │
+│  WebView.onMessage(event)                │
+│         │                                │
+│         ▼                                │
+│  ┌──────────────────────────────┐       │
+│  │     Message Dispatcher        │       │
+│  │  type → Feature Handler       │       │
+│  └──────────────┬───────────────┘       │
+│                 │                        │
+│    ┌────────────┼────────────┐          │
+│    ▼            ▼            ▼          │
+│  expo-      expo-        expo-          │
+│  notifications  location   haptics ...  │
+│                                          │
+│  Response sent back via injectJavaScript │
+└─────────────────────────────────────────┘
+```
+
+## Message Flow
+
+1. Your web app calls an SDK method (e.g., `appo.push.requestPermission()`).
+2. The SDK serializes the request as a JSON message with a unique ID and sends it via `postMessage`.
+3. The native WebView receives the message through its `onMessage` handler.
+4. The message dispatcher routes the request to the appropriate feature handler based on the message type.
+5. The feature handler calls the corresponding native API.
+6. The result is sent back to the WebView via `injectJavaScript`, matching the original request ID.
+7. The SDK resolves the pending Promise with the response data.
+
+For the full message protocol specification, see [Architecture](/docs/sdk/architecture).
+
+## Sections
+
+- [Configuration](/docs/native-app/configuration) — App settings, permissions, and deep links
+- [Feature Handlers](/docs/native-app/handlers) — How native handlers process SDK requests
+- [Event Broadcasting](/docs/native-app/event-broadcasting) — Native-to-web event delivery

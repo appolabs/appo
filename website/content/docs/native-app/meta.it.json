@@ -1,0 +1,5 @@
+{
+  "title": "App Nativa",
+  "root": true,
+  "pages": ["index", "setup", "configuration", "handlers", "event-broadcasting"]
+}

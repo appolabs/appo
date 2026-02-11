@@ -1,0 +1,32 @@
+---
+title: Device
+description: Retrieve device hardware and software information.
+---
+
+Access via `appo.device`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="DeviceApi" />
+
+## Usage
+
+```typescript
+const info = await appo.device.getInfo();
+console.log(info.platform);    // 'ios' | 'android'
+console.log(info.osVersion);   // e.g. '17.4'
+console.log(info.appVersion);  // e.g. '1.2.0'
+console.log(info.deviceId);    // Unique device identifier
+console.log(info.deviceName);  // e.g. 'iPhone 15 Pro'
+console.log(info.isTablet);    // true | false
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="DeviceInfo" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `getInfo()` | Returns user agent-based info with `osVersion: 'web'` |

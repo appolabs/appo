@@ -1,0 +1,37 @@
+---
+title: Haptics
+description: Trigger haptic impact and notification feedback.
+---
+
+Access via `appo.haptics`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="HapticsApi" />
+
+## Usage
+
+### Impact Feedback
+
+```typescript
+appo.haptics.impact('light');  // 'light' | 'medium' | 'heavy'
+```
+
+### Notification Feedback
+
+```typescript
+appo.haptics.notification('success'); // 'success' | 'warning' | 'error'
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="HapticImpactStyle" />
+
+<AutoTypeTable path="../src/types.ts" name="HapticNotificationType" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `impact()` | No-op |
+| `notification()` | No-op |

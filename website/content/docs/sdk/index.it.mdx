@@ -1,0 +1,27 @@
+---
+title: Panoramica SDK
+description: L'SDK JavaScript bridge Appo per accedere alle funzionalità native del dispositivo dalle applicazioni web.
+---
+
+L'SDK `@appolabs/appo` fornisce un'API JavaScript unificata per accedere alle funzionalità native del dispositivo da applicazioni web eseguite all'interno di WebView React Native.
+
+## Cosa Fornisce l'SDK
+
+- **9 API di funzionalità** — Notifiche push, biometria, fotocamera, posizione, feedback aptico, archiviazione, condivisione, rete e informazioni dispositivo
+- **Protocollo bridge** — Comunicazione richiesta/risposta con il layer nativo tramite `postMessage`
+- **Sistema eventi** — Sottoscrizione agli eventi nativi (messaggi push, cambiamenti di rete)
+- **Fallback browser** — Tutte le API restituiscono valori predefiniti ragionevoli al di fuori di un container nativo
+- **Sicurezza dei tipi** — TypeScript completo con interfacce esportate
+
+## Guide
+
+- [Architettura](/docs/sdk/architecture) — Protocollo bridge, correlazione dei messaggi e canali degli eventi
+- [Gestione degli Errori](/docs/sdk/error-handling) — Errori strutturati con codici categorizzati
+- [Logging](/docs/sdk/logging) — Osserva l'attività del bridge con `setLogger`
+- [Fallback Browser](/docs/sdk/browser-fallbacks) — Comportamento di fallback per ogni API
+
+## Riferimento API
+
+Documentazione per funzionalità con firme dei metodi, parametri e tipi di ritorno:
+
+Push, Biometria, Fotocamera, Posizione, Feedback Aptico, Archiviazione, Condivisione, Rete, Dispositivo

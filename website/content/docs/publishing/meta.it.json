@@ -1,0 +1,5 @@
+{
+  "title": "Pubblicazione",
+  "root": true,
+  "pages": ["index", "testing", "ios", "android"]
+}

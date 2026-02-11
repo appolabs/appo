@@ -1,0 +1,36 @@
+---
+title: Biometrics
+description: Face ID and Touch ID availability check and authentication.
+---
+
+Access via `appo.biometrics`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="BiometricsApi" />
+
+## Usage
+
+### Check Availability
+
+```typescript
+const available = await appo.biometrics.isAvailable();
+```
+
+### Authenticate
+
+```typescript
+if (available) {
+  const success = await appo.biometrics.authenticate('Confirm your identity');
+  if (success) {
+    // User authenticated
+  }
+}
+```
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `isAvailable()` | Returns `false` |
+| `authenticate()` | Returns `false` |

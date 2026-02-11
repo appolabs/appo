@@ -1,0 +1,69 @@
+---
+title: Test
+description: Visualizza in anteprima la tua app Appo su dispositivi reali prima della pubblicazione.
+---
+
+Prima della pubblicazione, visualizza in anteprima la tua app su dispositivi reali per verificare che le funzionalità native funzionino correttamente.
+
+## Anteprima della Tua App
+
+La dashboard Appo fornisce un meccanismo di anteprima per testare l'app sul tuo dispositivo:
+
+- **Desktop** — Un codice QR viene visualizzato nella dashboard. Scansionalo con il telefono per aprire l'anteprima.
+- **Mobile** — Un link diretto apre l'app in anteprima sul tuo dispositivo.
+
+L'anteprima carica il tuo sito web all'interno del wrapper nativo con il bridge attivo, permettendoti di testare tutte le funzionalità dell'SDK.
+
+## Test dell'Integrazione WebView
+
+Dopo aver aperto l'anteprima, verifica la comunicazione bridge e le funzionalità native.
+
+### Comunicazione bridge
+
+1. Apri l'app e conferma che la tua applicazione web si carichi all'interno della WebView
+2. Verifica che `window.ReactNativeWebView` esista — questo conferma che il bridge nativo è stato iniettato
+3. Verifica che `appo.isNative` restituisca `true`
+
+### Funzionalità native
+
+Testa ogni API per verificare che i gestori nativi rispondano correttamente:
+
+- **Notifiche push** — Richiedi il permesso, ottieni il token, invia una notifica di test e verifica la consegna in primo piano, background e avvio freddo
+- **Biometria** — Attiva l'autenticazione e verifica che il prompt del dispositivo appaia
+- **Fotocamera** — Richiedi il permesso e scatta una foto
+- **Posizione** — Richiedi il permesso e leggi le coordinate
+- **Feedback aptico** — Attiva il feedback di impatto e notifica
+- **Archiviazione** — Scrivi e leggi un valore per confermare l'archiviazione sicura nativa
+- **Condivisione** — Apri il foglio di condivisione nativo con contenuto di test
+- **Rete** — Controlla lo stato della connessione e attiva la modalità aereo per verificare gli eventi di cambiamento
+- **Dispositivo** — Leggi le informazioni del dispositivo e conferma che i valori corrispondano al dispositivo fisico
+
+### Flusso notifiche push
+
+Le notifiche push richiedono attenzione particolare perché coinvolgono percorsi di consegna multipli:
+
+1. **Primo piano** — L'app è aperta; la notifica viene ricevuta tramite l'evento `push.onMessage`
+2. **Background** — L'app è in background; appare la notifica di sistema, toccandola si apre l'app
+3. **Avvio freddo** — L'app è terminata; toccando la notifica si avvia l'app con il payload della notifica
+
+Verifica che tutti e tre i percorsi consegnino i dati attesi alla tua applicazione web.
+
+## Problemi Comuni
+
+### La WebView non si carica
+
+- Conferma che il base URL nella dashboard punti alla tua applicazione web
+- Verifica che il web server sia in esecuzione e accessibile dalla rete del dispositivo
+- Assicurati che l'URL sia raggiungibile dal dispositivo (non `localhost` a meno che non usi un tunnel)
+
+### Il bridge non si connette
+
+- Verifica che `window.ReactNativeWebView` sia definito nel contesto della WebView
+- Controlla che l'applicazione web si carichi all'interno del wrapper nativo, non in un browser standalone
+- Esamina la console per errori di inizializzazione del bridge
+
+### Token push non ricevuti
+
+- Conferma che i permessi per le notifiche siano concessi nelle Impostazioni del dispositivo
+- Su iOS, le notifiche push richiedono un dispositivo fisico — i simulatori non possono ricevere token
+- Verifica che la configurazione delle notifiche push sia abilitata nella dashboard Appo

@@ -1,0 +1,68 @@
+---
+title: Push Notifications
+description: Request permission, retrieve tokens, and subscribe to push notification events.
+---
+
+Access via `appo.push`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="PushApi" />
+
+## Usage
+
+### Request Permission
+
+```typescript
+const status = await appo.push.requestPermission();
+// status: 'granted' | 'denied' | 'undetermined'
+```
+
+### Get Push Token
+
+```typescript
+if (status === 'granted') {
+  const token = await appo.push.getToken();
+  // token: string | null
+}
+```
+
+### Subscribe to Messages
+
+Fires when a push notification is received while the app is in the foreground. Listens on the `push.message` event channel.
+
+```typescript
+const unsubscribe = appo.push.onMessage((message) => {
+  console.log(message.title, message.body, message.data);
+});
+
+// Stop listening
+unsubscribe();
+```
+
+### Subscribe to Notification Taps
+
+Fires when the user taps a notification (warm, hot, or cold start). Listens on the `push.response` event channel.
+
+```typescript
+const unsubscribe = appo.push.onResponse((response) => {
+  console.log(response.title, response.body, response.actionIdentifier);
+});
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="PushMessage" />
+
+<AutoTypeTable path="../src/types.ts" name="PushResponse" />
+
+<AutoTypeTable path="../src/types.ts" name="PermissionStatus" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `requestPermission()` | Returns `'denied'` |
+| `getToken()` | Returns `null` |
+| `onMessage()` | Returns no-op unsubscribe |
+| `onResponse()` | Returns no-op unsubscribe |

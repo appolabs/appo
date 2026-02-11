@@ -1,0 +1,68 @@
+---
+title: Installazione
+description: Installa e inizializza l'SDK Appo nella tua applicazione web.
+---
+
+## Gestore di Pacchetti
+
+Installa con il tuo gestore di pacchetti:
+
+```bash tab="npm"
+npm install @appolabs/appo
+```
+
+```bash tab="pnpm"
+pnpm add @appolabs/appo
+```
+
+```bash tab="yarn"
+yarn add @appolabs/appo
+```
+
+Oppure includi tramite tag script (inizializza automaticamente `window.appo`):
+
+```html
+<script src="https://unpkg.com/@appolabs/appo"></script>
+```
+
+## Inizializzazione
+
+L'SDK fornisce due funzioni di inizializzazione e un pattern singleton:
+
+```typescript
+import { getAppo, initAppo } from '@appolabs/appo';
+
+// Opzione 1: getAppo() — inizializza alla prima chiamata, restituisce l'istanza esistente dopo
+const appo = getAppo();
+
+// Opzione 2: initAppo() — inizializzazione esplicita, si aggancia a window.appo
+const appo = initAppo();
+```
+
+Quando caricato tramite tag `<script>`, l'SDK si auto-inizializza e si aggancia a `window.appo`. Le chiamate successive a `getAppo()` o `initAppo()` restituiscono la stessa istanza singleton.
+
+## TypeScript
+
+Tutti i tipi sono esportati per l'utilizzo nelle applicazioni che consumano l'SDK:
+
+```typescript
+import type {
+  Appo,
+  PermissionStatus,
+  PushApi,
+  PushMessage,
+  CameraResult,
+  Position,
+  NetworkStatus,
+  DeviceInfo,
+} from '@appolabs/appo';
+
+import {
+  getAppo,
+  initAppo,
+  setLogger,
+  AppoError,
+  AppoErrorCode,
+  VERSION,
+} from '@appolabs/appo';
+```

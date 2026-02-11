@@ -1,0 +1,68 @@
+---
+title: Android Publishing
+description: Play Store review process and guidelines for your Appo app.
+---
+
+Appo builds, signs, and submits your Android app to the Google Play Store under Appo's developer account.
+
+## What Appo Handles
+
+- **Google Play Developer account** — Published under Appo's account, no $25 fee for you
+- **App signing** — Upload keys and signing managed automatically
+- **Build** — Cloud-compiled AAB (Android App Bundle), the required format for Google Play
+- **Store listing** — Auto-generated from your website metadata (name, descriptions, icon)
+- **Play Console listing** — Created and submitted by Appo
+- **Content rating** — Questionnaire completed by Appo based on your app's features
+- **Data safety** — Declaration completed by Appo based on SDK features used
+
+## What You Provide
+
+Through the [Appo dashboard](https://goappo.io):
+
+- **Website URL** — Your web application
+- **App name** — Editable after auto-generation
+- **App icon** — Editable after auto-generation (or Appo uses the generated one)
+- **Screenshots** — Upload from the dashboard
+
+Appo auto-generates your store listing metadata from your website content. Store listing editing is being developed for more control.
+
+## Content Rating and Data Safety
+
+Appo completes the content rating questionnaire and data safety form on your behalf based on the features your app uses. If your app collects specific data beyond what the SDK provides (e.g., user accounts, analytics), inform Appo through the support channel so the declarations are accurate.
+
+### Data safety covers:
+
+- What data your app collects (push tokens, location, device identifiers, etc.)
+- Whether data is shared with third parties
+- Whether data is encrypted in transit
+- Whether users can request data deletion
+
+## Play Store Review
+
+Google reviews all submissions. The review process is typically faster than Apple's (hours to a few days).
+
+### Why Appo apps pass review
+
+Appo apps provide native device integration (push notifications, biometrics, camera, etc.) through the bridge SDK. This native functionality satisfies Google's expectation that apps provide value beyond a mobile website.
+
+### Relevant policies
+
+- **[Minimum Functionality](https://support.google.com/googleplay/android-developer/answer/9888379)** — Apps must provide a stable, responsive user experience. WebView apps are accepted when they offer functionality beyond a simple web wrapper.
+- **[Data Safety](https://support.google.com/googleplay/android-developer/answer/10787469)** — Data collection and usage accurately declared by Appo based on your app's features.
+- **[Target API Level](https://developer.android.com/google/play/requirements/target-sdk)** — Google Play requires apps to target a recent Android API level. Appo keeps builds compliant with current requirements.
+
+## Common Issues
+
+### Missing data safety information
+
+**Problem:** Data safety declaration doesn't match actual app behavior.
+
+**Solution:** If your web app collects data beyond what the SDK features provide (e.g., user accounts, analytics), inform Appo through the support channel so the data safety form is accurate.
+
+### Target API level too low
+
+**Problem:** Play Console warns that the app targets an outdated API level.
+
+**Solution:** Contact Appo support — this is resolved by rebuilding with updated build configuration.
+
+For detailed requirements, refer to the [Google Play Developer Policy Center](https://play.google.com/about/developer-content-policy/).

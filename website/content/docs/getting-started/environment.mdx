@@ -1,0 +1,33 @@
+---
+title: Environment Detection
+description: Detect whether the SDK is running inside a native Appo container or a browser.
+---
+
+## isNative
+
+The `isNative` property indicates whether the SDK is running inside a native Appo container (`true`) or a regular browser (`false`):
+
+```typescript
+const appo = getAppo();
+console.log(appo.isNative); // true inside Appo app, false in browser
+console.log(appo.version);  // SDK version string
+```
+
+## Using Feature APIs
+
+All feature APIs are accessed as properties on the Appo instance:
+
+```typescript
+const appo = getAppo();
+
+// Request push permission (returns 'denied' in browser)
+const status = await appo.push.requestPermission();
+
+// Check biometrics availability (returns false in browser)
+const available = await appo.biometrics.isAvailable();
+
+// Store a value (uses localStorage in browser)
+await appo.storage.set('key', 'value');
+```
+
+All APIs provide sensible fallbacks in the browser. See [Browser Fallbacks](/docs/sdk/browser-fallbacks) for the complete fallback table.

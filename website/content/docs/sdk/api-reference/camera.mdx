@@ -1,0 +1,40 @@
+---
+title: Camera
+description: Request camera permission and capture photos.
+---
+
+Access via `appo.camera`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="CameraApi" />
+
+## Usage
+
+### Request Permission
+
+```typescript
+const status = await appo.camera.requestPermission();
+// status: 'granted' | 'denied' | 'undetermined'
+```
+
+### Take a Picture
+
+```typescript
+if (status === 'granted') {
+  const result = await appo.camera.takePicture();
+  console.log(result.uri, result.width, result.height);
+  // result.base64 is available if the native handler provides it
+}
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="CameraResult" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `requestPermission()` | Returns `'denied'` |
+| `takePicture()` | Throws `Error` |

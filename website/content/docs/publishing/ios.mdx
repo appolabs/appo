@@ -1,0 +1,69 @@
+---
+title: iOS Publishing
+description: App Store review process and guidelines for your Appo app.
+---
+
+Appo builds, signs, and submits your iOS app to the App Store under Appo's developer account.
+
+## What Appo Handles
+
+- **Apple Developer account** — Published under Appo's account, no $99/year fee for you
+- **App ID and Bundle ID** — Created and managed by Appo
+- **Code signing** — Distribution certificates and provisioning profiles
+- **Build** — Cloud-compiled `.ipa` binary
+- **Store listing** — Auto-generated from your website metadata (name, description, keywords, icon)
+- **App Store Connect listing** — Created and submitted by Appo
+- **App Privacy declarations** — Configured based on the SDK features your app uses
+
+## What You Provide
+
+Through the [Appo dashboard](https://goappo.io):
+
+- **Website URL** — Your web application
+- **App name** — Editable after auto-generation
+- **App icon** — Editable after auto-generation (or Appo uses the generated one)
+- **Screenshots** — Upload from the dashboard
+
+Appo auto-generates your store listing metadata from your website content. Store listing editing is being developed for more control.
+
+## App Review Guidelines
+
+Apple reviews all App Store submissions. WebView-based apps are accepted when they provide meaningful native functionality beyond a website.
+
+### Why Appo apps pass review
+
+Appo apps integrate native device features (push notifications, biometrics, camera, haptics, etc.) through the bridge SDK. These native capabilities differentiate the app from a simple web wrapper and satisfy Apple's requirement for enhanced functionality.
+
+### Relevant guidelines
+
+- **[4.2 Minimum Functionality](https://developer.apple.com/app-store/review/guidelines/#minimum-functionality)** — Apps must provide value beyond a repackaged website. Appo's native features (push, biometrics, camera, etc.) satisfy this requirement.
+- **[5.1.1 Data Collection and Storage](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage)** — All data your app collects is disclosed in the App Privacy section.
+- **[5.1.2 Data Use and Sharing](https://developer.apple.com/app-store/review/guidelines/#data-use-and-sharing)** — If your web app uses analytics or advertising that tracks users across apps, enable the Tracking permission in the dashboard so App Tracking Transparency is included.
+
+## Common Rejection Reasons
+
+### Minimum functionality
+
+**Problem:** App rejected for being a "repackaged website."
+
+**Solution:** Ensure your app meaningfully uses native features. If your app uses push notifications, biometrics, or camera access through the Appo SDK, these are documented in the store listing during submission.
+
+### Missing privacy policy
+
+**Problem:** App rejected for missing privacy policy URL.
+
+**Solution:** Ensure your website has an accessible privacy policy page. Appo includes the URL in the store listing.
+
+### App Tracking Transparency
+
+**Problem:** App rejected because it accesses the advertising identifier without ATT prompt.
+
+**Solution:** If your web application uses analytics or advertising that tracks users across apps, enable the **Tracking** permission in the Appo dashboard with an appropriate description.
+
+### Missing purpose strings
+
+**Problem:** App rejected for missing usage description strings (e.g., camera, location).
+
+**Solution:** Ensure the permissions your app needs are configured in the Appo dashboard. Appo includes the correct `Info.plist` entries based on your configuration.
+
+For detailed requirements, refer to the [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).

@@ -1,0 +1,44 @@
+---
+title: Network
+description: Query network connectivity status and subscribe to changes.
+---
+
+Access via `appo.network`.
+
+## Type Definition
+
+<AutoTypeTable path="../src/types.ts" name="NetworkApi" />
+
+## Usage
+
+### Get Current Status
+
+```typescript
+const status = await appo.network.getStatus();
+console.log(status.isConnected, status.type);
+// type: 'wifi' | 'cellular' | 'none' | 'unknown'
+```
+
+### Subscribe to Changes
+
+Listens on the `network.change` event channel.
+
+```typescript
+const unsubscribe = appo.network.onChange((status) => {
+  console.log('Network changed:', status.isConnected, status.type);
+});
+
+// Stop listening
+unsubscribe();
+```
+
+## Related Types
+
+<AutoTypeTable path="../src/types.ts" name="NetworkStatus" />
+
+## Browser Fallback
+
+| Method | Fallback |
+|--------|----------|
+| `getStatus()` | Returns `{ isConnected: navigator.onLine, type: 'unknown' }` |
+| `onChange()` | Listens to browser `online`/`offline` events |

@@ -1,0 +1,112 @@
+---
+title: Feature Handlers
+description: How native handlers process SDK requests using Expo packages.
+---
+
+## Handler Architecture
+
+When the SDK sends a message to the native layer, the message dispatcher routes it to the appropriate feature handler based on the message type string. Each handler wraps an Expo package (or React Native API) and translates the SDK request into a native call.
+
+```
+SDK Request                          Native App
+───────────                          ──────────
+{ type: "push.requestPermission" }
+         │
+         ▼
+    Message Dispatcher
+    ├─ "push.*"        → Push Handler
+    ├─ "biometrics.*"  → Biometrics Handler
+    ├─ "camera.*"      → Camera Handler
+    ├─ "location.*"    → Location Handler
+    ├─ "haptics.*"     → Haptics Handler
+    ├─ "storage.*"     → Storage Handler
+    ├─ "share.*"       → Share Handler
+    ├─ "network.*"     → Network Handler
+    └─ "device.*"      → Device Handler
+```
+
+The dispatcher splits the message type on the first `.` to determine the handler, then passes the remainder as the action name.
+
+## Handler Reference
+
+Each handler maps SDK methods to their underlying Expo package implementation.
+
+| SDK Feature | Handler | Expo Package |
+|-------------|---------|-------------|
+| `push.*` | Push | `expo-notifications` |
+| `biometrics.*` | Biometrics | `expo-local-authentication` |
+| `camera.*` | Camera | `expo-image-picker` |
+| `location.*` | Location | `expo-location` |
+| `haptics.*` | Haptics | `expo-haptics` |
+| `storage.*` | Storage | `@react-native-async-storage/async-storage` |
+| `share.*` | Share | React Native `Share` API |
+| `network.*` | Network | `@react-native-community/netinfo` |
+| `device.*` | Device | `expo-device` |
+
+## Dispatch Flow
+
+When the WebView receives a message from the SDK:
+
+1. **Parse** — The raw message string is parsed as JSON.
+2. **Validate** — The message must contain `id` (string) and `type` (string) fields. Messages with an `event` field are treated as legacy events and ignored by the dispatcher.
+3. **Route** — The `type` field (e.g., `"push.requestPermission"`) is split into handler name (`"push"`) and action (`"requestPermission"`).
+4. **Execute** — The handler function is called with the action name and any payload.
+5. **Respond** — The result is sent back to the WebView as a JSON response.
+
+## Response Format
+
+### Success
+
+```json
+{
+  "id": "msg_1707654321_1",
+  "success": true,
+  "data": "granted"
+}
+```
+
+### Error
+
+```json
+{
+  "id": "msg_1707654321_1",
+  "success": false,
+  "error": "Location permission denied by user"
+}
+```
+
+The response is delivered to the WebView via `injectJavaScript`, which calls `window.postMessage` on the web side. The SDK matches the response `id` to the original pending request and resolves or rejects the Promise accordingly.
+
+## Adding Custom Handlers
+
+To extend the native app with additional native features:
+
+**1. Create the handler function:**
+
+```typescript
+async function handleMyFeature(
+  action: string,
+  payload: Record<string, unknown>
+): Promise<unknown> {
+  switch (action) {
+    case 'doSomething':
+      // Call native API
+      const result = await NativeModule.doSomething(payload.param);
+      return result;
+    default:
+      throw new Error(`Unknown action: myfeature.${action}`);
+  }
+}
+```
+
+**2. Register the handler in the dispatcher:**
+
+Add the handler to the dispatch map so messages with type `"myfeature.*"` route to your function.
+
+**3. Add the corresponding SDK feature:**
+
+Create a matching feature module in the SDK so `appo.myfeature.doSomething()` sends the correct message type. See the [SDK architecture](/docs/sdk/architecture) for the message protocol.
+
+**4. Declare permissions:**
+
+If the native API requires platform permissions, add them to `app.json` as described in [Configuration](/docs/native-app/configuration).

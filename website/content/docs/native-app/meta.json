@@ -1,0 +1,5 @@
+{
+  "title": "Native App",
+  "root": true,
+  "pages": ["index", "setup", "configuration", "handlers", "event-broadcasting"]
+}

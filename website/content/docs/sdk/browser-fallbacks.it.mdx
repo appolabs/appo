@@ -1,0 +1,54 @@
+---
+title: Fallback Browser
+description: Comportamento di fallback per ogni API quando eseguita al di fuori di un container nativo.
+---
+
+Tutte le API forniscono un comportamento di fallback quando eseguite al di fuori di un container nativo Appo. Questo consente di sviluppare e testare nel browser senza import condizionali o mocking.
+
+## Tabella dei Fallback
+
+| Funzionalita | Metodo | Fallback |
+|--------------|--------|----------|
+| Push | `requestPermission()` | Restituisce `'denied'` |
+| Push | `getToken()` | Restituisce `null` |
+| Push | `onMessage()` | Restituisce unsubscribe no-op |
+| Push | `onResponse()` | Restituisce unsubscribe no-op |
+| Biometria | `isAvailable()` | Restituisce `false` |
+| Biometria | `authenticate()` | Restituisce `false` |
+| Fotocamera | `requestPermission()` | Restituisce `'denied'` |
+| Fotocamera | `takePicture()` | Lancia `Error` |
+| Posizione | `requestPermission()` | Restituisce `'denied'` |
+| Posizione | `getCurrentPosition()` | Lancia `Error` |
+| Feedback Aptico | `impact()` | No-op |
+| Feedback Aptico | `notification()` | No-op |
+| Archiviazione | `get()` / `set()` / `delete()` | Usa `localStorage` |
+| Condivisione | `open()` | Usa `navigator.share` se disponibile, altrimenti `{ success: false }` |
+| Rete | `getStatus()` | Restituisce `{ isConnected: navigator.onLine, type: 'unknown' }` |
+| Rete | `onChange()` | Ascolta gli eventi `online`/`offline` del browser |
+| Dispositivo | `getInfo()` | Restituisce informazioni basate sullo user agent con `osVersion: 'web'` |
+
+## Rilevamento dell'Ambiente
+
+Usa `isNative` per eseguire condizionalmente logica esclusiva dell'ambiente nativo:
+
+```typescript
+const appo = getAppo();
+
+if (appo.isNative) {
+  // Eseguito solo all'interno di un container nativo Appo
+  const token = await appo.push.getToken();
+} else {
+  // Ambiente browser
+  console.log('In esecuzione in modalita browser');
+}
+```
+
+## Comportamento dell'Archiviazione
+
+L'archiviazione ha un fallback trasparente: usa `localStorage` nel browser e l'archiviazione sicura nativa nell'app. Questo significa che puoi usare `appo.storage` senza condizioni:
+
+```typescript
+// Funziona in entrambi gli ambienti
+await appo.storage.set('preference', 'dark');
+const pref = await appo.storage.get('preference');
+```
