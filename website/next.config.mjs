@@ -7,6 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  basePath: '/docs',
+  assetPrefix: '/docs-static',
   turbopack: {
     root: resolve(__dirname, '..'),
   },
