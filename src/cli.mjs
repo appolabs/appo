@@ -92,7 +92,24 @@ function confirmGate(flags, preview) {
   return 3;
 }
 
-export { confirmGate };
+/** Render a thrown error to stderr and return the process exit code (1).
+ *  prerequisite_failed envelopes (D-06) render as an actionable blocked state
+ *  with next_action + dashboard_url; everything else falls back to err.message
+ *  (which already carries the 401 "run `appo login`" hint from apiFetch). */
+function renderError(err) {
+  const env = err.envelope;
+  if (env?.error === 'prerequisite_failed') {
+    console.error(`\n  Blocked: ${env.message}`);
+    if (env.details?.dashboard_url) {
+      console.error(`  Next: ${env.details.next_action} -> ${env.details.dashboard_url}\n`);
+    }
+    return 1;
+  }
+  console.error(`\n  Error: ${err.message}\n`);
+  return 1;
+}
+
+export { confirmGate, renderError };
 
 export async function run(argv) {
   const { flags, positional } = parseArgs(argv);
@@ -183,7 +200,6 @@ export async function run(argv) {
         return 2;
     }
   } catch (err) {
-    console.error(`\n  Error: ${err.message}\n`);
-    return 1;
+    return renderError(err);
   }
 }
