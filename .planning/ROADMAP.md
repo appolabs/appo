@@ -37,7 +37,12 @@
   2. Destructive commands (publish/push/resubmit) require `--confirm`; without it they print the preview the MCP confirm-gate returns
   3. Every command supports `--json` and returns documented exit codes
   4. `appo --help` and per-command help enumerate all commands and flags
-**Plans**: TBD (run /gsd-plan-phase 1)
+**Plans**: 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Foundation: fetch-stub test helper (Wave 0) + confirmGate() + exit-code-3 + extended error catch
+- [ ] 01-02-PLAN.md — Read verbs: status (+ --build), rejection, fix-recipe + printers
+- [ ] 01-03-PLAN.md — Reversible writes: build (async trigger) + configure (PATCH)
+- [ ] 01-04-PLAN.md — Destructive verbs: publish/push/resubmit (confirm-gated) + finalized --help
 
 ### Phase 2: `appo ship` — orchestrated lifecycle (KILLER FEATURE)
 
