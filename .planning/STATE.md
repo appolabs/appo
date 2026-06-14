@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
-status: ready-to-plan
-last_updated: "2026-06-14"
-last_activity: 2026-06-14 -- project bootstrapped from apps-web-app CLI work
+status: planning
+stopped_at: Phase 1 context gathered
+last_updated: "2026-06-14T23:29:15.961Z"
+last_activity: 2026-06-14
 progress:
   total_phases: 6
   completed_phases: 0
@@ -36,14 +37,16 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 ## Accumulated Context
 
 ### Decisions
+
 - Dependency-free Node CLI; device-flow auth; `~/.appo/config.json` (owner-only); API base via `--api`/`APPO_API_BASE`/config/default.
 - This repo is the CLI only; `@appolabs/sdk` is the in-WebView bridge.
 
 ### Blockers/Concerns
+
 - Phase 3 (preview) depends on apps-web-app Phase 188 shipping the user-PAT preview surface + `preview_app` MCP tool first.
 
 ## Session Continuity
 
-Last session: 2026-06-14
-Stopped at: Project bootstrapped, ready to plan Phase 1
-Resume file: None
+Last session: 2026-06-14T23:29:15.958Z
+Stopped at: Phase 1 context gathered
+Resume file: .planning/phases/01-operator-command-parity/01-CONTEXT.md
