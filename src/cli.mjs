@@ -13,6 +13,10 @@ Usage:
   appo apps show <id>             Show one app
   appo apps set-name <id> <name>  Update an app's name
 
+Lifecycle:
+  (commands added in this phase: status, build, configure, rejection,
+   fix-recipe, publish, push, resubmit)
+
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
   -h, --help     Show this help
@@ -58,6 +62,37 @@ function printApp(app) {
 function unwrap(payload) {
   return payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
 }
+
+/** Human-readable preview of a pending destructive write (publish/push/resubmit).
+ *  Reuses the aligned line(k,v) idiom from printApp. Pure presentation — no fetch. */
+function printPreview(preview) {
+  if (!preview) return;
+  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
+  line('will', preview.will);
+  line('app_id', preview.app_id);
+  line('target_stores', Array.isArray(preview.target_stores) ? preview.target_stores.join(', ') : preview.target_stores);
+  line('title', preview.title);
+  line('current_state', preview.current_state);
+  line('target_state', preview.target_state);
+  line('note', preview.note);
+  console.log('  (no write performed — re-run with --confirm to proceed)');
+}
+
+/** Client-side confirm-gate for destructive verbs. The v1 POSTs are NOT
+ *  preview-gated — they execute on receipt — so the CLI gates before issuing the
+ *  write (D-04/D-05). Returns null to proceed with the POST, or exit code 3
+ *  (confirm required, D-07) when gated. Pure decision/presentation — no fetch. */
+function confirmGate(flags, preview) {
+  if (flags.confirm) return null;
+  if (flags.json) {
+    console.log(JSON.stringify({ ...preview, confirm_required: true }));
+  } else {
+    printPreview(preview);
+  }
+  return 3;
+}
+
+export { confirmGate };
 
 export async function run(argv) {
   const { flags, positional } = parseArgs(argv);
