@@ -1,0 +1,17 @@
+{
+  "mode": "yolo",
+  "parallelization": {
+    "enabled": true,
+    "plan_level": true,
+    "task_level": false,
+    "skip_checkpoints": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2
+  },
+  "granularity": "coarse",
+  "workflow": {
+    "_auto_chain_active": false,
+    "research": true,
+    "nyquist_validation": true
+  }
+}
