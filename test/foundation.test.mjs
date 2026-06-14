@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { confirmGate } from '../src/cli.mjs';
+import { confirmGate, renderError, run } from '../src/cli.mjs';
+import {
+  installMockFetch,
+  resetMockFetch,
+  lastRequest,
+  requests,
+} from './helpers/mockFetch.mjs';
+import { stubToken } from './helpers/mockFetch.mjs';
 
 // Capture console.log output around a synchronous call.
 function captureLog(fn) {
@@ -12,6 +19,19 @@ function captureLog(fn) {
     return { result, lines };
   } finally {
     console.log = original;
+  }
+}
+
+// Capture console.error output around a (possibly async) call.
+async function captureError(fn) {
+  const original = console.error;
+  const lines = [];
+  console.error = (...args) => lines.push(args.join(' '));
+  try {
+    const result = await fn();
+    return { result, lines };
+  } finally {
+    console.error = original;
   }
 }
 
@@ -46,4 +66,65 @@ test('confirmGate human gated path prints a readable preview + no-write notice',
   const out = lines.join('\n');
   assert.match(out, /resubmit/);
   assert.match(out, /no write performed/);
+});
+
+test('renderError renders prerequisite_failed as actionable block, exit 1', async () => {
+  const err = new Error('Connect your Apple Developer account');
+  err.status = 422;
+  err.envelope = {
+    error: 'prerequisite_failed',
+    code: 'CUSTOMER_ASC_CREDENTIAL_MISSING',
+    message: 'Connect your Apple Developer account',
+    details: { next_action: 'complete_enrollment', dashboard_url: 'https://x' },
+  };
+  const { result, lines } = await captureError(() => renderError(err));
+  assert.equal(result, 1);
+  const out = lines.join('\n');
+  assert.match(out, /Blocked: Connect your Apple Developer account/);
+  assert.match(out, /Next: complete_enrollment -> https:\/\/x/);
+});
+
+test('renderError falls back to plain Error, exit 1 (unchanged path)', async () => {
+  const err = new Error('Token rejected — run `appo login` again.');
+  const { result, lines } = await captureError(() => renderError(err));
+  assert.equal(result, 1);
+  assert.match(lines.join('\n'), /Error: Token rejected/);
+});
+
+test('run() surfaces a prerequisite envelope as a blocked state, exit 1', async () => {
+  stubToken();
+  installMockFetch([
+    {
+      status: 422,
+      body: {
+        error: 'prerequisite_failed',
+        code: 'CUSTOMER_ASC_CREDENTIAL_MISSING',
+        message: 'Connect your Apple Developer account',
+        details: { next_action: 'complete_enrollment', dashboard_url: 'https://x' },
+      },
+    },
+  ]);
+  try {
+    const { result, lines } = await captureError(() =>
+      run(['whoami', '--api', 'http://test.local']),
+    );
+    assert.equal(result, 1);
+    assert.match(lines.join('\n'), /Blocked: Connect your Apple Developer account/);
+  } finally {
+    resetMockFetch();
+  }
+});
+
+test('confirmGate issues NO fetch when gated (T-01-03)', async () => {
+  stubToken();
+  installMockFetch({ status: 204, body: null });
+  try {
+    const before = requests.length;
+    const gated = confirmGate({}, { will: 'publish', app_id: 1 });
+    assert.equal(gated, 3);
+    assert.equal(requests.length, before);
+    assert.equal(lastRequest(), null);
+  } finally {
+    resetMockFetch();
+  }
 });
