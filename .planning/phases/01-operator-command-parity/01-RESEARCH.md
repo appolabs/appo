@@ -390,20 +390,22 @@ case 'publish': {
 
 > All HTTP contract claims (paths, bodies, response shapes, error codes, validation rules, confirm-gate payloads) are `[VERIFIED]` against `../apps-web-app` source + feature tests — not assumed.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three are Claude's-discretion items; each is resolved concretely in the Phase 1 plans.
 
 1. **`--stores` input format for publish (D-cretion).**
    - What we know: v1 requires an array of exact tokens `apple_appstore` / `google_playstore`.
    - What's unclear: whether to accept friendly aliases (`apple`/`google`) and map them.
-   - Recommendation: accept comma list of canonical tokens; optionally map `apple→apple_appstore`, `google→google_playstore` for ergonomics. Body must send canonical tokens.
+   - RESOLVED: accept comma list; map `apple→apple_appstore`, `google→google_playstore` for ergonomics, body sends canonical tokens (Plan 01-04 publish).
 
 2. **Should `appo status` also surface latest build / push summary?**
    - What we know: MCP `get_app_overview` includes `latest_build` + `push`; the v1 `GET /apps/{app}` (AppResource) does **not**.
    - What's unclear: whether to make a second call (`GET /builds?` latest) to enrich `status`.
-   - Recommendation: keep `status` = AppResource (single call, lockstep) for this phase; build detail is `status --build`. Enriching is a Phase 2 `ship`-render concern.
+   - RESOLVED: keep `status` = AppResource (single call, lockstep) for this phase; build detail is `status --build`. Enriching is a Phase 2 `ship`-render concern (Plan 01-02).
 
 3. **`configure`/`publish` 204 `--json` output convention.**
-   - Recommendation: emit `null` to keep "verbatim v1 body" semantics; document it.
+   - RESOLVED: emit `null` to keep "verbatim v1 body" semantics; documented (Plans 01-03/01-04).
 
 ## Environment Availability
 
