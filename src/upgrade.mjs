@@ -18,6 +18,11 @@ const DAY = 86_400_000;
  */
 export function runUpgrade({ spawnImpl = nodeSpawn } = {}) {
   return new Promise((resolve) => {
+    // INVARIANT (IN-03): every element of this argv MUST stay a compile-time
+    // literal. The win32 `shell:true` workaround below is injection-safe ONLY
+    // because nothing here is interpolated from profile/env/user input. If the
+    // package spec ever becomes configurable, drop `shell:true` and resolve the
+    // npm binary explicitly instead of interpolating into a shell argv.
     const child = spawnImpl('npm', ['install', '-g', '@appolabs/appo@latest'], {
       stdio: 'inherit',
       shell: process.platform === 'win32',
@@ -30,7 +35,14 @@ export function runUpgrade({ spawnImpl = nodeSpawn } = {}) {
   });
 }
 
-/** Dependency-free x.y.z compare (no semver dep): is `a` strictly newer than `b`? */
+/**
+ * Dependency-free x.y.z compare (no semver dep): is `a` strictly newer than `b`?
+ * LIMITATION (IN-02): pre-release/non-numeric segments (e.g. `1.0.0-beta`) parse
+ * to NaN and collapse to 0, so this is correct ONLY for the project's plain
+ * numeric x.y.z releases. The project does not publish pre-releases; if that ever
+ * changes, parse the leading numeric triple via split(/[.-]/) and treat any
+ * tagged version as not-newer. Worst case today is a wrong one-line hint, no crash.
+ */
 function isNewer(a, b) {
   const pa = String(a).split('.').map(Number);
   const pb = String(b).split('.').map(Number);
@@ -61,8 +73,13 @@ export async function checkForUpdate(installed, { fetchImpl = fetch, now = Date.
     const timer = setTimeout(() => ac.abort(), 1500);
     try {
       const res = await fetchImpl(LATEST_URL, { headers: { Accept: 'application/json' }, signal: ac.signal });
-      if (res.ok) latest = (await res.json()).version;
-      writeUpdateCache({ last_check_ms: now(), latest });
+      // Only stamp last_check_ms on a successful response (IN-01): a transient
+      // registry failure (e.g. 503) must retry on the next run, not be suppressed
+      // for a full day by a fresh timestamp.
+      if (res.ok) {
+        latest = (await res.json()).version;
+        writeUpdateCache({ last_check_ms: now(), latest });
+      }
     } catch {
       return; // swallow EVERY network/timeout error — never block or crash the CLI
     } finally {

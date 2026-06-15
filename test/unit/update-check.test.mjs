@@ -79,6 +79,20 @@ test('checkForUpdate swallows network errors: no throw, no notice', async () => 
   expect(text).not.toMatch(/update available/);
 });
 
+test('checkForUpdate does not stamp the cache on a failed (!ok) fetch → next run retries', async () => {
+  // First call: registry returns 503 (res.ok === false). The cache must NOT be
+  // stamped, so a second call still re-fetches (no 24h suppression). IN-01.
+  const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({ version: '9.9.9' }) }));
+  await captureStderr(() => checkForUpdate('0.1.0', { fetchImpl, now: () => 1_000_000 }));
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(readUpdateCache().last_check_ms).toBeUndefined();
+
+  // Second call at the same instant: because the first failure was not cached,
+  // it re-fetches rather than being suppressed for a day.
+  await captureStderr(() => checkForUpdate('0.1.0', { fetchImpl, now: () => 1_000_000 }));
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+});
+
 test('checkForUpdate does not fetch within the daily cache window', async () => {
   writeUpdateCache({ last_check_ms: 1_000_000, latest: '0.1.0' });
   const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ version: '9.9.9' }) }));
