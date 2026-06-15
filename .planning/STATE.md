@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-06-15T02:27:04.387Z"
-last_activity: 2026-06-15 -- Phase 3 planning complete
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-06-15T02:33:33.564Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
-  percent: 67
+  completed_plans: 7
+  percent: 78
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 02 — appo-ship-orchestrated-lifecycle-killer-feature
+**Current focus:** Phase 03 — auth-config-hardening
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 3
-Plan: Not started
+Phase: 03 (auth-config-hardening) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 3 planning complete
+Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
@@ -47,6 +47,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 01]: Destructive verbs (publish/push/resubmit): client-side confirmGate before any POST (exit 3, no write without --confirm, D-04/D-05/D-07); resubmit credential hard-fail rides shared renderError (D-06); push count omitted pre-send (Pitfall 2); USAGE finalized with all 8 verbs + exit codes (D-10).
 - [Phase 02]: Shared ops layer (src/ops.mjs): one async op per v1 call over apiFetch; Phase 1 create/build(human)/publish refactored onto it (inline apiFetch deleted, single unwrap). build --json and status keep a raw-envelope apiFetch carve-out gated before the op. Zero behavior change — 66/0.
 - [Phase 02]: appo ship orchestrates create->build->poll->publish over the ops layer; reimplements the publish gate decision (wantYes = --yes||--confirm) reusing printPreview, never calls confirmGate; poll terminal states are exactly ready/failed with an injectable-sleep timeout (default 1800s); --json emits one {steps,final_state} object while usage errors stay plain-text exit 2.
+- [Phase 03]: Profile-aware config.mjs: lazy configPath() (defeats ESM import hoisting for APPO_CONFIG_HOME test isolation), read-time legacy fold into profiles.default (no forced re-login), APPO_TOKEN ephemeral precedence never persisted; whoami reads storedToken().
 
 ### Blockers/Concerns
 
@@ -54,6 +55,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-15T01:57:41.099Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-auth-config-hardening/03-CONTEXT.md
+Last session: 2026-06-15T02:33:27.455Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
