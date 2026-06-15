@@ -6,6 +6,8 @@
 
 ## Current State
 
+Phase 6 complete (packaging, docs & release, CLI-05 validated): publish-ready package metadata (publishConfig.access:public, repository/keywords, prepublishOnly gate), an OIDC trusted-publishing release.yml (publish-before-tag, concurrency-guarded), `appo init` (idempotent bootstrap + login), `appo --version`/`appo upgrade` + a daily update-check notice, and a rewritten README + llms.txt covering every command. Tarball verified clean via npm pack --dry-run; 187 node-test/vitest cases green. **Milestone v0.1 CLI Completeness: phases 1,2,3,5,6 done; Phase 4 (preview) deferred/blocked on apps-web-app Phase 188.** The live npm publish + npmjs trusted-publisher registration are the one manual follow-up (D-09) — note a @appolabs/appo@2.0.2 already exists on the registry, so confirm package ownership/target version first.
+
 Phase 5 complete (test suite & CI, CLI-04 validated): the suite is migrated to **vitest** (122 cases
 across `test/unit/` + `test/integration/`, per-worker config isolation), with **eslint** + a JS
 **typecheck** (`tsc --checkJs`) and a **GitHub Actions** workflow (npm, Node matrix 18/20/22,
@@ -50,4 +52,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-15 — Phase 5 complete (test suite & CI)*
+*Last updated: 2026-06-15 — Phase 6 complete; milestone v0.1 (CLI Completeness) reached*
