@@ -4,17 +4,15 @@
 // verb is verifiable without a live `/api/v1`. The stub captures the exact
 // request the CLI issued (method/path/url/body/headers) for contract assertions
 // and returns a `fetch`-Response-shaped object apiFetch consumes (status, ok,
-// json()). State is restored on reset so the real ~/.appo/config.json is never
-// left altered.
+// json()). The real ~/.appo/config.json is never touched: setup.mjs points
+// APPO_CONFIG_HOME at a per-worker temp dir, so stubToken writes there only.
 
-import { readConfig, writeConfig, clearConfig, configPath } from '../../src/config.mjs';
-import { existsSync, readFileSync } from 'node:fs';
+import { readConfig, writeConfig } from '../../src/config.mjs';
 
 /** Recorded requests, FIFO. Each entry: { method, path, url, body, headers }. */
 export const requests = [];
 
 let originalFetch = null;
-let savedConfigRaw = null; // verbatim bytes of the real config, or null if absent
 
 /** Most recently recorded request, or null if none issued. */
 export function lastRequest() {
@@ -70,31 +68,18 @@ function pathFromUrl(url) {
 
 /**
  * Write a test token + api_base so apiFetch passes its `if (!token)` guard.
- * Saves the real config first; resetMockFetch() restores it. Never writes a
- * real credential (T-01-02).
+ * Writes into the per-worker temp config (APPO_CONFIG_HOME, set by setup.mjs),
+ * never the real ~/.appo/config.json. Never writes a real credential (T-01-02).
  */
 export function stubToken(token = 'test-pat') {
-  const file = configPath().file;
-  if (savedConfigRaw === null) {
-    savedConfigRaw = existsSync(file) ? readFileSync(file, 'utf-8') : false;
-  }
   writeConfig({ ...readConfig(), token, api_base: 'http://test.local' });
 }
 
-/** Restore globalThis.fetch + the real config, and clear recorded requests. */
+/** Restore globalThis.fetch and clear recorded requests. */
 export function resetMockFetch() {
   if (originalFetch !== null) {
     globalThis.fetch = originalFetch;
     originalFetch = null;
   }
   requests.length = 0;
-
-  if (savedConfigRaw !== null) {
-    if (savedConfigRaw === false) {
-      clearConfig();
-    } else {
-      writeConfig(JSON.parse(savedConfigRaw));
-    }
-    savedConfigRaw = null;
-  }
 }
