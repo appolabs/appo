@@ -4,10 +4,12 @@ import { apiFetch } from './api.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
-Usage:
+Auth:
   appo login [--api <url>]        Authenticate via the browser (device flow)
   appo logout                     Forget the stored token
   appo whoami                     Show the active account + API
+
+Apps:
   appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
   appo apps list                  List your apps
   appo apps show <id>             Show one app
@@ -19,11 +21,21 @@ Lifecycle:
   appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]   Update app fields
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
-  (more added in this phase: publish, push, resubmit)
+  appo publish <id> --stores apple_appstore,google_playstore --confirm   Publish to the stores
+  appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
+  appo resubmit <id> --confirm           Resubmit a rejected app for review
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
+  --json         Print the raw v1 response body (machine-readable)
+  --confirm      Perform the write for a destructive verb (publish/push/resubmit)
   -h, --help     Show this help
+
+Exit codes:
+  0  success
+  1  runtime / API error (incl. auth failure — run \`appo login\`)
+  2  usage error (missing or invalid arguments)
+  3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 `;
 
 /** Minimal flag parser: collects --key value / --flag and positionals. */
