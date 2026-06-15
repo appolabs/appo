@@ -10,6 +10,8 @@ import { login, loginWithToken } from './login.mjs';
 import { apiFetch } from './api.mjs';
 import * as ops from './ops.mjs';
 import { unwrap } from './ops.mjs';
+import { createRequire } from 'node:module';
+import { runUpgrade } from './upgrade.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
@@ -20,6 +22,11 @@ Auth:
   appo whoami                     Show the active environment + API + liveness
   appo env list                   List configured environments
   appo env use <name>             Switch the active environment
+
+Packaging:
+  appo init [--token <pat>]       Bootstrap config + first login (device flow, or --token for CI)
+  appo upgrade                    Update to the latest @appolabs/appo via npm
+  appo --version, -v              Print the CLI + Node version
 
 Apps:
   appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
@@ -50,6 +57,7 @@ Options:
   --stores <l>   Comma list of target stores for \`ship\`/\`publish\` (default both)
   --platform <p> Build platform for \`ship\`/\`build\`: ios|android|all
   -h, --help     Show this help
+  -v, --version  Print the CLI + Node version
 
 Exit codes:
   0  success
@@ -101,6 +109,8 @@ function parseArgs(argv) {
       }
     } else if (a === '-h') {
       flags.help = true;
+    } else if (a === '-v') {
+      flags.version = true;
     } else {
       positional.push(a);
     }
@@ -282,6 +292,17 @@ export { confirmGate, renderError };
 export async function run(argv) {
   const { flags, positional } = parseArgs(argv);
 
+  // --version / -v / `version`: print the CLI + Node version and exit before the
+  // help guard (a bare `--version` has no positional, which would otherwise fall
+  // into the no-args help branch). createRequire reads ../package.json relative
+  // to this module (src/cli.mjs → repo root) without a runtime dependency.
+  if (flags.version || positional[0] === 'version') {
+    const require = createRequire(import.meta.url);
+    const { version } = require('../package.json');
+    console.log(`appo/${version} node/${process.version}`);
+    return 0;
+  }
+
   if (flags.help || positional[0] === 'help' || positional.length === 0) {
     console.log(USAGE);
     return 0;
@@ -333,6 +354,46 @@ export async function run(argv) {
         const { apiBase: base } = await login(apiBase, env);
         console.log(`\n  Authenticated env '${env}'. Connected to ${base}.\n`);
         return 0;
+      }
+
+      case 'init': {
+        // Idempotent: a configured env reports its active state and writes
+        // nothing (no clobber of an already-authenticated profile).
+        if (storedToken(env)) {
+          console.log(`Already configured — active env '${env}' (${apiBase}). Nothing to do.`);
+          return 0;
+        }
+        // First login: --token for CI/agents (validate-then-store, refuse on
+        // 401), otherwise the interactive device flow. Mirrors `case 'login'`.
+        if (typeof flags.token === 'string' && flags.token) {
+          try {
+            await loginWithToken(apiBase, env, flags.token);
+          } catch (err) {
+            if (err.status === 401) {
+              console.error(`Token rejected by ${apiBase} — not stored.`);
+              return 1;
+            }
+            throw err; // network/other → top-level renderError
+          }
+          console.log(`Stored token for env '${env}' (${apiBase}).`);
+        } else {
+          const { apiBase: base } = await login(apiBase, env);
+          console.log(`\n  Authenticated env '${env}'. Connected to ${base}.\n`);
+        }
+        // Confirming whoami: GET /api/v1/apps doubles as the liveness probe +
+        // app count (same as `case 'whoami'`). The token is NEVER printed.
+        const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
+        const line = (k, v) => console.log(`  ${k.padEnd(18)} ${v}`);
+        line('env', env);
+        line('api_base', apiBase);
+        line('status', `ready — ${apps.length} app(s). Next: appo ship --url <u> --name <n>`);
+        return 0;
+      }
+
+      case 'upgrade': {
+        // Thin dispatch to the injectable upgrade runner. runUpgrade streams
+        // npm's output and resolves the child exit code (1 on spawn error).
+        return await runUpgrade();
       }
 
       case 'logout': {
