@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
-status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-06-15T12:53:03.839Z"
+status: verifying
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-06-15T12:57:40.610Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 14
-  percent: 93
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md
 Milestone: v0.1 CLI Completeness
 Phase: 06 (packaging-docs-release) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
@@ -56,6 +56,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 05]: GitHub Actions CI mirrors @appolabs/sdk shape with three forced divergences: npm (npm ci) not pnpm, no build step (raw .mjs), Node matrix [18,20,22]; push/PR on main+master; step order lint->typecheck->test; local proxy green at 122/122; live-GitHub-green is the one remaining manual confirmation on first push.
 - [Phase 06]: appo --version/-v + upgrade + daily update-check + idempotent init landed on Node built-ins only (no runtime dep); update_check cache survives profile writes via readConfig carry-through (Open Q2 option a).
 - [Phase 06-packaging-docs-release]: [Phase 06]: package.json publish metadata (publishConfig.access:public + repository/homepage/bugs/keywords/author) + build-free prepublishOnly gate (lint+typecheck+test) + llms.txt in files; release.yml mirrors the SDK trusted-publishing flow on npm (no pnpm, no build, [master,main], npm publish --provenance --access public via id-token). D-09 honored: verified SC1 via npm pack --dry-run only — no publish/tag/registration.
+- [Phase 06]: README rewritten to the full v0.1 CLI surface (ship-first quickstart, every verb, env vars, exit codes, profiles, CI auth, RELEASING runbook); llms.txt in SDK shape links every command into a README anchor; docs.test.mjs greps both docs for the full inventory. Phase 06 gate green (187 tests, lint+typecheck), tarball ships 10 whitelisted files incl. llms.txt; no publish (D-09).
 
 ### Blockers/Concerns
 
@@ -63,6 +64,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-15T12:52:55.925Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-06-15T12:57:26.856Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None

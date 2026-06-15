@@ -118,4 +118,4 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — CLI features: src/upgrade.mjs (injectable runUpgrade + checkForUpdate) + config update_check cache + cli.mjs wiring (`--version`/`-v`, `init`, `upgrade`, update-check hook, USAGE) + unit tests (SC2/SC3)
 - [x] 06-02-PLAN.md — Packaging/release: package.json publish metadata + prepublishOnly + llms.txt in files + `.github/workflows/release.yml` (npm, no build, trusted publishing); verified via `npm pack --dry-run`, NO publish (SC1, D-09)
-- [ ] 06-03-PLAN.md — Docs: rewrite README.md (full surface, ship-first, releasing runbook) + `llms.txt` (SDK shape) + command-coverage test; Wave-2 phase gate (SC4)
+- [x] 06-03-PLAN.md — Docs: rewrite README.md (full surface, ship-first, releasing runbook) + `llms.txt` (SDK shape) + command-coverage test; Wave-2 phase gate (SC4)
