@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-06-15T03:35:38.758Z"
-last_activity: 2026-06-15 -- Phase 5 planning complete
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-06-15T03:42:12.249Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 03 — auth-config-hardening
+**Current focus:** Phase 05 — test-suite-ci
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 4
-Plan: Not started
+Phase: 05 (test-suite-ci) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 5 planning complete
+Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
@@ -51,6 +51,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 03]: 401 always emits the env-named, token-free re-login message ahead of the server envelope text (D-09, T-03-06)
 - [Phase 03]: loginWithToken validates a pasted PAT via GET /api/v1/apps before storing; refuses (writes nothing) on 401
 - [Phase 03-auth-config-hardening]: CLI auth surface: env resolved once in run() and threaded into resolveApiBase + every apiFetch; logout revokes server-side (DELETE /user/tokens/current) then always clears local in a finally; whoami reports env+api_base+liveness (no token); env list/use + login --token land. Completes CLI-02 + CLI-07.
+- [Phase 05]: Dev toolchain (vitest 1.6.1, eslint 8.57.1, ts 5.9.3, eslint-config-prettier 9.1.2, @types/node 22.19.21) installed as devDependencies only; runtime dependency-free preserved. Configs (vitest.config.mjs/.eslintrc.json/tsconfig.json) mirror the SDK adapted for .mjs; lint needs --ext .mjs,.js for eslint 8; tsc --checkJs passes via targeted JSDoc only (no @ts-ignore). lint+typecheck green.
 
 ### Blockers/Concerns
 
@@ -58,6 +59,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-15T03:15:39.450Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-test-suite-ci/05-CONTEXT.md
+Last session: 2026-06-15T03:42:03.584Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None
