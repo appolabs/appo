@@ -6,7 +6,9 @@
 
 ## Current State
 
-MVP shipped (this repo's first commit): `appo login` (browser device flow), `apps create/list/show/set-name`, `whoami`, `logout`. Dependency-free Node ≥18. Backend (device grant + `/api/v1` + MCP `create_app`) already live in apps-web-app.
+Phase 1 complete (operator command parity, CLI-01 validated): the full publishing-operator surface — `build`, `status` (+`--build`), `publish`, `push`, `configure`, `rejection`, `fix-recipe`, `resubmit` — ships at parity with the 10 AppoServer MCP tools and `/api/v1`. Destructive verbs are confirm-gated (no write without `--confirm`, exit 3); every verb supports `--json` and the documented 0/1/2/3 exit codes; `--help` enumerates the surface. 58 `node:test` cases green.
+
+Prior: MVP (bootstrap commit) — `appo login` (browser device flow), `apps create/list/show/set-name`, `whoami`, `logout`. Dependency-free Node ≥18. Backend (device grant + `/api/v1` + MCP `create_app`) already live in apps-web-app.
 
 ## Requirements
 
@@ -25,4 +27,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-14 — project bootstrapped*
+*Last updated: 2026-06-15 — Phase 1 complete (operator command parity)*
