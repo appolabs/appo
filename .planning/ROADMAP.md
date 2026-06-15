@@ -86,7 +86,10 @@ Plans:
   2. A scannable QR is rendered in the terminal pointing at the preview target
   3. Output matches the `preview_app` MCP payload (same backend source of truth)
   4. `--json` supported; clear messaging when a platform is not preview-ready
-**Plans**: TBD (run /gsd-plan-phase 4)
+**Plans**: 2 plans
+Plans:
+- [ ] 04-01-PLAN.md — Vendor dependency-free QR encoder (Nayuki, MIT) as src/qr.mjs + renderQr half-block renderer + unit tests
+- [ ] 04-02-PLAN.md — `appo preview` verb: ops.getPreview + case 'preview' + readiness/QR printer + integration tests + README/llms.txt/docs.test fix
 
 ### Phase 5: Test suite & CI
 
