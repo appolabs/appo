@@ -21,7 +21,7 @@
 - [ ] **Phase 1: Operator command parity** — build/publish/status/push/configure/rejection/fix-recipe/**resubmit**; `--json`; exit codes; confirm-gates
 - [ ] **Phase 2: `appo ship` — orchestrated lifecycle (KILLER FEATURE)** — one command: create → build → status (poll) → publish, with streamed progress
 - [ ] **Phase 3: Auth & config hardening** — token expiry/refresh, server-side logout revoke, multi-environment profiles, **non-interactive auth** (`APPO_TOKEN` / `appo login --token`)
-- [ ] **Phase 4: Preview / open-on-device** *(deferrable — off critical path)* — `appo preview` (terminal QR + TestFlight/deeplink); depends on apps-web-app Phase 188
+- [ ] **Phase 4: Preview / open-on-device** *(unblocked — apps-web-app Phase 188 shipped 2026-06-15)* — `appo preview` (terminal QR + TestFlight/deeplink)
 - [ ] **Phase 5: Test suite & CI** — vitest unit + integration, GitHub Actions, lint/typecheck
 - [ ] **Phase 6: Packaging, docs & release** — npm publish + scaffolder, `appo upgrade`/update-check, README/command-reference/llms.txt
 
@@ -80,7 +80,7 @@ Plans:
 
 **Goal**: `appo preview [<id>]` lets a user open their app on a device from the terminal — renders a scannable QR and prints the TestFlight URL + Android deeplink — at parity with the `preview_app` MCP tool.
 **Requirements**: CLI-03
-**Depends on**: Phase 1; **BLOCKED on apps-web-app Phase 188** (user-PAT preview surface + `preview_app` MCP tool). Do NOT let this gate Phases 3/5/6 — it runs in parallel and ships when 188 lands.
+**Depends on**: Phase 1. **UNBLOCKED (2026-06-15): apps-web-app Phase 188 shipped** the user-PAT preview surface + `preview_app` MCP tool — Phase 4 can now be built.
 **Success Criteria** (what must be TRUE):
   1. `appo preview` calls the user-PAT preview endpoint and prints TestFlight URL + Android custom-scheme deeplink + per-platform readiness
   2. A scannable QR is rendered in the terminal pointing at the preview target
