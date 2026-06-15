@@ -358,16 +358,16 @@ test('beforeEach-set APPO_CONFIG_HOME is honored (lazy path)', () => {
 
 **Verify A2 cheaply:** during planning, run `npm i -D @types/node typescript && npx tsc --noEmit` against the lenient tsconfig to get the real residual error list before writing JSDoc tasks.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact residual `tsc --checkJs` error count after `strict:false` + `@types/node`.**
    - What we know: zero JSDoc today; `strict:false` suppresses implicit-any; `@types/node` types the builtins.
    - What's unclear: how many real type errors remain (e.g. `config.profiles[env]` possibly-undefined accesses, `init.headers` typing in mockFetch).
-   - Recommendation: planner adds a Wave-0 task "run `tsc --noEmit`, capture error list, add JSDoc only for those" — don't pre-write blanket JSDoc tasks. Realistic estimate: **0–15 errors**, fixable with a handful of `/** @type {...} */` or `@param` tags (under an hour), given the small, well-structured `src/` (config 131 lines, login 111, ops 46, api 60, cli 682).
+   - RESOLVED: Plan 01 Task 3 runs `tsc --noEmit` once and adds JSDoc ONLY for surfaced errors — no blanket annotation pass. Realistic estimate 0–15 errors, fixable in under an hour over the small `src/`.
 
 2. **Split granularity of `foundation.test.mjs` / `ship.test.mjs`.**
    - What we know: both mix unit + integration cases.
-   - Recommendation: split `ship` (clear pollBuild-unit vs run()-integration boundary at line ~191); keep `foundation` in `unit/`. Either way, assert 122-case parity.
+   - RESOLVED: Plan 02 Task 2 splits `ship` at the pollBuild-unit vs `run()`-integration boundary (~line 191; 4 unit + 14 integration) and keeps `foundation` in `unit/`. The Plan 02 Task 3 122-case parity guard holds regardless of split.
 
 ## Environment Availability
 
