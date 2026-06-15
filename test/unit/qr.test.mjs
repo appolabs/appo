@@ -146,7 +146,8 @@ test('renderQr is stable (same output for same input)', () => {
 
 test('renderQr snapshot (bare matrix, no ANSI)', () => {
   const output = renderQr(TEST_URL);
-  // No ANSI escape codes in bare matrix
+  // No ANSI escape codes in bare matrix (ESC char followed by '[')
+  // eslint-disable-next-line no-control-regex
   expect(output).not.toMatch(/\x1b\[/);
   expect(output).toMatchSnapshot();
 });
