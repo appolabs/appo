@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: verifying
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-06-15T13:07:47.783Z"
+stopped_at: Phase 4 context gathered (preview); ready to plan
+last_updated: "2026-06-15T13:37:24.615Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
@@ -64,6 +64,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T12:57:26.856Z
-Stopped at: Completed 06-03-PLAN.md
-Resume file: None
+Last session: 2026-06-15T13:37:24.610Z
+Stopped at: Phase 4 context gathered (preview); ready to plan
+Resume file: .planning/phases/04-preview-open-on-device/04-CONTEXT.md
