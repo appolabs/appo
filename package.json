@@ -3,6 +3,25 @@
   "version": "0.1.0",
   "description": "Appo CLI — create and manage native apps from your terminal or an agent.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appolabs/appo.git"
+  },
+  "homepage": "https://github.com/appolabs/appo#readme",
+  "bugs": {
+    "url": "https://github.com/appolabs/appo/issues"
+  },
+  "keywords": [
+    "appo",
+    "cli",
+    "mobile",
+    "app-store",
+    "publishing",
+    "ship",
+    "ios",
+    "android"
+  ],
+  "author": "Appolabs",
   "type": "module",
   "bin": {
     "appo": "bin/appo.mjs"
@@ -12,12 +31,14 @@
     "test:integration": "vitest run test/integration/",
     "test:watch": "vitest",
     "lint": "eslint --ext .mjs,.js bin/ src/ test/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test"
   },
   "files": [
     "bin",
     "src",
-    "README.md"
+    "README.md",
+    "llms.txt"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -28,5 +49,8 @@
     "eslint-config-prettier": "^9.1.2",
     "typescript": "^5.9.3",
     "vitest": "^1.6.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
