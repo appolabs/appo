@@ -621,7 +621,7 @@ the user's first publish; that's expected and not a blocker for building/verifyi
 | A3 | Numeric `x.y.z` split is sufficient for version compare (no pre-release tags in our versioning) | Pattern 3 / Don't Hand-Roll | Low — releases are auto patch-bumped `x.y.z`; if pre-release tags are ever introduced, revisit |
 | A4 | npm trusted publishing requires the package to already exist before registration (first publish may need a manual/token publish) | Open Questions / Pitfall 3 | Medium — affects the user's documented first-release runbook; does NOT affect the executor (out of scope) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **First publish under trusted publishing**
    - What we know: npm docs say "Your package must already exist on npm" to configure a trusted publisher;
@@ -630,18 +630,21 @@ the user's first publish; that's expected and not a blocker for building/verifyi
      or whether the very first `@appolabs/appo` publish must be done manually with a token, THEN trusted
      publishing registered for subsequent releases. The docs in this session did not state the first-publish
      case explicitly.
-   - Recommendation: Document BOTH paths in the release runbook and let the user choose; the executor does
+   - RESOLVED: Document BOTH paths in the release runbook and let the user choose; the executor does
      neither (D-09). Default guidance: do one manual `npm publish --access public` (or `npm publish` via a
      local OIDC-capable npm) for v0.1.0, then rely on `release.yml` for subsequent patch releases. Confirm
-     with the user before the first release.
+     with the user before the first release. (Threaded into Plan 06-03's RELEASING runbook.)
 
 2. **`update_check` cache key vs `readConfig` legacy-fold**
    - What we know: `readConfig` returns `{ current, profiles }` and folds legacy flat keys; it currently
      drops unknown top-level keys on the next `writeConfig`.
    - What's unclear: whether to extend `readConfig`/`writeConfig` to preserve a top-level `update_check`
      key, or add dedicated `readUpdateCache`/`writeUpdateCache` helpers that round-trip the whole file.
-   - Recommendation: dedicated helpers that read the raw file, mutate only `update_check`, and write back —
-     avoids touching the profile-fold logic and keeps the cache orthogonal to auth state.
+   - RESOLVED: dedicated helpers that read the raw file, mutate only `update_check`, and write back —
+     avoids touching the profile-fold logic and keeps the cache orthogonal to auth state. ADDITIONALLY,
+     to honor the "a profile write never drops the cache" invariant, `readConfig`/`writeProfile` must
+     preserve a top-level `update_check` key (carry it through the normalize→write round-trip) rather
+     than dropping it — see Plan 06-01 (the cache must survive an `init`/`login`/`set-name` profile write).
 
 ## Project Constraints (from CLAUDE.md)
 
