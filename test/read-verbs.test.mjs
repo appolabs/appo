@@ -104,6 +104,17 @@ test('rejection 404 with --json does NOT print "No active rejection" (envelope p
   assert.deepEqual(JSON.parse(out), env);
 });
 
+// IN-04: a non-404 error under --json must still emit the raw envelope verbatim
+// (D-08), not fall through to the human renderError line.
+test('rejection 500 with --json emits the envelope verbatim and returns 1 (IN-04)', async () => {
+  stubToken();
+  const env = { error: 'server_error', code: 'internal', message: 'boom' };
+  installMockFetch({ status: 500, body: env });
+  const { result, lines } = await captureLog(() => run(['rejection', '7', '--json', ...API]));
+  assert.equal(result, 1);
+  assert.deepEqual(JSON.parse(lines.join('')), env);
+});
+
 test('rejection missing id returns 2', async () => {
   stubToken();
   const original = console.error;
@@ -137,6 +148,16 @@ test('fix-recipe 404 in human mode reads as "No active rejection" and returns 1'
   const { result, lines } = await captureLog(() => run(['fix-recipe', '7', ...API]));
   assert.equal(result, 1);
   assert.match(lines.join('\n'), /No active rejection/);
+});
+
+// IN-04: same envelope-passthrough guarantee for fix-recipe under --json.
+test('fix-recipe 500 with --json emits the envelope verbatim and returns 1 (IN-04)', async () => {
+  stubToken();
+  const env = { error: 'server_error', code: 'internal', message: 'boom' };
+  installMockFetch({ status: 500, body: env });
+  const { result, lines } = await captureLog(() => run(['fix-recipe', '7', '--json', ...API]));
+  assert.equal(result, 1);
+  assert.deepEqual(JSON.parse(lines.join('')), env);
 });
 
 test('fix-recipe missing id returns 2', async () => {

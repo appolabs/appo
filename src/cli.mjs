@@ -293,7 +293,8 @@ export async function run(argv) {
           printRejection(unwrap(res));
           return 0;
         } catch (err) {
-          if (err.status === 404 && flags.json) { console.log(JSON.stringify(err.envelope)); return 1; }
+          // D-08: --json always emits the raw envelope verbatim (any status, not just 404).
+          if (flags.json && err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
           if (err.status === 404) { console.log('No active rejection for this app.'); return 1; }
           throw err;
         }
@@ -308,7 +309,8 @@ export async function run(argv) {
           for (const r of recipes) printRecipe(r);
           return 0;
         } catch (err) {
-          if (err.status === 404 && flags.json) { console.log(JSON.stringify(err.envelope)); return 1; }
+          // D-08: --json always emits the raw envelope verbatim (any status, not just 404).
+          if (flags.json && err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
           if (err.status === 404) { console.log('No active rejection for this app.'); return 1; }
           throw err;
         }
