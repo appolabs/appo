@@ -4,14 +4,14 @@ milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
 stopped_at: Phase 4 context gathered (preview); ready to plan
-last_updated: "2026-06-15T13:59:45.145Z"
-last_activity: 2026-06-15 -- Phase 04 execution started
+last_updated: "2026-06-15T16:09:06.500Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 17
-  completed_plans: 15
-  percent: 88
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 04 (preview-open-on-device) — EXECUTING
-Plan: 1 of 2
+Phase: 05
+Plan: Not started
 Status: Executing Phase 04
-Last activity: 2026-06-15 -- Phase 04 execution started
+Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
