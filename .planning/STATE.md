@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-06-15T00:56:01.228Z"
-last_activity: 2026-06-15 -- Phase 2 planning complete
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-06-15T00:59:31.453Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 01 — operator-command-parity
+**Current focus:** Phase 02 — appo-ship-orchestrated-lifecycle-killer-feature
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 2
-Plan: Not started
+Phase: 02 (appo-ship-orchestrated-lifecycle-killer-feature) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 2 planning complete
+Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
@@ -45,6 +45,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 01]: [Phase 01]: Read verbs (status/rejection/fix-recipe) at v1 parity; 404-as-state for rejection/fix-recipe in human mode while --json stays verbatim (D-08); status.primary_action is the Phase 2 ship compass.
 - [Phase 01]: Write verbs (build/configure): build POST returns id immediately (D-03, never waits) and rides renderError for prerequisite_failed (D-06); configure PATCHes only supplied fields, 204 -> success line, --json -> null (Pitfall 5/D-08). Neither confirm-gated (reversible).
 - [Phase 01]: Destructive verbs (publish/push/resubmit): client-side confirmGate before any POST (exit 3, no write without --confirm, D-04/D-05/D-07); resubmit credential hard-fail rides shared renderError (D-06); push count omitted pre-send (Pitfall 2); USAGE finalized with all 8 verbs + exit codes (D-10).
+- [Phase 02]: Shared ops layer (src/ops.mjs): one async op per v1 call over apiFetch; Phase 1 create/build(human)/publish refactored onto it (inline apiFetch deleted, single unwrap). build --json and status keep a raw-envelope apiFetch carve-out gated before the op. Zero behavior change — 66/0.
 
 ### Blockers/Concerns
 
@@ -52,6 +53,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-15T00:27:00.235Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-appo-ship-orchestrated-lifecycle-killer-feature/02-CONTEXT.md
+Last session: 2026-06-15T00:59:24.912Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
