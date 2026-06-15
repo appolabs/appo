@@ -221,3 +221,31 @@ test('pollBuild returns timeout when timeoutMs elapses before terminal', async (
   assert.equal(res.outcome, 'timeout');
   assert.equal(res.last_status, 'building');
 });
+
+// WR-01: an empty/non-enveloped 2xx body must NOT throw a raw TypeError — the
+// create result is guarded (|| {}); the run resolves to a controlled exit code.
+test('ship create with empty 2xx body does not throw (WR-01 guard)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 201, body: {} },                                       // create: empty body, no id
+    { status: 422, body: { error: 'prerequisite_failed', code: 'X', message: 'blocked' } },
+  ]);
+  const { result } = await captureLog(() =>
+    run(['ship', '--url', 'https://x', '--name', 'X', '--yes', '--json', ...API]));
+  assert.equal(result, 1);   // blocked, not an uncaught TypeError
+});
+
+// WR-02: on a build-trigger block for an EXISTING-id ship (no create step), the
+// --json ledger must still carry app_id so a consumer can resume.
+test('ship <id> build block surfaces app_id in the --json ledger (WR-02)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 422, body: { error: 'prerequisite_failed', code: 'APPLE_CREDENTIALS_MISSING', message: 'creds required' } },
+  ]);
+  const { result, lines } = await captureLog(() => run(['ship', '7', '--yes', '--json', ...API]));
+  assert.equal(result, 1);
+  const out = JSON.parse(lines.join(''));
+  assert.equal(out.final_state, 'blocked');
+  const block = out.steps.find((s) => s.status === 'blocked');
+  assert.equal(block.app_id, '7');   // resume id present even without a create step
+});

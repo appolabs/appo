@@ -479,9 +479,9 @@ export async function run(argv) {
         // In --json mode a thrown prerequisite_failed/conflict is caught locally so
         // ONE ledger object still emits (D-12). In human mode, rethrow to the
         // top-level catch -> renderError (Blocked/Next lines).
-        const handleBlock = (err, step) => {
+        const handleBlock = (err, step, extra = {}) => {
           if (!json) throw err;
-          record({ step, status: 'blocked', code: err.envelope?.code, message: err.message });
+          record({ step, status: 'blocked', code: err.envelope?.code, message: err.message, ...extra });
           return finish('blocked', EXIT.blocked);
         };
 
@@ -496,7 +496,7 @@ export async function run(argv) {
               metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
             });
           } catch (err) { return handleBlock(err, 'create'); }
-          appId = app.id;
+          appId = (app || {}).id;
           record({ step: 'create', status: 'ok', app_id: appId });
           log(`> create ... ok app #${appId}`);
         }
@@ -508,9 +508,9 @@ export async function run(argv) {
           build = await ops.triggerBuild(apiBase, appId, { platform: flags.platform, branch: flags.branch });
         } catch (err) {
           if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
-          return handleBlock(err, 'build');
+          return handleBlock(err, 'build', { app_id: appId });
         }
-        const buildId = build.id;
+        const buildId = (build || {}).id;
         record({ step: 'build', status: 'ok', build_id: buildId });
         log(`> build #${buildId} ... ${build.status}`);
 
@@ -548,7 +548,7 @@ export async function run(argv) {
         log(`> publish ...`);
         try {
           await ops.publishApp(apiBase, appId, stores);   // 204 == success; 409/422 throw
-        } catch (err) { return handleBlock(err, 'publish'); }
+        } catch (err) { return handleBlock(err, 'publish', { app_id: appId }); }
         record({ step: 'publish', status: 'ok', target_stores: stores });
         log(`ok shipped: ${stores.join(', ')}`);
         return finish('shipped', EXIT.shipped);
