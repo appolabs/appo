@@ -14,8 +14,10 @@ Usage:
   appo apps set-name <id> <name>  Update an app's name
 
 Lifecycle:
-  (commands added in this phase: status, build, configure, rejection,
-   fix-recipe, publish, push, resubmit)
+  appo status <id> [--build <buildId>]   App overview (or one build's status)
+  appo rejection <id>                     Show the active App Store rejection
+  appo fix-recipe <id>                    Show the fix recipe for a rejection
+  (more added in this phase: build, configure, publish, push, resubmit)
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -61,6 +63,47 @@ function printApp(app) {
 
 function unwrap(payload) {
   return payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
+}
+
+/** Curated render of a build (AppBuildResource). Prints EXACT v1 field names —
+ *  no renames (no-drift non-negotiable). Reuses the aligned line(k,v) idiom. */
+function printBuild(b) {
+  if (!b) return;
+  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
+  line('id', b.id);
+  line('platform', b.platform);
+  line('status', b.status);
+  line('distribution', b.distribution);
+  line('created_at', b.created_at);
+  line('started_at', b.started_at);
+  line('finished_at', b.finished_at);
+  line('artifact_url', b.artifact_url);
+  line('error_message', b.error_message);
+}
+
+/** Curated render of a rejection (AppRejectionResource — two-field allowlist). */
+function printRejection(d) {
+  if (!d) return;
+  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
+  line('status', d.status);
+  line('required_action', d.required_action);
+}
+
+/** Curated render of one fix recipe (AppRecipeResource item). Prints slug/fix_type
+ *  then the agent_steps and limitations string arrays, one per line, indented. */
+function printRecipe(r) {
+  if (!r) return;
+  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
+  line('slug', r.slug);
+  line('fix_type', r.fix_type);
+  if (Array.isArray(r.agent_steps) && r.agent_steps.length) {
+    console.log('  agent_steps:');
+    for (const s of r.agent_steps) console.log(`    - ${s}`);
+  }
+  if (Array.isArray(r.limitations) && r.limitations.length) {
+    console.log('  limitations:');
+    for (const l of r.limitations) console.log(`    - ${l}`);
+  }
 }
 
 /** Human-readable preview of a pending destructive write (publish/push/resubmit).
@@ -192,6 +235,47 @@ export async function run(argv) {
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);
         return 2;
+      }
+
+      case 'status': {
+        if (!sub) { console.error('Usage: appo status <id> [--build <buildId>]'); return 2; }
+        const path = flags.build
+          ? `/api/v1/apps/${sub}/builds/${flags.build}`
+          : `/api/v1/apps/${sub}`;
+        const res = await apiFetch(apiBase, 'GET', path);
+        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+        const d = unwrap(res);
+        if (flags.build) printBuild(d); else printApp(d);
+        return 0;
+      }
+
+      case 'rejection': {
+        if (!sub) { console.error('Usage: appo rejection <id>'); return 2; }
+        try {
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection`);
+          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+          printRejection(unwrap(res));
+          return 0;
+        } catch (err) {
+          if (err.status === 404 && flags.json) { console.log(JSON.stringify(err.envelope)); return 1; }
+          if (err.status === 404) { console.log('No active rejection for this app.'); return 1; }
+          throw err;
+        }
+      }
+
+      case 'fix-recipe': {
+        if (!sub) { console.error('Usage: appo fix-recipe <id>'); return 2; }
+        try {
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection/recipe`);
+          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+          const recipes = unwrap(res) || [];
+          for (const r of recipes) printRecipe(r);
+          return 0;
+        } catch (err) {
+          if (err.status === 404 && flags.json) { console.log(JSON.stringify(err.envelope)); return 1; }
+          if (err.status === 404) { console.log('No active rejection for this app.'); return 1; }
+          throw err;
+        }
       }
 
       default:
