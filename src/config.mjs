@@ -38,16 +38,16 @@ export function readConfig() {
     }
   }
 
-  if (!raw.profiles && (raw.token || raw.api_base)) {
-    return {
-      current: 'default',
-      profiles: { default: { api_base: raw.api_base ?? null, token: raw.token ?? null } },
-    };
+  const profiles = raw.profiles && typeof raw.profiles === 'object' ? { ...raw.profiles } : {};
+
+  // Legacy flat shape: top-level token/api_base fold into profiles.default. This
+  // also covers a hybrid object that carries both flat keys and a profiles map
+  // without an explicit default (so an existing user is never logged out).
+  if ((raw.token || raw.api_base) && !profiles.default) {
+    profiles.default = { api_base: raw.api_base ?? null, token: raw.token ?? null };
   }
-  if (!raw.profiles) {
-    return { current: raw.current ?? 'default', profiles: {} };
-  }
-  return { current: raw.current ?? 'default', profiles: raw.profiles };
+
+  return { current: raw.current ?? 'default', profiles };
 }
 
 /** Persist config, creating the config dir with owner-only perms (tokens live here). */

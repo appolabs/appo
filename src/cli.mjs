@@ -1,4 +1,4 @@
-import { resolveApiBase, clearConfig, readConfig } from './config.mjs';
+import { resolveApiBase, clearConfig, storedToken } from './config.mjs';
 import { login } from './login.mjs';
 import { apiFetch } from './api.mjs';
 import * as ops from './ops.mjs';
@@ -285,8 +285,7 @@ export async function run(argv) {
         return 0;
 
       case 'whoami': {
-        const cfg = readConfig();
-        if (!cfg.token) {
+        if (!storedToken()) {
           console.log('Not authenticated. Run `appo login`.');
           return 1;
         }
