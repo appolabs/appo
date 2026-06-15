@@ -54,7 +54,10 @@ Plans:
   2. Progress is streamed step-by-step; the publish step honors the confirm-gate (or an explicit `--yes`)
   3. The command stops with a clear, actionable message when a step blocks (e.g. missing Apple credential, rejection) — never a raw error or a half-finished silent state
   4. `--json` emits a structured per-step result; exit code reflects the final lifecycle state
-**Plans**: TBD (run /gsd-plan-phase 2)
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — Foundation: extract src/ops.mjs transport layer; refactor Phase 1 create/build/publish cases onto it (no behavior change; delete inline apiFetch duplication)
+- [ ] 02-02-PLAN.md — The `ship` orchestrator: case 'ship' (create→build→poll→publish), injectable-sleep poll loop, step ledger + --json, confirm-gate, exit-code mapping, USAGE, test/ship.test.mjs
 
 ### Phase 3: Auth & config hardening
 
