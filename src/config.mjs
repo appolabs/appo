@@ -104,10 +104,15 @@ export function storedToken(env = activeProfileName()) {
 /** Merge a patch into a profile, leaving sibling profiles untouched (no clobber). */
 export function writeProfile(env, patch) {
   const cfg = readConfig();
-  cfg.profiles[env] = { ...(cfg.profiles[env] || {}), ...patch };
-  if (!cfg.current) {
+  // First profile ever written activates itself: a fresh config defaults to
+  // current='default' (readConfig never returns it falsy), so checking for a
+  // falsy current is dead. Instead detect an empty profiles map — the very
+  // first `login --env staging` should make 'staging' current, not leave
+  // 'default' active (which would resolve to an empty, "No token" profile).
+  if (Object.keys(cfg.profiles).length === 0) {
     cfg.current = env;
   }
+  cfg.profiles[env] = { ...(cfg.profiles[env] || {}), ...patch };
   writeConfig(cfg);
 }
 

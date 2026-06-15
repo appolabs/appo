@@ -87,6 +87,24 @@ test('no clobber: writeProfile adds a profile without touching siblings', () => 
   assert.deepEqual(cfg.profiles.staging, { api_base: 'http://staging.local', token: 's-tok' });
 });
 
+test('first profile activates itself: writeProfile on an empty config sets current', () => {
+  // First-ever `login --env staging` must make 'staging' the active profile, so
+  // a subsequent bare `whoami` resolves to it (not the empty 'default' profile).
+  writeProfile('staging', { api_base: 'http://staging.local', token: 's-tok' });
+
+  assert.equal(readConfig().current, 'staging');
+});
+
+test('non-first writeProfile leaves current untouched', () => {
+  writeConfig({
+    current: 'production',
+    profiles: { production: { api_base: 'http://prod.local', token: 'p-tok' } },
+  });
+  writeProfile('staging', { api_base: 'http://staging.local', token: 's-tok' });
+
+  assert.equal(readConfig().current, 'production');
+});
+
 test('activeProfileName precedence: --env > APPO_ENV > current > default', () => {
   writeConfig({ current: 'production', profiles: {} });
 
