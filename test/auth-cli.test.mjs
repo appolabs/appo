@@ -209,6 +209,20 @@ test('env use <name> sets current; unknown -> 2; missing -> 2', async () => {
   assert.equal(missing, 2);
 });
 
+// --- value-less / empty flag guards (exit 2) ------------------------------
+
+test('--env= (empty value) is a usage error, exit 2', async () => {
+  assert.equal(await silentRun(['whoami', '--env=']), 2);
+});
+
+test('--api= (empty value) is a usage error, exit 2', async () => {
+  assert.equal(await silentRun(['whoami', '--api=']), 2);
+});
+
+test('--token= (empty value) is a usage error, exit 2 (no device flow)', async () => {
+  assert.equal(await silentRun(['login', '--token=']), 2);
+});
+
 // --- --env override (Pitfall 7) -------------------------------------------
 
 test('--env staging overrides current for both token and api_base', async () => {

@@ -281,17 +281,20 @@ export async function run(argv) {
     return 0;
   }
 
-  // A value-less `--api` parses as boolean true; reject it as a usage error (exit 2)
-  // rather than letting resolveApiBase throw an uncaught TypeError outside the try.
-  if (flags.api === true) {
+  // A value-less flag parses as boolean true (`--api`); an explicit empty value
+  // parses as '' (`--api=`). Both are usage errors (exit 2): an empty string is
+  // falsy and would silently fall through to the env/default resolution rather
+  // than honoring the user's intent. Rejecting both keeps the guards consistent
+  // and prevents resolveApiBase from throwing outside the try.
+  if (flags.api === true || flags.api === '') {
     console.error('Usage: --api <url> requires a value');
     return 2;
   }
-  if (flags.env === true) {
+  if (flags.env === true || flags.env === '') {
     console.error('Usage: --env <name> requires a value');
     return 2;
   }
-  if (flags.token === true) {
+  if (flags.token === true || flags.token === '') {
     console.error('Usage: --token <pat> requires a value');
     return 2;
   }
