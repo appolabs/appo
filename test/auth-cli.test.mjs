@@ -188,6 +188,13 @@ test('env list marks the active profile and prints no token', async () => {
   assert.doesNotMatch(out, /stg-tok/);
 });
 
+test('env list on an empty config prints a hint, exit 0', async () => {
+  const { result, lines } = await captureAll(() => run(['env', 'list']));
+
+  assert.equal(result, 0);
+  assert.match(lines.join('\n'), /No environments yet.*appo login/i);
+});
+
 test('env use <name> sets current; unknown -> 2; missing -> 2', async () => {
   writeProfile('staging', { api_base: 'http://stg.local', token: 'stg-tok' });
 

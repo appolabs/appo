@@ -369,6 +369,10 @@ export async function run(argv) {
       case 'env': {
         const cfg = readConfig();
         if (sub === 'list' || sub === undefined) {
+          if (Object.keys(cfg.profiles).length === 0) {
+            console.log('No environments yet. Run `appo login`.');
+            return 0;
+          }
           for (const [name, p] of Object.entries(cfg.profiles)) {
             const mark = name === cfg.current ? '*' : ' ';
             console.log(`  ${mark} ${name.padEnd(16)} ${p.api_base ?? '(default)'}`); // never the token
