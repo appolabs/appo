@@ -10,6 +10,7 @@ import { login, loginWithToken } from './login.mjs';
 import { apiFetch } from './api.mjs';
 import * as ops from './ops.mjs';
 import { unwrap } from './ops.mjs';
+import { renderQr } from './qr.mjs';
 import { createRequire } from 'node:module';
 import { runUpgrade } from './upgrade.mjs';
 
@@ -38,6 +39,7 @@ Lifecycle:
   appo ship <id> [--yes]                  Build an existing app and publish it
   appo ship --url <u> --name <n> [--stores <list>] [--platform ios|android|all] [--timeout <s>] [--yes]   Create -> build -> poll -> publish in one command
   appo status <id> [--build <buildId>]   App overview (or one build's status)
+  appo preview <id>              Show preview target (TestFlight/deeplink + QR)
   appo build <id> [--platform ios|android|all] [--branch <ref>]   Trigger a build (returns immediately)
   appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]   Update app fields
   appo rejection <id>                     Show the active App Store rejection
@@ -169,6 +171,29 @@ function printRecipe(r) {
   if (Array.isArray(r.limitations) && r.limitations.length) {
     console.log('  limitations:');
     for (const l of r.limitations) console.log(`    - ${l}`);
+  }
+}
+
+/** Curated render of a preview payload (flat, no {data:} envelope).
+ *  Prints per-platform readiness FIRST, then the three URLs, then the QR (gated on
+ *  readiness). preview_url is never null (backend guarantee); the QR is skipped when
+ *  neither platform is ready — NOT when preview_url is absent (Pitfall 4). */
+function printPreviewPayload(d) {
+  if (!d) return;
+  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
+  const r = d.preview_ready || {};
+  // D-04: readiness lines FIRST, per-platform. preview_ready is {ios:bool, android:bool}.
+  console.log(`  ios                ${r.ios ? 'preview-ready' : 'not preview-ready yet'}`);
+  console.log(`  android            ${r.android ? 'preview-ready' : 'not preview-ready yet'}`);
+  if (r.ios)     line('ios_testflight_url', d.ios_testflight_url);
+  if (r.android) line('android_deeplink',   d.android_deeplink);
+  line('preview_url', d.preview_url);   // always present
+  // D-03 (corrected): gate the QR on READINESS, not on preview_url nullness (it's never null).
+  if (r.ios || r.android) {
+    console.log('');
+    console.log(renderQr(d.preview_url));
+  } else {
+    console.log('  (no preview target yet — build and publish to enable preview)');
   }
 }
 
@@ -520,6 +545,20 @@ export async function run(argv) {
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         const d = unwrap(res);
         if (flags.build) printBuild(d); else printApp(d);
+        return 0;
+      }
+
+      case 'preview': {
+        if (!sub) { console.error('Usage: appo preview <id>'); return 2; }
+        // --json: verbatim flat body (D-05/D-08). Direct apiFetch — never reaches the printer/QR.
+        if (flags.json) {
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/preview`, null, env);
+          console.log(JSON.stringify(res));
+          return 0;
+        }
+        // Human path: 404 throws -> top-level catch -> renderError (exit 1).
+        const d = await ops.getPreview(apiBase, sub, env);
+        printPreviewPayload(d);
         return 0;
       }
 

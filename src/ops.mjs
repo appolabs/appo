@@ -50,3 +50,9 @@ export async function getBuild(apiBase, id, buildId, env) {
 export async function publishApp(apiBase, id, app_stores, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/publish`, { app_stores }, env);
 }
+
+// GET /api/v1/apps/{id}/preview -> 200 { ios_testflight_url, android_deeplink, preview_url, preview_ready }
+// Flat object (no {data:} envelope) — unwrap is a harmless no-op here.
+export async function getPreview(apiBase, id, env) {
+  return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env));
+}
