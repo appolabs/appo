@@ -1,5 +1,12 @@
-import { resolveApiBase, clearConfig, storedToken } from './config.mjs';
-import { login } from './login.mjs';
+import {
+  resolveApiBase,
+  activeProfileName,
+  storedToken,
+  clearProfileToken,
+  setCurrent,
+  readConfig,
+} from './config.mjs';
+import { login, loginWithToken } from './login.mjs';
 import { apiFetch } from './api.mjs';
 import * as ops from './ops.mjs';
 import { unwrap } from './ops.mjs';
@@ -8,8 +15,11 @@ const USAGE = `appo — create and manage Appo apps from the terminal
 
 Auth:
   appo login [--api <url>]        Authenticate via the browser (device flow)
-  appo logout                     Forget the stored token
-  appo whoami                     Show the active account + API
+  appo login --token <pat>        Authenticate non-interactively with a dashboard PAT
+  appo logout                     Revoke the token server-side and clear it locally
+  appo whoami                     Show the active environment + API + liveness
+  appo env list                   List configured environments
+  appo env use <name>             Switch the active environment
 
 Apps:
   appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
@@ -31,6 +41,8 @@ Lifecycle:
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
+  --env <name>   Select the environment/profile (env: APPO_ENV)
+  --token <pat>  Personal access token for \`login --token\` (never stored elsewhere)
   --json         Print the raw v1 response body (machine-readable)
   --confirm      Perform the write for a destructive verb (publish/push/resubmit)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm for ship)
@@ -47,6 +59,14 @@ Exit codes:
 
   ship maps these to its final lifecycle state: 0 shipped / 1 blocked or failed /
   2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
+
+Environment variables:
+  APPO_TOKEN     Ephemeral token, highest precedence, never written to disk
+  APPO_ENV       Active environment/profile (overridden by --env)
+  APPO_API_BASE  API base URL (overridden by --api)
+
+  Create a PAT in the dashboard, then \`appo login --token <pat>\` or set APPO_TOKEN
+  in your environment (e.g. CI/agents) to authenticate without the browser flow.
 `;
 
 /** Minimal flag parser: collects --key value / --key=value / --flag and
@@ -267,32 +287,107 @@ export async function run(argv) {
     console.error('Usage: --api <url> requires a value');
     return 2;
   }
+  if (flags.env === true) {
+    console.error('Usage: --env <name> requires a value');
+    return 2;
+  }
+  if (flags.token === true) {
+    console.error('Usage: --token <pat> requires a value');
+    return 2;
+  }
 
-  const apiBase = resolveApiBase(flags.api);
+  // Resolve the active env ONCE and thread it everywhere (Pitfall 7): a single
+  // resolution drives token source + api_base + all apiFetch calls, so a verb
+  // can never silently act on the wrong profile.
+  const env = activeProfileName(flags.env);
+  const apiBase = resolveApiBase(flags.api, env);
   const [command, sub, ...rest] = positional;
 
   try {
     switch (command) {
       case 'login': {
-        const { apiBase: base } = await login(apiBase);
-        console.log(`\n  Authenticated. Connected to ${base}.\n`);
+        // Non-interactive branch: validate the pasted PAT (loginWithToken probes
+        // GET /api/v1/apps with THIS token) then store it. The PAT is NEVER echoed.
+        if (typeof flags.token === 'string' && flags.token) {
+          try {
+            await loginWithToken(apiBase, env, flags.token);
+          } catch (err) {
+            if (err.status === 401) {
+              console.error(`Token rejected by ${apiBase} — not stored.`);
+              return 1;
+            }
+            throw err; // network/other → top-level renderError
+          }
+          console.log(`Stored token for env '${env}' (${apiBase}).`);
+          return 0;
+        }
+        const { apiBase: base } = await login(apiBase, env);
+        console.log(`\n  Authenticated env '${env}'. Connected to ${base}.\n`);
         return 0;
       }
 
-      case 'logout':
-        clearConfig();
-        console.log('Logged out — token forgotten.');
+      case 'logout': {
+        // Revoke server-side then ALWAYS clear locally (D-10/D-11). The finally
+        // clear is load-bearing: a 401 (token already dead) or a network failure
+        // must still remove the local token. The failure warning goes to
+        // console.error (auditable, captured) and never contains a token.
+        try {
+          await apiFetch(apiBase, 'DELETE', '/api/v1/user/tokens/current', null, env);
+          console.log(`Logged out of '${env}' — token revoked server-side and cleared.`);
+        } catch (err) {
+          console.error(`Could not confirm server-side revocation for '${env}' (${err.message}). Clearing local token anyway.`);
+        } finally {
+          clearProfileToken(env); // sibling profiles untouched
+        }
         return 0;
+      }
 
       case 'whoami': {
-        if (!storedToken()) {
-          console.log('Not authenticated. Run `appo login`.');
+        if (!storedToken(env)) {
+          console.log(`No token for env '${env}'. Run \`appo login\`.`);
           return 1;
         }
-        // Hit a cheap authenticated endpoint to prove the token is live.
-        const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps'));
-        console.log(`Authenticated against ${apiBase} — ${Array.isArray(apps) ? apps.length : 0} app(s).`);
-        return 0;
+        try {
+          // GET /api/v1/apps doubles as the liveness probe + app count. No v1
+          // self-identity endpoint exists (backend gap, D-12) — report env +
+          // api_base + count only. The token is NEVER printed.
+          const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
+          const line = (k, v) => console.log(`  ${k.padEnd(18)} ${v}`);
+          line('env', env);
+          line('api_base', apiBase);
+          line('status', `authenticated — ${apps.length} app(s)`);
+          return 0;
+        } catch (err) {
+          if (err.status === 401) {
+            console.log(`env '${env}': token rejected — run \`appo login\`.`);
+            return 1;
+          }
+          throw err;
+        }
+      }
+
+      case 'env': {
+        const cfg = readConfig();
+        if (sub === 'list' || sub === undefined) {
+          for (const [name, p] of Object.entries(cfg.profiles)) {
+            const mark = name === cfg.current ? '*' : ' ';
+            console.log(`  ${mark} ${name.padEnd(16)} ${p.api_base ?? '(default)'}`); // never the token
+          }
+          return 0;
+        }
+        if (sub === 'use') {
+          const name = rest[0];
+          if (!name) { console.error('Usage: appo env use <name>'); return 2; }
+          if (!cfg.profiles[name]) {
+            console.error(`No such env '${name}'. Run \`appo login --env ${name}\` first.`);
+            return 2;
+          }
+          setCurrent(name);
+          console.log(`Active env: ${name}.`);
+          return 0;
+        }
+        console.error(`Unknown env subcommand: ${sub}`);
+        return 2;
       }
 
       case 'apps': {
@@ -310,7 +405,7 @@ export async function run(argv) {
           return 0;
         }
         if (sub === 'list') {
-          const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps')) || [];
+          const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
           if (apps.length === 0) {
             console.log('No apps yet. Create one: appo apps create --name <n> --url <u>');
             return 0;
@@ -325,7 +420,7 @@ export async function run(argv) {
             console.error('Usage: appo apps show <id>');
             return 2;
           }
-          const app = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${rest[0]}`));
+          const app = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${rest[0]}`, null, env));
           printApp(app);
           return 0;
         }
@@ -334,7 +429,7 @@ export async function run(argv) {
             console.error('Usage: appo apps set-name <id> <name>');
             return 2;
           }
-          await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${rest[0]}`, { name: rest.slice(1).join(' ') });
+          await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${rest[0]}`, { name: rest.slice(1).join(' ') }, env);
           console.log(`Updated app ${rest[0]}.`);
           return 0;
         }
@@ -347,7 +442,7 @@ export async function run(argv) {
         const path = flags.build
           ? `/api/v1/apps/${sub}/builds/${flags.build}`
           : `/api/v1/apps/${sub}`;
-        const res = await apiFetch(apiBase, 'GET', path);
+        const res = await apiFetch(apiBase, 'GET', path, null, env);
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         const d = unwrap(res);
         if (flags.build) printBuild(d); else printApp(d);
@@ -357,7 +452,7 @@ export async function run(argv) {
       case 'rejection': {
         if (!sub) { console.error('Usage: appo rejection <id>'); return 2; }
         try {
-          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection`);
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection`, null, env);
           if (flags.json) { console.log(JSON.stringify(res)); return 0; }
           printRejection(unwrap(res));
           return 0;
@@ -372,7 +467,7 @@ export async function run(argv) {
       case 'fix-recipe': {
         if (!sub) { console.error('Usage: appo fix-recipe <id>'); return 2; }
         try {
-          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection/recipe`);
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection/recipe`, null, env);
           if (flags.json) { console.log(JSON.stringify(res)); return 0; }
           const recipes = unwrap(res) || [];
           for (const r of recipes) printRecipe(r);
@@ -395,7 +490,7 @@ export async function run(argv) {
           const body = {};
           if (flags.platform) body.platform = flags.platform;   // ios|android|all (server-validated)
           if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
-          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body);
+          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body, env);
           console.log(JSON.stringify(res));
           return 0;
         }
@@ -418,7 +513,7 @@ export async function run(argv) {
         if (flags['injected-css']) body.injected_css = flags['injected-css'];
         if (flags['injected-js'])  body.injected_javascript = flags['injected-js'];
         if (Object.keys(body).length === 0) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]'); return 2; }
-        await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${sub}`, body);   // 204 -> apiFetch returns null
+        await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${sub}`, body, env);   // 204 -> apiFetch returns null
         if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body to passthrough
         console.log(`Updated app ${sub}.`);
         return 0;
@@ -448,7 +543,7 @@ export async function run(argv) {
           note: 'A customer-owned Apple Developer credential is required before resubmitting.',
         });
         if (gated !== null) return gated;                       // exit 3, NO write
-        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/resubmit`);  // 200 { data:{status:'in_review'} }
+        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/resubmit`, null, env);  // 200 { data:{status:'in_review'} }
         // 422 prerequisite_failed (CUSTOMER_ASC_CREDENTIAL_MISSING / INVALID_APP_STATE)
         // propagates to the shared renderError as an actionable Blocked state (D-06).
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
@@ -466,7 +561,7 @@ export async function run(argv) {
         if (flags['target-url'])   body.target_url = flags['target-url'];
         if (flags['image-path'])   body.image_path = flags['image-path'];
         if (flags['scheduled-at']) body.scheduled_at = flags['scheduled-at'];
-        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/push-notifications`, body);  // 201
+        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/push-notifications`, body, env);  // 201
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         // recipients_count is a sibling of `data` (additional) — read off the raw envelope.
         console.log(`Sent to ${res?.recipients_count ?? 0} device(s).`);
