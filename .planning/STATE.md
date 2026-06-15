@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-06-15T02:33:33.564Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-06-15T02:38:59.534Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Milestone: v0.1 CLI Completeness
 Phase: 03 (auth-config-hardening) â€” EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-15
 
@@ -48,6 +48,8 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - [Phase 02]: Shared ops layer (src/ops.mjs): one async op per v1 call over apiFetch; Phase 1 create/build(human)/publish refactored onto it (inline apiFetch deleted, single unwrap). build --json and status keep a raw-envelope apiFetch carve-out gated before the op. Zero behavior change â€” 66/0.
 - [Phase 02]: appo ship orchestrates create->build->poll->publish over the ops layer; reimplements the publish gate decision (wantYes = --yes||--confirm) reusing printPreview, never calls confirmGate; poll terminal states are exactly ready/failed with an injectable-sleep timeout (default 1800s); --json emits one {steps,final_state} object while usage errors stay plain-text exit 2.
 - [Phase 03]: Profile-aware config.mjs: lazy configPath() (defeats ESM import hoisting for APPO_CONFIG_HOME test isolation), read-time legacy fold into profiles.default (no forced re-login), APPO_TOKEN ephemeral precedence never persisted; whoami reads storedToken().
+- [Phase 03]: 401 always emits the env-named, token-free re-login message ahead of the server envelope text (D-09, T-03-06)
+- [Phase 03]: loginWithToken validates a pasted PAT via GET /api/v1/apps before storing; refuses (writes nothing) on 401
 
 ### Blockers/Concerns
 
@@ -55,6 +57,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T02:33:27.455Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-06-15T02:38:52.814Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
