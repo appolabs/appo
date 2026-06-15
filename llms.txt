@@ -1,0 +1,37 @@
+# @appolabs/appo
+
+> The Appo CLI — create and manage native apps from the terminal or an agent.
+
+A thin, dependency-free Node client over the Appo public API (`/api/v1`) and the
+RFC 8628 device-authorization grant. Run the complete Appo app lifecycle —
+create, build, publish, push — from a shell or an agent.
+
+## Quick Start
+
+- [Install](README.md#install)
+- [appo init](README.md#appo-init)
+- [appo ship](README.md#ship)
+
+## Commands
+
+- [appo ship](README.md#ship)
+- [appo init](README.md#appo-init)
+- [appo login / logout / whoami](README.md#auth)
+- [appo env list / env use](README.md#environments)
+- [appo apps create / apps list / apps show / apps set-name](README.md#apps)
+- [appo build](README.md#build)
+- [appo status](README.md#status)
+- [appo configure](README.md#configure)
+- [appo rejection](README.md#rejection)
+- [appo fix-recipe](README.md#fix-recipe)
+- [appo publish](README.md#publish)
+- [appo push](README.md#push)
+- [appo resubmit](README.md#resubmit)
+- [appo upgrade / --version](README.md#upgrade)
+
+## Reference
+
+- [Environment variables](README.md#environment-variables)
+- [Exit codes](README.md#exit-codes)
+- [Non-interactive / CI auth](README.md#ci-auth)
+- [Releasing](README.md#releasing)
