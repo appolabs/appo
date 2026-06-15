@@ -321,7 +321,7 @@ export async function run(argv) {
         if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
         const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body);
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
-        const b = unwrap(res);
+        const b = unwrap(res) || {};
         // D-03: never poll/wait — return the id immediately. A 422 prerequisite_failed
         // (APP_BLOCKED etc.) propagates to the top-level renderError (D-06 actionable block).
         console.log(`Build #${b.id} started (${b.platform}). Poll: appo status ${sub} --build ${b.id}`);
@@ -389,7 +389,7 @@ export async function run(argv) {
         const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/push-notifications`, body);  // 201
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         // recipients_count is a sibling of `data` (additional) — read off the raw envelope.
-        console.log(`Sent to ${res.recipients_count} device(s).`);
+        console.log(`Sent to ${res?.recipients_count ?? 0} device(s).`);
         return 0;
       }
 

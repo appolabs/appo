@@ -285,6 +285,17 @@ test('-- sentinel ends option parsing (WR-02)', async () => {
   assert.match(req.path, /\/api\/v1\/apps\/7$/);
 });
 
+// IN-02: a 2xx with no recipients_count must not throw — report 0.
+test('push with an empty 2xx body reports 0 device(s) without throwing (IN-02)', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: null });
+  const { result, lines } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', '--confirm', ...API]),
+  );
+  assert.equal(result, 0);
+  assert.match(lines.join('\n'), /Sent to 0 device\(s\)\./);
+});
+
 test('push missing --title returns 2', async () => {
   stubToken();
   const result = await silentRun(['push', '7', '--body', 'There', ...API]);

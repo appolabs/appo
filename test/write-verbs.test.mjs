@@ -104,6 +104,15 @@ test('build prerequisite_failed (APP_BLOCKED) returns 1', async () => {
   }
 });
 
+// IN-02: a 2xx with an empty/unexpected body must not throw a TypeError.
+test('build with an empty 2xx body returns 0 without throwing (IN-02)', async () => {
+  stubToken();
+  installMockFetch({ status: 202, body: null });
+  const { result, lines } = await captureLog(() => run(['build', '7', ...API]));
+  assert.equal(result, 0);
+  assert.match(lines.join('\n'), /Build #undefined started/);
+});
+
 test('build missing id returns 2', async () => {
   stubToken();
   const result = await silentRun(['build', ...API]);
