@@ -89,7 +89,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 04-01-PLAN.md — Vendor dependency-free QR encoder (Nayuki, MIT) as src/qr.mjs + renderQr half-block renderer + unit tests
-- [ ] 04-02-PLAN.md — `appo preview` verb: ops.getPreview + case 'preview' + readiness/QR printer + integration tests + README/llms.txt/docs.test fix
+- [x] 04-02-PLAN.md — `appo preview` verb: ops.getPreview + case 'preview' + readiness/QR printer + integration tests + README/llms.txt/docs.test fix
 
 ### Phase 5: Test suite & CI
 
