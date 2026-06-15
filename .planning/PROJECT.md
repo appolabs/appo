@@ -6,6 +6,14 @@
 
 ## Current State
 
+Phase 3 complete (auth & config hardening, CLI-02 + CLI-07 validated): `~/.appo/config.json` is now a
+multi-environment profiles store (lazy path; legacy flat config auto-folds with no forced logout;
+`--env` > `APPO_ENV` > `current` > `default`, no clobbering). `appo logout` revokes the PAT server-side
+(`DELETE /api/v1/user/tokens/current`) and always clears locally. Non-interactive auth lands: `APPO_TOKEN`
+(ephemeral, never written) and `appo login --token <pat>` (validate-then-store) authenticate headless for
+CI — so `appo ship` runs without a browser. `appo whoami` reports active env + api_base + liveness;
+`appo env list`/`env use` manage profiles. PAT never logged; ops calls honor `--env`. 116 `node:test` cases green.
+
 Phase 2 complete (the killer feature, CLI-06 validated): `appo ship` takes an app from zero to
 submitted in one command — `appo ship --url <u> --name <n>` (or `appo ship <id>`) runs
 create → build → poll → publish, streaming each step and stopping cleanly on the first blocking step
@@ -34,4 +42,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-15 — Phase 2 complete (appo ship killer feature)*
+*Last updated: 2026-06-15 — Phase 3 complete (auth & config hardening)*
