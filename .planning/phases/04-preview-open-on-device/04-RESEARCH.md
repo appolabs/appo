@@ -385,19 +385,20 @@ qr.getModule(x, y);      // boolean — true = dark module, false = light
 
 **All other claims are VERIFIED (by reading apps-web-app + appo source) or CITED (official QR/library docs).**
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact `preview` route URL format / typical length**
    - What we know: `derivePreviewUrl()` returns `route('preview', ['token' => $token])` — a path + token.
    - What's unclear: the host + token length in the target environment (drives QR version).
-   - Recommendation: During implementation, encode a real `preview_url` from a dev app and assert the
-     module count is bounded (e.g. `qr.size <= 45`) in the QR unit test; pick ECC M to minimize version.
+   - RESOLVED: use ECC M; the QR unit test encodes a representative `preview_url` and asserts a bounded
+     module count (`qr.size <= 45`). (Plan 04-01 Task 2.)
 
 2. **ANSI contrast vs. inverted mapping (D-02 discretion)**
    - What we know: terminal QR libs force bg/fg to guarantee scanning regardless of theme.
    - What's unclear: which reads cleaner across the terminals Appo users use.
-   - Recommendation: implement forced-contrast (wrap each row in white-bg/black-fg + reset), verify a
-     real phone scan, keep the un-wrapped matrix available for the snapshot test (test the matrix, not the ANSI).
+   - RESOLVED: forced-contrast — wrap each row in ANSI white-bg/black-fg + reset; `renderQr` returns the
+     BARE (un-ANSI) matrix and the printer applies contrast, so the snapshot test pins the matrix not the
+     ANSI. Real phone-scan check is the Manual-Only verification (D-02). (Plan 04-01 Task 2.)
 
 ## Environment Availability
 
