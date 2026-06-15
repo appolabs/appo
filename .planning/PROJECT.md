@@ -6,7 +6,14 @@
 
 ## Current State
 
-Phase 1 complete (operator command parity, CLI-01 validated): the full publishing-operator surface — `build`, `status` (+`--build`), `publish`, `push`, `configure`, `rejection`, `fix-recipe`, `resubmit` — ships at parity with the 10 AppoServer MCP tools and `/api/v1`. Destructive verbs are confirm-gated (no write without `--confirm`, exit 3); every verb supports `--json` and the documented 0/1/2/3 exit codes; `--help` enumerates the surface. 58 `node:test` cases green.
+Phase 2 complete (the killer feature, CLI-06 validated): `appo ship` takes an app from zero to
+submitted in one command — `appo ship --url <u> --name <n>` (or `appo ship <id>`) runs
+create → build → poll → publish, streaming each step and stopping cleanly on the first blocking step
+(missing credential, build failure, rejection). It composes a shared `src/ops.mjs` transport layer
+(no duplicated API logic); the publish step honors the confirm-gate (`--yes`, exit 3); `--json` emits
+one `{steps, final_state}` object with a lifecycle-aware exit code (0 shipped / 3 gated / 1 blocked|failed / 2 usage).
+
+Phase 1 complete (operator command parity, CLI-01 validated): the full publishing-operator surface — `build`, `status` (+`--build`), `publish`, `push`, `configure`, `rejection`, `fix-recipe`, `resubmit` — at parity with the 10 AppoServer MCP tools and `/api/v1`; destructive verbs confirm-gated, every verb `--json` + documented 0/1/2/3 exit codes. 80 `node:test` cases green across both phases.
 
 Prior: MVP (bootstrap commit) — `appo login` (browser device flow), `apps create/list/show/set-name`, `whoami`, `logout`. Dependency-free Node ≥18. Backend (device grant + `/api/v1` + MCP `create_app`) already live in apps-web-app.
 
@@ -27,4 +34,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-15 — Phase 1 complete (operator command parity)*
+*Last updated: 2026-06-15 — Phase 2 complete (appo ship killer feature)*
