@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-06-15T12:48:41.890Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-06-15T12:53:03.839Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 14
+  percent: 93
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Milestone: v0.1 CLI Completeness
 Phase: 06 (packaging-docs-release) â€” EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-15
 
@@ -55,6 +55,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - [Phase 05]: Migrated all 9 node:test files to vitest split into test/unit (32) + test/integration (90) = 122 cases; ship.test.mjs split 18 -> 4 pollBuild units + 14 run() integration; 2 assert.rejects ported as capture-then-assert (status+message+PAT-leak preserved); added test/helpers/setup.mjs per-worker APPO_CONFIG_HOME isolation to fix the cross-process config race vitest parallel forks exposed; originals deleted (single runner); npm test 122/0, lint+typecheck green.
 - [Phase 05]: GitHub Actions CI mirrors @appolabs/sdk shape with three forced divergences: npm (npm ci) not pnpm, no build step (raw .mjs), Node matrix [18,20,22]; push/PR on main+master; step order lint->typecheck->test; local proxy green at 122/122; live-GitHub-green is the one remaining manual confirmation on first push.
 - [Phase 06]: appo --version/-v + upgrade + daily update-check + idempotent init landed on Node built-ins only (no runtime dep); update_check cache survives profile writes via readConfig carry-through (Open Q2 option a).
+- [Phase 06-packaging-docs-release]: [Phase 06]: package.json publish metadata (publishConfig.access:public + repository/homepage/bugs/keywords/author) + build-free prepublishOnly gate (lint+typecheck+test) + llms.txt in files; release.yml mirrors the SDK trusted-publishing flow on npm (no pnpm, no build, [master,main], npm publish --provenance --access public via id-token). D-09 honored: verified SC1 via npm pack --dry-run only â€” no publish/tag/registration.
 
 ### Blockers/Concerns
 
@@ -62,6 +63,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T12:48:41.887Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-06-15T12:52:55.925Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
