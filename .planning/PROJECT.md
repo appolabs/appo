@@ -6,6 +6,14 @@
 
 ## Current State
 
+Phase 5 complete (test suite & CI, CLI-04 validated): the suite is migrated to **vitest** (122 cases
+across `test/unit/` + `test/integration/`, per-worker config isolation), with **eslint** + a JS
+**typecheck** (`tsc --checkJs`) and a **GitHub Actions** workflow (npm, Node matrix 18/20/22,
+lint→typecheck→test, no build) — matching `@appolabs/sdk` conventions. All tooling is devDependencies
+only; the published CLI stays RUNTIME dependency-free (`dependencies` empty, `files: [bin, src, README]`).
+The live-CI green run is the one pending manual confirmation (needs a push). Milestone v0.1: phases
+1, 2, 3, 5 done; Phase 4 (preview) deferred/blocked on apps-web-app Phase 188; Phase 6 (packaging) next.
+
 Phase 3 complete (auth & config hardening, CLI-02 + CLI-07 validated): `~/.appo/config.json` is now a
 multi-environment profiles store (lazy path; legacy flat config auto-folds with no forced logout;
 `--env` > `APPO_ENV` > `current` > `default`, no clobbering). `appo logout` revokes the PAT server-side
@@ -42,4 +50,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-15 — Phase 3 complete (auth & config hardening)*
+*Last updated: 2026-06-15 — Phase 5 complete (test suite & CI)*
