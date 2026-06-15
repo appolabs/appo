@@ -219,6 +219,23 @@ test('--env staging overrides current for both token and api_base', async () => 
   assert.doesNotMatch(req.url, /prod\.local/);
 });
 
+// WR-01: ops-routed verbs (apps create / build / ship) must also honor --env.
+// The ops.* wrappers previously called apiFetch WITHOUT env, so storedToken()
+// re-resolved to `current` — sending the WRONG profile's token to the --env host.
+test('--env staging is honored by an ops-routed verb (apps create) — WR-01', async () => {
+  writeProfile('production', { api_base: 'http://prod.local', token: 'prod-tok' });
+  writeProfile('staging', { api_base: 'http://stg.local', token: 'stg-tok' });
+  writeConfig({ ...readConfig(), current: 'production' });
+  installMockFetch({ status: 201, body: { data: { id: 9 } } });
+
+  await silentRun(['apps', 'create', '--env', 'staging', '--name', 'X', '--url', 'https://x']);
+
+  const req = lastRequest();
+  assert.equal(req.headers.Authorization, 'Bearer stg-tok');   // staging token, not production's
+  assert.match(req.url, /stg\.local/);
+  assert.doesNotMatch(req.url, /prod\.local/);
+});
+
 // --- login --token (D-07) -------------------------------------------------
 
 test('login --token stores on 200 without echoing the PAT', async () => {

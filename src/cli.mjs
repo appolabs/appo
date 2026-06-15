@@ -222,12 +222,12 @@ const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *  outcome therefore also carries `last_status` (string|undefined) — read that, not
  *  `res.build.*`, when a caller needs the last observed status without a null guard. */
 export async function pollBuild(apiBase, appId, buildId, {
-  intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {},
+  intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {}, env,
 } = {}) {
   const start = Date.now();
   let last = null;
   for (;;) {
-    const build = await ops.getBuild(apiBase, appId, buildId);
+    const build = await ops.getBuild(apiBase, appId, buildId, env);
     const status = build?.status;
     if (status !== last) { onChange(status, build); last = status; }
     if (status === 'ready')  return { outcome: 'ready', build, last_status: status };
@@ -399,7 +399,7 @@ export async function run(argv) {
           const app = await ops.createApp(apiBase, {
             name: flags.name, base_url: flags.url,
             metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
-          });
+          }, env);
           console.log('Created app:');
           printApp(app);
           return 0;
@@ -498,7 +498,7 @@ export async function run(argv) {
         // ops.triggerBuild (shared with the Plan 02 ship orchestrator).
         // D-03: never poll/wait — return the id immediately. A 422 prerequisite_failed
         // (APP_BLOCKED etc.) propagates to the top-level renderError (D-06 actionable block).
-        const b = await ops.triggerBuild(apiBase, sub, { platform: flags.platform, branch: flags.branch }) || {};
+        const b = await ops.triggerBuild(apiBase, sub, { platform: flags.platform, branch: flags.branch }, env) || {};
         console.log(`Build #${b.id} started (${b.platform}). Poll: appo status ${sub} --build ${b.id}`);
         return 0;
       }
@@ -529,7 +529,7 @@ export async function run(argv) {
         if (stores.length === 0) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
         const gated = confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
-        await ops.publishApp(apiBase, sub, stores);             // 204 -> null
+        await ops.publishApp(apiBase, sub, stores, env);        // 204 -> null
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
         console.log(`Publication started for: ${stores.join(', ')}`);
         return 0;
@@ -603,7 +603,7 @@ export async function run(argv) {
             app = await ops.createApp(apiBase, {
               name: flags.name, base_url: flags.url,
               metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
-            });
+            }, env);
           } catch (err) { return handleBlock(err, 'create'); }
           appId = (app || {}).id;
           record({ step: 'create', status: 'ok', app_id: appId });
@@ -614,7 +614,7 @@ export async function run(argv) {
         // before any build exists. Surface app_id for resume on a post-create block.
         let build;
         try {
-          build = await ops.triggerBuild(apiBase, appId, { platform: flags.platform, branch: flags.branch });
+          build = await ops.triggerBuild(apiBase, appId, { platform: flags.platform, branch: flags.branch }, env);
         } catch (err) {
           if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
           return handleBlock(err, 'build', { app_id: appId });
@@ -632,6 +632,7 @@ export async function run(argv) {
         const res = await pollBuild(apiBase, appId, buildId, {
           timeoutMs: timeoutSecs * 1000,
           onChange: (s) => log(`  ${s} -> ...`),
+          env,
         });
         if (res.outcome === 'failed') {
           record({ step: 'build', status: 'failed', build_id: buildId });
@@ -656,7 +657,7 @@ export async function run(argv) {
         }
         log(`> publish ...`);
         try {
-          await ops.publishApp(apiBase, appId, stores);   // 204 == success; 409/422 throw
+          await ops.publishApp(apiBase, appId, stores, env);   // 204 == success; 409/422 throw
         } catch (err) { return handleBlock(err, 'publish', { app_id: appId }); }
         record({ step: 'publish', status: 'ok', target_stores: stores });
         log(`ok shipped: ${stores.join(', ')}`);
