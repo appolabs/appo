@@ -212,6 +212,16 @@ export async function pollBuild(apiBase, appId, buildId, {
   }
 }
 
+/** Preview-safe app id (IN-01): coerce to a number only when the positional id is
+ *  numeric, otherwise echo the raw string the user typed. A bare `Number(sub)` on a
+ *  non-numeric id (typo/slug) surfaces `NaN` in the human preview and the JSON literal
+ *  `null` under --json (JSON.stringify(NaN) === 'null'). The server call always uses the
+ *  raw `sub` in the path, so the preview must echo the requested id faithfully. */
+function previewId(id) {
+  const n = Number(id);
+  return Number.isInteger(n) && String(n) === String(id) ? n : id;
+}
+
 /** Default to both canonical store tokens; map friendly aliases apple/google. */
 function parseStores(raw) {
   if (!raw || raw === true) return ['apple_appstore', 'google_playstore'];
@@ -418,7 +428,7 @@ export async function run(argv) {
         // the length check below rejects a present-but-empty value (e.g. `--stores ,,`).
         const stores = parseStores(flags.stores);
         if (stores.length === 0) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
-        const gated = confirmGate(flags, { will: 'publish', app_id: Number(sub), target_stores: stores });
+        const gated = confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
         await ops.publishApp(apiBase, sub, stores);             // 204 -> null
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
@@ -429,7 +439,7 @@ export async function run(argv) {
       case 'resubmit': {
         if (!sub) { console.error('Usage: appo resubmit <id> --confirm'); return 2; }
         const gated = confirmGate(flags, {
-          will: 'resubmit', app_id: Number(sub),
+          will: 'resubmit', app_id: previewId(sub),
           current_state: 'rejected', target_state: 'in_review',
           note: 'A customer-owned Apple Developer credential is required before resubmitting.',
         });
@@ -446,7 +456,7 @@ export async function run(argv) {
         if (!sub || !flags.title || !flags.body) { console.error('Usage: appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm'); return 2; }
         // Preview OMITS the recipient count — v1 exposes it only post-send (Pitfall 2);
         // no pre-send audience-size leak.
-        const gated = confirmGate(flags, { will: 'send_push', app_id: Number(sub), title: flags.title });
+        const gated = confirmGate(flags, { will: 'send_push', app_id: previewId(sub), title: flags.title });
         if (gated !== null) return gated;                       // exit 3, NO write
         const body = { title: flags.title, body: flags.body };
         if (flags['target-url'])   body.target_url = flags['target-url'];
@@ -539,7 +549,7 @@ export async function run(argv) {
         log(`ok build ready`);
 
         // STEP publish — honor the confirm-gate DECISION (reuses printPreview only).
-        const preview = { will: 'publish', app_id: Number(appId), target_stores: stores };
+        const preview = { will: 'publish', app_id: previewId(appId), target_stores: stores };
         if (!wantYes) {
           if (!json) printPreview(preview);
           record({ step: 'publish', status: 'gated', target_stores: stores });

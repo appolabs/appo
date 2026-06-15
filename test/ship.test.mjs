@@ -222,6 +222,30 @@ test('pollBuild returns timeout when timeoutMs elapses before terminal', async (
   assert.equal(res.last_status, 'building');
 });
 
+// IN-01: a non-numeric id must echo the raw value in the gate preview, never NaN
+// (human) nor the JSON literal null (--json). No write occurs (gate, exit 3).
+test('publish --json gate echoes a non-numeric id verbatim, not null (IN-01)', async () => {
+  stubToken();
+  installMockFetch({ status: 200 });
+  const { result, lines } = await captureLog(() =>
+    run(['publish', 'my-slug', '--stores', 'apple', '--json', ...API]));
+  assert.equal(result, 3);
+  const out = JSON.parse(lines.join(''));
+  assert.equal(out.app_id, 'my-slug');                // raw string, not null
+  assert.equal(requests.filter(r => /\/publish$/.test(r.path)).length, 0);
+});
+
+// IN-01: a numeric id is still coerced to a number in the preview (unchanged path).
+test('publish --json gate coerces a numeric id to a number (IN-01)', async () => {
+  stubToken();
+  installMockFetch({ status: 200 });
+  const { result, lines } = await captureLog(() =>
+    run(['publish', '5', '--stores', 'apple', '--json', ...API]));
+  assert.equal(result, 3);
+  const out = JSON.parse(lines.join(''));
+  assert.equal(out.app_id, 5);                        // number, preserves prior behaviour
+});
+
 // IN-03: the publish verb maps apple/google aliases via the SHARED parseStores
 // (single alias definition). The POST body must still carry canonical tokens.
 test('publish maps apple/google aliases to canonical tokens via parseStores (IN-03)', async () => {
