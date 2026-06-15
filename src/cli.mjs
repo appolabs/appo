@@ -15,9 +15,11 @@ Usage:
 
 Lifecycle:
   appo status <id> [--build <buildId>]   App overview (or one build's status)
+  appo build <id> [--platform ios|android|all] [--branch <ref>]   Trigger a build (returns immediately)
+  appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]   Update app fields
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
-  (more added in this phase: build, configure, publish, push, resubmit)
+  (more added in this phase: publish, push, resubmit)
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -276,6 +278,36 @@ export async function run(argv) {
           if (err.status === 404) { console.log('No active rejection for this app.'); return 1; }
           throw err;
         }
+      }
+
+      case 'build': {
+        if (!sub) { console.error('Usage: appo build <id> [--platform ios|android|all] [--branch <ref>]'); return 2; }
+        const body = {};
+        if (flags.platform) body.platform = flags.platform;   // ios|android|all (server-validated)
+        if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
+        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body);
+        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+        const b = unwrap(res);
+        // D-03: never poll/wait — return the id immediately. A 422 prerequisite_failed
+        // (APP_BLOCKED etc.) propagates to the top-level renderError (D-06 actionable block).
+        console.log(`Build #${b.id} started (${b.platform}). Poll: appo status ${sub} --build ${b.id}`);
+        return 0;
+      }
+
+      case 'configure': {
+        if (!sub) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]'); return 2; }
+        const body = {};
+        if (flags.name)            body.name = flags.name;
+        if (flags.url)             body.base_url = flags.url;
+        if (flags['meta-name'])    body.metadata_name = flags['meta-name'];
+        if (flags['meta-desc'])    body.metadata_description = flags['meta-desc'];
+        if (flags['injected-css']) body.injected_css = flags['injected-css'];
+        if (flags['injected-js'])  body.injected_javascript = flags['injected-js'];
+        if (Object.keys(body).length === 0) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]'); return 2; }
+        await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${sub}`, body);   // 204 -> apiFetch returns null
+        if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body to passthrough
+        console.log(`Updated app ${sub}.`);
+        return 0;
       }
 
       default:
