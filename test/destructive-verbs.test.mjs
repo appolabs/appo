@@ -170,3 +170,91 @@ test('resubmit missing id returns 2', async () => {
   const result = await silentRun(['resubmit', ...API]);
   assert.equal(result, 2);
 });
+
+// --- push (POST -> 201 with recipients_count, confirm-gated) --------------
+
+test('push without --confirm issues NO write and returns 3', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 42 } });
+  const { result } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', ...API]),
+  );
+  assert.equal(result, 3);
+  assert.equal(requests.length, 0); // T-01-13
+});
+
+test('push preview omits the recipient count (Pitfall 2)', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 42 } });
+  const { lines } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', ...API]),
+  );
+  const out = lines.join('\n');
+  assert.doesNotMatch(out, /recipients_count/);
+  assert.doesNotMatch(out, /\b42\b/); // no audience-size leak pre-send
+});
+
+test('push with --confirm POSTs /push-notifications body {title,body} and returns 0', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 42 } });
+  const { result } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', '--confirm', ...API]),
+  );
+  assert.equal(result, 0);
+  const req = lastRequest();
+  assert.equal(req.method, 'POST');
+  assert.match(req.path, /\/api\/v1\/apps\/7\/push-notifications$/);
+  assert.deepEqual(req.body, { title: 'Hi', body: 'There' });
+});
+
+test('push includes optional fields in the body when supplied', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 1 } });
+  await captureLog(() =>
+    run([
+      'push', '7', '--title', 'Hi', '--body', 'There',
+      '--target-url', 'https://x', '--image-path', '/p.png', '--scheduled-at', '2026-07-01T10:00:00Z',
+      '--confirm', ...API,
+    ]),
+  );
+  const req = lastRequest();
+  assert.deepEqual(req.body, {
+    title: 'Hi',
+    body: 'There',
+    target_url: 'https://x',
+    image_path: '/p.png',
+    scheduled_at: '2026-07-01T10:00:00Z',
+  });
+});
+
+test('push human render reads recipients_count off the envelope sibling', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 42 } });
+  const { lines } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', '--confirm', ...API]),
+  );
+  assert.match(lines.join('\n'), /Sent to 42 device\(s\)\./);
+});
+
+test('push --confirm --json prints the full 201 envelope verbatim', async () => {
+  stubToken();
+  const body = { data: { id: 1, title: 'Hi' }, recipients_count: 42 };
+  installMockFetch({ status: 201, body });
+  const { result, lines } = await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body', 'There', '--confirm', '--json', ...API]),
+  );
+  assert.equal(result, 0);
+  assert.deepEqual(JSON.parse(lines.join('')), body);
+});
+
+test('push missing --title returns 2', async () => {
+  stubToken();
+  const result = await silentRun(['push', '7', '--body', 'There', ...API]);
+  assert.equal(result, 2);
+});
+
+test('push missing --body returns 2', async () => {
+  stubToken();
+  const result = await silentRun(['push', '7', '--title', 'Hi', ...API]);
+  assert.equal(result, 2);
+});
