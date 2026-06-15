@@ -247,6 +247,27 @@ test('push --confirm --json prints the full 201 envelope verbatim', async () => 
   assert.deepEqual(JSON.parse(lines.join('')), body);
 });
 
+// WR-02: a value beginning with `--` must be representable, not swallowed as a
+// flag. The `--key=value` form escapes it inline.
+test('push --body=--value sends a body that begins with -- (WR-02 key=value)', async () => {
+  stubToken();
+  installMockFetch({ status: 201, body: { data: { id: 1 }, recipients_count: 1 } });
+  await captureLog(() =>
+    run(['push', '7', '--title', 'Hi', '--body=--see attached', '--confirm', ...API]),
+  );
+  const req = lastRequest();
+  assert.deepEqual(req.body, { title: 'Hi', body: '--see attached' });
+});
+
+// WR-02: the `--` sentinel ends option parsing; later tokens are positional.
+test('-- sentinel ends option parsing (WR-02)', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: { data: { id: 7 } } });
+  await captureLog(() => run(['status', ...API, '--', '7']));
+  const req = lastRequest();
+  assert.match(req.path, /\/api\/v1\/apps\/7$/);
+});
+
 test('push missing --title returns 2', async () => {
   stubToken();
   const result = await silentRun(['push', '7', '--body', 'There', ...API]);

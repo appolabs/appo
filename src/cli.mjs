@@ -38,13 +38,28 @@ Exit codes:
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 `;
 
-/** Minimal flag parser: collects --key value / --flag and positionals. */
+/** Minimal flag parser: collects --key value / --key=value / --flag and
+ *  positionals. A bare `--` ends option parsing — every remaining token is
+ *  positional, so values beginning with `--` are representable either via
+ *  `--key=--value` or after the `--` sentinel (WR-02). */
 function parseArgs(argv) {
   const flags = {};
   const positional = [];
+  let optionsEnded = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) {
+    if (optionsEnded) {
+      positional.push(a);
+      continue;
+    }
+    if (a === '--') {
+      optionsEnded = true;
+    } else if (a.startsWith('--')) {
+      const eq = a.indexOf('=');
+      if (eq !== -1) {
+        flags[a.slice(2, eq)] = a.slice(eq + 1);
+        continue;
+      }
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith('--')) {
