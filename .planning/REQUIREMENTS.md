@@ -4,8 +4,8 @@
 
 - [x] **CLI-01** Operator command parity — `build`, `publish`, `status`, `push`, `configure`, `rejection`, `fix-recipe`, `resubmit` at parity with the `/mcp` AppoServer tools + `/api/v1`; destructive commands confirm-gated; `--json` output + documented exit codes.
 - [x] **CLI-06** `appo ship` — one command runs create → build → status(poll) → publish with streamed progress; the CLI's killer feature. Reuses the CLI-01 command implementations; stops cleanly on the first blocking step.
-- [ ] **CLI-02** Auth & config hardening — token expiry/refresh handling, server-side `logout` revoke, multi-environment profiles.
-- [ ] **CLI-07** Non-interactive auth — `APPO_TOKEN` env and/or `appo login --token <pat>` authenticate without a browser (device flow cannot run headless); required for CI/automation.
+- [x] **CLI-02** Auth & config hardening — token expiry/refresh handling, server-side `logout` revoke, multi-environment profiles.
+- [x] **CLI-07** Non-interactive auth — `APPO_TOKEN` env and/or `appo login --token <pat>` authenticate without a browser (device flow cannot run headless); required for CI/automation.
 - [ ] **CLI-03** Preview / open-on-device — `appo preview` renders a terminal QR + prints TestFlight/deeplink, from the user-PAT preview surface; parity with the `preview_app` MCP tool (apps-web-app Phase 188). Deferrable — off the critical path.
 - [ ] **CLI-04** Test suite & CI — vitest unit + integration (incl. `ship` orchestration), GitHub Actions, lint/typecheck.
 - [ ] **CLI-05** Packaging, docs & release — npm publish `@appolabs/appo` + scaffolder, `appo upgrade`/update-check, README/command-reference/llms.txt.

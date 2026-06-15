@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
-status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-06-15T02:38:59.534Z"
+status: verifying
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-06-15T02:45:44.868Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md
 Milestone: v0.1 CLI Completeness
 Phase: 03 (auth-config-hardening) â€” EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete â€” ready for verification
 Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete â€” device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
@@ -50,6 +50,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - [Phase 03]: Profile-aware config.mjs: lazy configPath() (defeats ESM import hoisting for APPO_CONFIG_HOME test isolation), read-time legacy fold into profiles.default (no forced re-login), APPO_TOKEN ephemeral precedence never persisted; whoami reads storedToken().
 - [Phase 03]: 401 always emits the env-named, token-free re-login message ahead of the server envelope text (D-09, T-03-06)
 - [Phase 03]: loginWithToken validates a pasted PAT via GET /api/v1/apps before storing; refuses (writes nothing) on 401
+- [Phase 03-auth-config-hardening]: CLI auth surface: env resolved once in run() and threaded into resolveApiBase + every apiFetch; logout revokes server-side (DELETE /user/tokens/current) then always clears local in a finally; whoami reports env+api_base+liveness (no token); env list/use + login --token land. Completes CLI-02 + CLI-07.
 
 ### Blockers/Concerns
 
@@ -57,6 +58,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T02:38:52.814Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-06-15T02:45:38.198Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None

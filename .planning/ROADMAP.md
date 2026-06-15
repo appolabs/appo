@@ -74,7 +74,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Foundation: profile-aware src/config.mjs (profiles shape, read-time legacy normalization, --env/APPO_ENV/APPO_TOKEN precedence, writeProfile/clearProfileToken/setCurrent, APPO_CONFIG_HOME test seam) + test/config-profiles.test.mjs
 - [x] 03-02-PLAN.md — Transport + non-interactive auth: env-aware apiFetch (token source + env-named 401) + login.mjs writeProfile write + loginWithToken validate-then-store + test/auth.test.mjs
-- [ ] 03-03-PLAN.md — CLI verb surface: logout server-side revoke (+ finally-clear), whoami enrichment, env list/use, login --token branch, --env wiring, USAGE + test/auth-cli.test.mjs
+- [x] 03-03-PLAN.md — CLI verb surface: logout server-side revoke (+ finally-clear), whoami enrichment, env list/use, login --token branch, --env wiring, USAGE + test/auth-cli.test.mjs
 
 ### Phase 4: Preview / open-on-device *(deferrable — off critical path)*
 
