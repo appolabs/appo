@@ -4,8 +4,8 @@ milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
 stopped_at: Phase 4 context gathered (preview); ready to plan
-last_updated: "2026-06-15T13:53:53.008Z"
-last_activity: 2026-06-15 -- Phase 4 planning complete
+last_updated: "2026-06-15T13:59:45.145Z"
+last_activity: 2026-06-15 -- Phase 04 execution started
 progress:
   total_phases: 6
   completed_phases: 5
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 06 — packaging-docs-release
+**Current focus:** Phase 04 — preview-open-on-device
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 06
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 4 planning complete
+Phase: 04 (preview-open-on-device) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 04
+Last activity: 2026-06-15 -- Phase 04 execution started
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
