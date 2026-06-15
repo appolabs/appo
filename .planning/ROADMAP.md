@@ -40,7 +40,7 @@
 **Plans**: 4 plans
 Plans:
 - [x] 01-01-PLAN.md — Foundation: fetch-stub test helper (Wave 0) + confirmGate() + exit-code-3 + extended error catch
-- [ ] 01-02-PLAN.md — Read verbs: status (+ --build), rejection, fix-recipe + printers
+- [x] 01-02-PLAN.md — Read verbs: status (+ --build), rejection, fix-recipe + printers
 - [ ] 01-03-PLAN.md — Reversible writes: build (async trigger) + configure (PATCH)
 - [ ] 01-04-PLAN.md — Destructive verbs: publish/push/resubmit (confirm-gated) + finalized --help
 
