@@ -310,6 +310,36 @@ export async function run(argv) {
         return 0;
       }
 
+      case 'publish': {
+        if (!sub || !flags.stores) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
+        // --stores is a comma list of canonical AppStore tokens; map friendly
+        // aliases to canonical (RESEARCH Open Q1). Body always sends canonical tokens.
+        const stores = String(flags.stores).split(',').map(s => s.trim())
+          .map(s => s === 'apple' ? 'apple_appstore' : s === 'google' ? 'google_playstore' : s);
+        const gated = confirmGate(flags, { will: 'publish', app_id: Number(sub), target_stores: stores });
+        if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
+        await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/publish`, { app_stores: stores });  // 204
+        if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
+        console.log(`Publication started for: ${stores.join(', ')}`);
+        return 0;
+      }
+
+      case 'resubmit': {
+        if (!sub) { console.error('Usage: appo resubmit <id> --confirm'); return 2; }
+        const gated = confirmGate(flags, {
+          will: 'resubmit', app_id: Number(sub),
+          current_state: 'rejected', target_state: 'in_review',
+          note: 'A customer-owned Apple Developer credential is required before resubmitting.',
+        });
+        if (gated !== null) return gated;                       // exit 3, NO write
+        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/resubmit`);  // 200 { data:{status:'in_review'} }
+        // 422 prerequisite_failed (CUSTOMER_ASC_CREDENTIAL_MISSING / INVALID_APP_STATE)
+        // propagates to the shared renderError as an actionable Blocked state (D-06).
+        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+        console.log('Resubmission started — now in review.');
+        return 0;
+      }
+
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);
