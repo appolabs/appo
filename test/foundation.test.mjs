@@ -69,6 +69,7 @@ test('confirmGate human gated path prints a readable preview + no-write notice',
 });
 
 test('renderError renders prerequisite_failed as actionable block, exit 1', async () => {
+  /** @type {Error & { status?: number, envelope?: unknown }} */
   const err = new Error('Connect your Apple Developer account');
   err.status = 422;
   err.envelope = {

@@ -66,7 +66,7 @@ test('apiFetch 401 names the active env and never leaks the token', async () => 
 
   await assert.rejects(
     () => apiFetch('http://test.local', 'GET', '/api/v1/apps', null, 'production'),
-    (err) => {
+    (/** @type {Error & { status?: number }} */ err) => {
       assert.equal(err.status, 401);
       assert.match(err.message, /env 'production'.*appo login/);
       assert.doesNotMatch(err.message, /test-pat/);

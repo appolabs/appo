@@ -220,7 +220,13 @@ const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *  IN-02: a malformed/empty poll body (`build == null`) is treated as a non-terminal
  *  status (loop continues), so the returned `build` MAY be nullish on `timeout`. Every
  *  outcome therefore also carries `last_status` (string|undefined) — read that, not
- *  `res.build.*`, when a caller needs the last observed status without a null guard. */
+ *  `res.build.*`, when a caller needs the last observed status without a null guard.
+ *
+ *  @param {string} apiBase
+ *  @param {string|number} appId
+ *  @param {string|number} buildId
+ *  @param {{ intervalMs?: number, timeoutMs?: number, sleep?: (ms: number) => Promise<unknown>,
+ *            onChange?: (status: unknown, build: unknown) => void, env?: string }} [opts] */
 export async function pollBuild(apiBase, appId, buildId, {
   intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {}, env,
 } = {}) {

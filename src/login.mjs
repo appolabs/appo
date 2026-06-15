@@ -100,6 +100,7 @@ export async function loginWithToken(apiBase, env, pat) {
     await apiFetchWithToken(apiBase, 'GET', '/api/v1/apps', null, pat, env);
   } catch (err) {
     if (err.status === 401) {
+      /** @type {Error & { status?: number }} */
       const refusal = new Error(`Token rejected by ${apiBase} — not stored.`);
       refusal.status = 401;
       throw refusal;

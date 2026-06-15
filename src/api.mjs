@@ -50,6 +50,7 @@ async function requestWithToken(apiBase, method, path, body, token, env) {
       res.status === 401
         ? `Token for env '${env ?? 'default'}' was rejected — run \`appo login\`.`
         : payload?.message || payload?.error || `Request failed (${res.status}).`;
+    /** @type {Error & { status?: number, envelope?: unknown }} */
     const err = new Error(msg);
     err.status = res.status;
     err.envelope = payload;

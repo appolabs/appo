@@ -23,6 +23,12 @@ export async function createApp(apiBase, { name, base_url, metadata_name, metada
 }
 
 // POST /api/v1/apps/{id}/builds -> 202 { data: AppBuildResource }
+/**
+ * @param {string} apiBase
+ * @param {string} id
+ * @param {{ platform?: string, branch?: string }} [opts]
+ * @param {string} [env]
+ */
 export async function triggerBuild(apiBase, id, { platform, branch } = {}, env) {
   const body = {};
   if (platform) body.platform = platform;   // ios|android|all (server-validated)

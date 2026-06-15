@@ -32,7 +32,7 @@ export function installMockFetch(responses) {
   }
   const queue = Array.isArray(responses) ? [...responses] : [responses];
 
-  globalThis.fetch = async (url, init = {}) => {
+  globalThis.fetch = /** @type {typeof globalThis.fetch} */ (async (url, init = {}) => {
     const method = init.method || 'GET';
     const rawBody = init.body;
     let body = null;
@@ -55,7 +55,7 @@ export function installMockFetch(responses) {
         return canned?.body ?? null;
       },
     };
-  };
+  });
 }
 
 /** Path portion of a URL string (so tests assert on /api/v1/... not the base). */
