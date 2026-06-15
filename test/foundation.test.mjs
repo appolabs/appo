@@ -128,3 +128,11 @@ test('confirmGate issues NO fetch when gated (T-01-03)', async () => {
     resetMockFetch();
   }
 });
+
+// WR-01: a value-less `--api` parses as boolean true. It must surface as a usage
+// error (exit 2), not an uncaught TypeError from resolveApiBase outside the try.
+test('value-less --api returns exit 2 without throwing (WR-01)', async () => {
+  const { result, lines } = await captureError(() => run(['status', '7', '--api']));
+  assert.equal(result, 2);
+  assert.match(lines.join('\n'), /--api <url> requires a value/);
+});

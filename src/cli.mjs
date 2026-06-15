@@ -176,6 +176,13 @@ export async function run(argv) {
     return 0;
   }
 
+  // A value-less `--api` parses as boolean true; reject it as a usage error (exit 2)
+  // rather than letting resolveApiBase throw an uncaught TypeError outside the try.
+  if (flags.api === true) {
+    console.error('Usage: --api <url> requires a value');
+    return 2;
+  }
+
   const apiBase = resolveApiBase(flags.api);
   const [command, sub, ...rest] = positional;
 
