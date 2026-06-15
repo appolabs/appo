@@ -222,6 +222,18 @@ test('pollBuild returns timeout when timeoutMs elapses before terminal', async (
   assert.equal(res.last_status, 'building');
 });
 
+// IN-03: the publish verb maps apple/google aliases via the SHARED parseStores
+// (single alias definition). The POST body must still carry canonical tokens.
+test('publish maps apple/google aliases to canonical tokens via parseStores (IN-03)', async () => {
+  stubToken();
+  installMockFetch([{ status: 204 }]);
+  const result = await run(['publish', '5', '--stores', 'apple,google', '--confirm', ...API]);
+  assert.equal(result, 0);
+  const req = lastRequest();
+  assert.match(req.path, /\/api\/v1\/apps\/5\/publish$/);
+  assert.deepEqual(req.body, { app_stores: ['apple_appstore', 'google_playstore'] });
+});
+
 // WR-01: an empty/non-enveloped 2xx body must NOT throw a raw TypeError — the
 // create result is guarded (|| {}); the run resolves to a controlled exit code.
 test('ship create with empty 2xx body does not throw (WR-01 guard)', async () => {
