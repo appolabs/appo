@@ -8,7 +8,11 @@
     "appo": "bin/appo.mjs"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\""
+    "test": "vitest run",
+    "test:integration": "vitest run test/integration/",
+    "test:watch": "vitest",
+    "lint": "eslint bin/ src/ test/",
+    "typecheck": "tsc --noEmit"
   },
   "files": [
     "bin",
@@ -17,5 +21,12 @@
   ],
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
   }
 }
