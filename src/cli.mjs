@@ -515,8 +515,13 @@ export async function run(argv) {
         log(`> build #${buildId} ... ${build.status}`);
 
         // STEP poll to terminal (injectable sleep defaults to real setTimeout).
+        // Honor an explicit --timeout 0 (forces an immediate timeout): only fall
+        // back to the 1800s default when the flag is absent or non-numeric — a bare
+        // `|| 1800` would coerce the legitimate 0 back to the default.
+        const timeoutSecs = Number.isFinite(Number(flags.timeout)) && flags.timeout !== true
+          ? Number(flags.timeout) : 1800;
         const res = await pollBuild(apiBase, appId, buildId, {
-          timeoutMs: (Number(flags.timeout) || 1800) * 1000,
+          timeoutMs: timeoutSecs * 1000,
           onChange: (s) => log(`  ${s} -> ...`),
         });
         if (res.outcome === 'failed') {
