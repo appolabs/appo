@@ -224,6 +224,10 @@ test('preview readiness D-04: ios ready -> block glyph present (QR rendered)', a
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toMatch(/[▀▄█]/);
+  // D-02 (Pitfall 1): the printer must wrap each QR row in forced black-on-white ANSI
+  // (\x1b[30;47m … \x1b[0m) so the code scans regardless of terminal theme.
+  // eslint-disable-next-line no-control-regex
+  expect(out).toMatch(/\x1b\[30;47m[▀▄█ ]+\x1b\[0m/);
 });
 
 // --- fix-recipe -----------------------------------------------------------

@@ -191,7 +191,14 @@ function printPreviewPayload(d) {
   // D-03 (corrected): gate the QR on READINESS, not on preview_url nullness (it's never null).
   if (r.ios || r.android) {
     console.log('');
-    console.log(renderQr(d.preview_url));
+    // D-02 (Pitfall 1): renderQr returns the BARE matrix (snapshot-stable). The printer
+    // applies forced theme-independent contrast — black-on-white per row — so the QR scans
+    // regardless of terminal theme (a light-on-dark render does not scan reliably).
+    const CONTRAST = '\x1b[30;47m'; // black fg on white bg
+    const RESET = '\x1b[0m';
+    for (const row of renderQr(d.preview_url).split('\n')) {
+      console.log(`${CONTRAST}${row}${RESET}`);
+    }
   } else {
     console.log('  (no preview target yet — build and publish to enable preview)');
   }
