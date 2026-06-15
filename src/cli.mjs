@@ -18,6 +18,8 @@ Apps:
   appo apps set-name <id> <name>  Update an app's name
 
 Lifecycle:
+  appo ship <id> [--yes]                  Build an existing app and publish it
+  appo ship --url <u> --name <n> [--stores <list>] [--platform ios|android|all] [--timeout <s>] [--yes]   Create -> build -> poll -> publish in one command
   appo status <id> [--build <buildId>]   App overview (or one build's status)
   appo build <id> [--platform ios|android|all] [--branch <ref>]   Trigger a build (returns immediately)
   appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]   Update app fields
@@ -31,6 +33,10 @@ Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
   --json         Print the raw v1 response body (machine-readable)
   --confirm      Perform the write for a destructive verb (publish/push/resubmit)
+  --yes          Confirm the publish step of \`ship\` (alias of --confirm for ship)
+  --timeout <s>  Max seconds to poll a build during \`ship\` (default 1800)
+  --stores <l>   Comma list of target stores for \`ship\`/\`publish\` (default both)
+  --platform <p> Build platform for \`ship\`/\`build\`: ios|android|all
   -h, --help     Show this help
 
 Exit codes:
@@ -38,6 +44,9 @@ Exit codes:
   1  runtime / API error (incl. auth failure — run \`appo login\`)
   2  usage error (missing or invalid arguments)
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
+
+  ship maps these to its final lifecycle state: 0 shipped / 1 blocked or failed /
+  2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
 `;
 
 /** Minimal flag parser: collects --key value / --key=value / --flag and
@@ -448,6 +457,96 @@ export async function run(argv) {
         // recipients_count is a sibling of `data` (additional) — read off the raw envelope.
         console.log(`Sent to ${res?.recipients_count ?? 0} device(s).`);
         return 0;
+      }
+
+      case 'ship': {
+        const hasId = sub && !sub.startsWith('--');
+        if (!hasId && (!flags.url || !flags.name)) {
+          // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
+          // stderr + exit 2 even under --json (the single-object ledger contract
+          // applies only once a pipeline step has begun).
+          console.error('Usage: appo ship <id> | appo ship --url <u> --name <n> [--stores <list>] [--platform ios|android|all] [--yes] [--timeout <s>] [--json]');
+          return 2;
+        }
+        const json = flags.json === true;
+        // Reimplement the gate DECISION — do NOT call confirmGate (it keys only on
+        // flags.confirm and emits its own competing --json object, breaking the
+        // single-ledger contract). printPreview is reused verbatim below.
+        const wantYes = flags.yes === true || flags.confirm === true;
+        const stores = parseStores(flags.stores);
+        const { log, record, finish } = shipReport(json);
+
+        // In --json mode a thrown prerequisite_failed/conflict is caught locally so
+        // ONE ledger object still emits (D-12). In human mode, rethrow to the
+        // top-level catch -> renderError (Blocked/Next lines).
+        const handleBlock = (err, step) => {
+          if (!json) throw err;
+          record({ step, status: 'blocked', code: err.envelope?.code, message: err.message });
+          return finish('blocked', EXIT.blocked);
+        };
+
+        let appId = hasId ? sub : null;
+
+        // STEP create (new-app form only).
+        if (!appId) {
+          let app;
+          try {
+            app = await ops.createApp(apiBase, {
+              name: flags.name, base_url: flags.url,
+              metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
+            });
+          } catch (err) { return handleBlock(err, 'create'); }
+          appId = app.id;
+          record({ step: 'create', status: 'ok', app_id: appId });
+          log(`> create ... ok app #${appId}`);
+        }
+
+        // STEP build trigger. prerequisite_failed (Apple creds etc.) blocks HERE,
+        // before any build exists. Surface app_id for resume on a post-create block.
+        let build;
+        try {
+          build = await ops.triggerBuild(apiBase, appId, { platform: flags.platform, branch: flags.branch });
+        } catch (err) {
+          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
+          return handleBlock(err, 'build');
+        }
+        const buildId = build.id;
+        record({ step: 'build', status: 'ok', build_id: buildId });
+        log(`> build #${buildId} ... ${build.status}`);
+
+        // STEP poll to terminal (injectable sleep defaults to real setTimeout).
+        const res = await pollBuild(apiBase, appId, buildId, {
+          timeoutMs: (Number(flags.timeout) || 1800) * 1000,
+          onChange: (s) => log(`  ${s} -> ...`),
+        });
+        if (res.outcome === 'failed') {
+          record({ step: 'build', status: 'failed', build_id: buildId });
+          log(`x build failed. Next: appo fix-recipe ${appId}  (or: appo rejection ${appId})`);
+          return finish('failed', EXIT.failed);
+        }
+        if (res.outcome === 'timeout') {
+          // The internal terminal `rejected` coarsens to public `building` (Pitfall 2):
+          // point the user at the app overview as well as the build status.
+          record({ step: 'build', status: 'timeout', build_id: buildId, last_status: res.last_status });
+          log(`x timed out at "${res.last_status}". Resume: appo status ${appId} --build ${buildId}  (or: appo status ${appId})`);
+          return finish('failed', EXIT.failed);
+        }
+        log(`ok build ready`);
+
+        // STEP publish — honor the confirm-gate DECISION (reuses printPreview only).
+        const preview = { will: 'publish', app_id: Number(appId), target_stores: stores };
+        if (!wantYes) {
+          if (!json) printPreview(preview);
+          record({ step: 'publish', status: 'gated', target_stores: stores });
+          return finish('gated', EXIT.gated);   // NO publish POST issued — high-severity gate invariant
+        }
+        log(`> publish ...`);
+        try {
+          await ops.publishApp(apiBase, appId, stores);   // 204 == success; 409/422 throw
+        } catch (err) { return handleBlock(err, 'publish'); }
+        record({ step: 'publish', status: 'ok', target_stores: stores });
+        log(`ok shipped: ${stores.join(', ')}`);
+        return finish('shipped', EXIT.shipped);
       }
 
       default:
