@@ -340,6 +340,23 @@ export async function run(argv) {
         return 0;
       }
 
+      case 'push': {
+        if (!sub || !flags.title || !flags.body) { console.error('Usage: appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm'); return 2; }
+        // Preview OMITS the recipient count — v1 exposes it only post-send (Pitfall 2);
+        // no pre-send audience-size leak.
+        const gated = confirmGate(flags, { will: 'send_push', app_id: Number(sub), title: flags.title });
+        if (gated !== null) return gated;                       // exit 3, NO write
+        const body = { title: flags.title, body: flags.body };
+        if (flags['target-url'])   body.target_url = flags['target-url'];
+        if (flags['image-path'])   body.image_path = flags['image-path'];
+        if (flags['scheduled-at']) body.scheduled_at = flags['scheduled-at'];
+        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/push-notifications`, body);  // 201
+        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+        // recipients_count is a sibling of `data` (additional) — read off the raw envelope.
+        console.log(`Sent to ${res.recipients_count} device(s).`);
+        return 0;
+      }
+
       default:
         console.error(`Unknown command: ${command}\n`);
         console.log(USAGE);
