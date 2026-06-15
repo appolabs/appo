@@ -6,7 +6,9 @@
 
 ## Current State
 
-Phase 6 complete (packaging, docs & release, CLI-05 validated): publish-ready package metadata (publishConfig.access:public, repository/keywords, prepublishOnly gate), an OIDC trusted-publishing release.yml (publish-before-tag, concurrency-guarded), `appo init` (idempotent bootstrap + login), `appo --version`/`appo upgrade` + a daily update-check notice, and a rewritten README + llms.txt covering every command. Tarball verified clean via npm pack --dry-run; 187 node-test/vitest cases green. **Milestone v0.1 CLI Completeness: phases 1,2,3,5,6 done; Phase 4 (preview) deferred/blocked on apps-web-app Phase 188.** The live npm publish + npmjs trusted-publisher registration are the one manual follow-up (D-09) — note a @appolabs/appo@2.0.2 already exists on the registry, so confirm package ownership/target version first.
+Phase 4 complete (preview / open-on-device, CLI-03 validated): `appo preview <id>` calls the user-PAT preview endpoint (`GET /api/v1/apps/{id}/preview`, env-threaded) and prints per-platform readiness + TestFlight URL + Android deeplink + `preview_url` + a readiness-gated terminal QR — the same four flat fields as the `preview_app` MCP tool. The QR encoder is vendored Nayuki qrcodegen (MIT, pinned commit, TS→ESM) exposed as a pure `renderQr()`; runtime dependencies stay empty. Theme-independent scannability comes from forced black-on-white ANSI contrast applied per row in the printer (D-02), keeping `renderQr` bare and snapshot-stable. `--json` emits the raw flat body verbatim (no QR); 213 tests green (lint + typecheck clean). The live `goappo.io/preview/<token>` route is confirmed reachable; a real server-minted-token phone scan is tracked as a deferred full-pipeline UAT item (04-HUMAN-UAT.md). **Milestone v0.1 CLI Completeness: all 6 phases complete.**
+
+Phase 6 complete (packaging, docs & release, CLI-05 validated): publish-ready package metadata (publishConfig.access:public, repository/keywords, prepublishOnly gate), an OIDC trusted-publishing release.yml (publish-before-tag, concurrency-guarded), `appo init` (idempotent bootstrap + login), `appo --version`/`appo upgrade` + a daily update-check notice, and a rewritten README + llms.txt covering every command. Tarball verified clean via npm pack --dry-run; 187 node-test/vitest cases green. The live npm publish + npmjs trusted-publisher registration are the one manual follow-up (D-09) — note a @appolabs/appo@2.0.2 already exists on the registry, so confirm package ownership/target version first.
 
 Phase 5 complete (test suite & CI, CLI-04 validated): the suite is migrated to **vitest** (122 cases
 across `test/unit/` + `test/integration/`, per-worker config isolation), with **eslint** + a JS
@@ -52,4 +54,4 @@ See REQUIREMENTS.md. The CLI must reach operator parity with the `/mcp` AppoServ
 - Keep request/response shapes in lockstep with `/api/v1` (no drift).
 
 ---
-*Last updated: 2026-06-15 — Phase 6 complete; milestone v0.1 (CLI Completeness) reached*
+*Last updated: 2026-06-15 — Phase 4 complete (CLI-03); all 6 phases of milestone v0.1 (CLI Completeness) done*
