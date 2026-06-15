@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:integration": "vitest run test/integration/",
     "test:watch": "vitest",
-    "lint": "eslint bin/ src/ test/",
+    "lint": "eslint --ext .mjs,.js bin/ src/ test/",
     "typecheck": "tsc --noEmit"
   },
   "files": [
