@@ -57,7 +57,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 02-01-PLAN.md — Foundation: extract src/ops.mjs transport layer; refactor Phase 1 create/build/publish cases onto it (no behavior change; delete inline apiFetch duplication)
-- [ ] 02-02-PLAN.md — The `ship` orchestrator: case 'ship' (create→build→poll→publish), injectable-sleep poll loop, step ledger + --json, confirm-gate, exit-code mapping, USAGE, test/ship.test.mjs
+- [x] 02-02-PLAN.md — The `ship` orchestrator: case 'ship' (create→build→poll→publish), injectable-sleep poll loop, step ledger + --json, confirm-gate, exit-code mapping, USAGE, test/ship.test.mjs
 
 ### Phase 3: Auth & config hardening
 
