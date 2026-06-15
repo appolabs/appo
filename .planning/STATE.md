@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-06-15T12:40:59.020Z"
-last_activity: 2026-06-15 -- Phase 6 planning complete
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-06-15T12:48:41.890Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 15
-  completed_plans: 12
-  percent: 80
+  completed_plans: 13
+  percent: 87
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 05 — test-suite-ci
+**Current focus:** Phase 06 — packaging-docs-release
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness
-Phase: 6
-Plan: Not started
+Phase: 06 (packaging-docs-release) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 6 planning complete
+Last activity: 2026-06-15
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 
@@ -54,6 +54,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 05]: Dev toolchain (vitest 1.6.1, eslint 8.57.1, ts 5.9.3, eslint-config-prettier 9.1.2, @types/node 22.19.21) installed as devDependencies only; runtime dependency-free preserved. Configs (vitest.config.mjs/.eslintrc.json/tsconfig.json) mirror the SDK adapted for .mjs; lint needs --ext .mjs,.js for eslint 8; tsc --checkJs passes via targeted JSDoc only (no @ts-ignore). lint+typecheck green.
 - [Phase 05]: Migrated all 9 node:test files to vitest split into test/unit (32) + test/integration (90) = 122 cases; ship.test.mjs split 18 -> 4 pollBuild units + 14 run() integration; 2 assert.rejects ported as capture-then-assert (status+message+PAT-leak preserved); added test/helpers/setup.mjs per-worker APPO_CONFIG_HOME isolation to fix the cross-process config race vitest parallel forks exposed; originals deleted (single runner); npm test 122/0, lint+typecheck green.
 - [Phase 05]: GitHub Actions CI mirrors @appolabs/sdk shape with three forced divergences: npm (npm ci) not pnpm, no build step (raw .mjs), Node matrix [18,20,22]; push/PR on main+master; step order lint->typecheck->test; local proxy green at 122/122; live-GitHub-green is the one remaining manual confirmation on first push.
+- [Phase 06]: appo --version/-v + upgrade + daily update-check + idempotent init landed on Node built-ins only (no runtime dep); update_check cache survives profile writes via readConfig carry-through (Open Q2 option a).
 
 ### Blockers/Concerns
 
@@ -61,6 +62,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-15T12:12:08.085Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-packaging-docs-release/06-CONTEXT.md
+Last session: 2026-06-15T12:48:41.887Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
