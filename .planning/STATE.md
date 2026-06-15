@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-06-15T00:02:37.945Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-06-15T00:06:27.061Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Milestone: v0.1 CLI Completeness
 Phase: 01 (operator-command-parity) â€” EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-06-15
 
@@ -43,6 +43,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - This repo is the CLI only; `@appolabs/sdk` is the in-WebView bridge.
 - [Phase 01]: Foundation: confirmGate (exit-code-3 client-side gate), prerequisite_failed error renderer, and a dep-free fetch-stub test substrate (installMockFetch/stubToken) â€” reused by all Phase 1 verbs.
 - [Phase 01]: [Phase 01]: Read verbs (status/rejection/fix-recipe) at v1 parity; 404-as-state for rejection/fix-recipe in human mode while --json stays verbatim (D-08); status.primary_action is the Phase 2 ship compass.
+- [Phase 01]: Write verbs (build/configure): build POST returns id immediately (D-03, never waits) and rides renderError for prerequisite_failed (D-06); configure PATCHes only supplied fields, 204 -> success line, --json -> null (Pitfall 5/D-08). Neither confirm-gated (reversible).
 
 ### Blockers/Concerns
 
@@ -50,6 +51,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T00:02:37.941Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-06-15T00:06:27.058Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
