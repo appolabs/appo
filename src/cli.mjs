@@ -179,6 +179,54 @@ function renderError(err) {
   return 1;
 }
 
+const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Poll a build to terminal. Public build-status enum: queued|building|ready|failed
+ *  (VERIFIED — 02-RESEARCH.md). ready == terminal success, failed == terminal failure;
+ *  anything else keeps polling. sleep/intervalMs/timeoutMs are injectable so tests run
+ *  instantly. onChange streams a line only on status change (D-06). The timeout check is
+ *  placed AFTER the terminal checks and BEFORE the sleep, so timeoutMs:0 with a single
+ *  non-terminal response returns timeout after one poll. */
+export async function pollBuild(apiBase, appId, buildId, {
+  intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {},
+} = {}) {
+  const start = Date.now();
+  let last = null;
+  for (;;) {
+    const build = await ops.getBuild(apiBase, appId, buildId);
+    const status = build?.status;
+    if (status !== last) { onChange(status, build); last = status; }
+    if (status === 'ready')  return { outcome: 'ready', build };
+    if (status === 'failed') return { outcome: 'failed', build };
+    if (Date.now() - start >= timeoutMs) return { outcome: 'timeout', build, last_status: status };
+    await sleep(intervalMs);
+  }
+}
+
+/** Default to both canonical store tokens; map friendly aliases apple/google. */
+function parseStores(raw) {
+  if (!raw || raw === true) return ['apple_appstore', 'google_playstore'];
+  return String(raw).split(',').map((s) => s.trim()).filter(Boolean)
+    .map((s) => s === 'apple' ? 'apple_appstore' : s === 'google' ? 'google_playstore' : s);
+}
+
+/** One ledger drives both the human stream and the --json summary (D-11/D-12).
+ *  In human mode each log() prints live (ASCII markers only — `->`, no unicode).
+ *  In --json mode the stream is suppressed; the whole ledger + final_state is
+ *  emitted once at completion. */
+function shipReport(json) {
+  const steps = [];
+  const log = (line) => { if (!json) console.log(line); };
+  const record = (step) => { steps.push(step); };
+  const finish = (final_state, exitCode) => {
+    if (json) console.log(JSON.stringify({ steps, final_state }));
+    return exitCode;
+  };
+  return { log, record, finish };
+}
+
+const EXIT = { shipped: 0, gated: 3, blocked: 1, failed: 1 };  // usage error (2) returned before any step
+
 export { confirmGate, renderError };
 
 export async function run(argv) {
