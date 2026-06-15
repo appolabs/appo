@@ -1,6 +1,8 @@
 import { resolveApiBase, clearConfig, readConfig } from './config.mjs';
 import { login } from './login.mjs';
 import { apiFetch } from './api.mjs';
+import * as ops from './ops.mjs';
+import { unwrap } from './ops.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
@@ -88,10 +90,6 @@ function printApp(app) {
   if (app.stores) line('stores', `apple=${app.stores.apple} google=${app.stores.google}`);
   line('ios_bundle_id', app.ios_bundle_id);
   line('android_package', app.android_package_name);
-}
-
-function unwrap(payload) {
-  return payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
 }
 
 /** Curated render of a build (AppBuildResource). Prints EXACT v1 field names —
@@ -232,10 +230,10 @@ export async function run(argv) {
             console.error('Usage: appo apps create --name <n> --url <u>');
             return 2;
           }
-          const body = { name: flags.name, base_url: flags.url };
-          if (flags['meta-name']) body.metadata_name = flags['meta-name'];
-          if (flags['meta-desc']) body.metadata_description = flags['meta-desc'];
-          const app = unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body));
+          const app = await ops.createApp(apiBase, {
+            name: flags.name, base_url: flags.url,
+            metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
+          });
           console.log('Created app:');
           printApp(app);
           return 0;
@@ -318,14 +316,23 @@ export async function run(argv) {
 
       case 'build': {
         if (!sub) { console.error('Usage: appo build <id> [--platform ios|android|all] [--branch <ref>]'); return 2; }
-        const body = {};
-        if (flags.platform) body.platform = flags.platform;   // ios|android|all (server-validated)
-        if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
-        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body);
-        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
-        const b = unwrap(res) || {};
+        // --json carve-out: print the RAW {data:...} envelope verbatim (D-08). Gated
+        // BEFORE the human path so the unwrapping op is never reached in --json mode
+        // (mirrors case 'status'). ops.triggerBuild returns UNWRAPPED data and cannot
+        // serve this branch without breaking the verbatim-envelope contract.
+        if (flags.json) {
+          const body = {};
+          if (flags.platform) body.platform = flags.platform;   // ios|android|all (server-validated)
+          if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
+          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body);
+          console.log(JSON.stringify(res));
+          return 0;
+        }
+        // Human path: the build-trigger POST has its ONE transport definition in
+        // ops.triggerBuild (shared with the Plan 02 ship orchestrator).
         // D-03: never poll/wait — return the id immediately. A 422 prerequisite_failed
         // (APP_BLOCKED etc.) propagates to the top-level renderError (D-06 actionable block).
+        const b = await ops.triggerBuild(apiBase, sub, { platform: flags.platform, branch: flags.branch }) || {};
         console.log(`Build #${b.id} started (${b.platform}). Poll: appo status ${sub} --build ${b.id}`);
         return 0;
       }
@@ -356,7 +363,7 @@ export async function run(argv) {
         if (stores.length === 0) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
         const gated = confirmGate(flags, { will: 'publish', app_id: Number(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
-        await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/publish`, { app_stores: stores });  // 204
+        await ops.publishApp(apiBase, sub, stores);             // 204 -> null
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
         console.log(`Publication started for: ${stores.join(', ')}`);
         return 0;
