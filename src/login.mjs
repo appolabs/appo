@@ -1,5 +1,6 @@
 import { exec } from 'node:child_process';
-import { writeConfig, readConfig } from './config.mjs';
+import { writeProfile } from './config.mjs';
+import { apiFetchWithToken } from './api.mjs';
 
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 
@@ -21,7 +22,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *   2. user opens the link, registers/logs in, approves
  *   3. poll POST /api/oauth/device/token → access_token once approved
  */
-export async function login(apiBase) {
+export async function login(apiBase, env) {
   const codeRes = await fetch(`${apiBase}/api/oauth/device/code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -61,7 +62,7 @@ export async function login(apiBase) {
     const payload = await tokenRes.json().catch(() => ({}));
 
     if (tokenRes.ok && payload.access_token) {
-      writeConfig({ ...readConfig(), api_base: apiBase, token: payload.access_token });
+      writeProfile(env, { api_base: apiBase, token: payload.access_token });
       return { apiBase };
     }
 
@@ -81,4 +82,30 @@ export async function login(apiBase) {
   }
 
   throw new Error('Timed out waiting for browser approval. Run `appo login` again.');
+}
+
+/**
+ * Non-interactive auth: store a pasted PAT into the active/`--env` profile,
+ * validating it first so a bad token is never persisted (D-07).
+ *
+ *   1. probe GET /api/v1/apps with the PASTED `pat` (not the stored token)
+ *   2. on success → writeProfile(env, { api_base, token: pat })
+ *   3. on 401    → store NOTHING, throw (status 401); the message names the
+ *                  api_base, never the token (D-13). Network/other errors rethrow.
+ *
+ * The `pat` is never echoed or logged anywhere.
+ */
+export async function loginWithToken(apiBase, env, pat) {
+  try {
+    await apiFetchWithToken(apiBase, 'GET', '/api/v1/apps', null, pat, env);
+  } catch (err) {
+    if (err.status === 401) {
+      const refusal = new Error(`Token rejected by ${apiBase} — not stored.`);
+      refusal.status = 401;
+      throw refusal;
+    }
+    throw err; // network/other → top-level renderError
+  }
+  writeProfile(env, { api_base: apiBase, token: pat });
+  return { apiBase, env };
 }
