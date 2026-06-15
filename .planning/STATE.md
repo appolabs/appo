@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-06-15T03:42:12.249Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-06-15T03:52:34.601Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 11
+  percent: 92
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Milestone: v0.1 CLI Completeness
 Phase: 05 (test-suite-ci) â€” EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-15
 
@@ -52,6 +52,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - [Phase 03]: loginWithToken validates a pasted PAT via GET /api/v1/apps before storing; refuses (writes nothing) on 401
 - [Phase 03-auth-config-hardening]: CLI auth surface: env resolved once in run() and threaded into resolveApiBase + every apiFetch; logout revokes server-side (DELETE /user/tokens/current) then always clears local in a finally; whoami reports env+api_base+liveness (no token); env list/use + login --token land. Completes CLI-02 + CLI-07.
 - [Phase 05]: Dev toolchain (vitest 1.6.1, eslint 8.57.1, ts 5.9.3, eslint-config-prettier 9.1.2, @types/node 22.19.21) installed as devDependencies only; runtime dependency-free preserved. Configs (vitest.config.mjs/.eslintrc.json/tsconfig.json) mirror the SDK adapted for .mjs; lint needs --ext .mjs,.js for eslint 8; tsc --checkJs passes via targeted JSDoc only (no @ts-ignore). lint+typecheck green.
+- [Phase 05]: Migrated all 9 node:test files to vitest split into test/unit (32) + test/integration (90) = 122 cases; ship.test.mjs split 18 -> 4 pollBuild units + 14 run() integration; 2 assert.rejects ported as capture-then-assert (status+message+PAT-leak preserved); added test/helpers/setup.mjs per-worker APPO_CONFIG_HOME isolation to fix the cross-process config race vitest parallel forks exposed; originals deleted (single runner); npm test 122/0, lint+typecheck green.
 
 ### Blockers/Concerns
 
@@ -59,6 +60,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T03:42:03.584Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-06-15T03:52:26.612Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

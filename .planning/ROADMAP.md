@@ -101,7 +101,7 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 05-01-PLAN.md — Tooling foundation: devDeps (vitest/eslint/typescript/eslint-config-prettier/@types/node) + vitest.config.mjs/.eslintrc.json/tsconfig.json + SDK-mirrored scripts + package-lock.json; tsc JSDoc pass; lint+typecheck green
-- [ ] 05-02-PLAN.md — Suite migration: port all 9 node:test files → vitest, split into test/unit/ + test/integration/ (ship 4/14), delete originals, assert 122-case parity
+- [x] 05-02-PLAN.md — Suite migration: port all 9 node:test files → vitest, split into test/unit/ + test/integration/ (ship 4/14), delete originals, assert 122-case parity
 - [ ] 05-03-PLAN.md — CI: .github/workflows/ci.yml (npm, no build, node matrix [18,20,22], lint→typecheck→test) + live green verify
 
 ### Phase 6: Packaging, docs & release
