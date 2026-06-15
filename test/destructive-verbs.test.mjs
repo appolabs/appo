@@ -107,6 +107,23 @@ test('publish --json on a 204 prints "null" and returns 0', async () => {
   assert.equal(lines.join('').trim(), 'null');
 });
 
+// IN-01: an explicit empty --stores must not forward [''] — reject as usage err.
+test('publish empty --stores returns 2 and issues NO write (IN-01)', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const result = await silentRun(['publish', '7', '--stores', '', '--confirm', ...API]);
+  assert.equal(result, 2);
+  assert.equal(requests.length, 0);
+});
+
+test('publish --stores with only commas returns 2 (IN-01)', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const result = await silentRun(['publish', '7', '--stores=,,', '--confirm', ...API]);
+  assert.equal(result, 2);
+  assert.equal(requests.length, 0);
+});
+
 test('publish missing --stores returns 2', async () => {
   stubToken();
   const result = await silentRun(['publish', '7', ...API]);

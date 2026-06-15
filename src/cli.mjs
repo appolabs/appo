@@ -349,7 +349,9 @@ export async function run(argv) {
         // --stores is a comma list of canonical AppStore tokens; map friendly
         // aliases to canonical (RESEARCH Open Q1). Body always sends canonical tokens.
         const stores = String(flags.stores).split(',').map(s => s.trim())
+          .filter(Boolean)
           .map(s => s === 'apple' ? 'apple_appstore' : s === 'google' ? 'google_playstore' : s);
+        if (stores.length === 0) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
         const gated = confirmGate(flags, { will: 'publish', app_id: Number(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
         await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/publish`, { app_stores: stores });  // 204
