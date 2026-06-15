@@ -195,7 +195,12 @@ const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *  anything else keeps polling. sleep/intervalMs/timeoutMs are injectable so tests run
  *  instantly. onChange streams a line only on status change (D-06). The timeout check is
  *  placed AFTER the terminal checks and BEFORE the sleep, so timeoutMs:0 with a single
- *  non-terminal response returns timeout after one poll. */
+ *  non-terminal response returns timeout after one poll.
+ *
+ *  IN-02: a malformed/empty poll body (`build == null`) is treated as a non-terminal
+ *  status (loop continues), so the returned `build` MAY be nullish on `timeout`. Every
+ *  outcome therefore also carries `last_status` (string|undefined) — read that, not
+ *  `res.build.*`, when a caller needs the last observed status without a null guard. */
 export async function pollBuild(apiBase, appId, buildId, {
   intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {},
 } = {}) {
@@ -205,8 +210,8 @@ export async function pollBuild(apiBase, appId, buildId, {
     const build = await ops.getBuild(apiBase, appId, buildId);
     const status = build?.status;
     if (status !== last) { onChange(status, build); last = status; }
-    if (status === 'ready')  return { outcome: 'ready', build };
-    if (status === 'failed') return { outcome: 'failed', build };
+    if (status === 'ready')  return { outcome: 'ready', build, last_status: status };
+    if (status === 'failed') return { outcome: 'failed', build, last_status: status };
     if (Date.now() - start >= timeoutMs) return { outcome: 'timeout', build, last_status: status };
     await sleep(intervalMs);
   }

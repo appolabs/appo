@@ -222,6 +222,18 @@ test('pollBuild returns timeout when timeoutMs elapses before terminal', async (
   assert.equal(res.last_status, 'building');
 });
 
+// IN-02: pollBuild carries last_status on EVERY outcome (not just timeout), so a
+// caller can read the last observed status without a null guard on res.build.
+test('pollBuild carries last_status on the ready outcome (IN-02)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 200, body: { data: { status: 'ready' } } },
+  ]);
+  const res = await pollBuild('http://test.local', 5, 12, { sleep: async () => {}, intervalMs: 0 });
+  assert.equal(res.outcome, 'ready');
+  assert.equal(res.last_status, 'ready');
+});
+
 // IN-01: a non-numeric id must echo the raw value in the gate preview, never NaN
 // (human) nor the JSON literal null (--json). No write occurs (gate, exit 3).
 test('publish --json gate echoes a non-numeric id verbatim, not null (IN-01)', async () => {
