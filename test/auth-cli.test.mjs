@@ -1,3 +1,9 @@
+// REQUIRES `--test-concurrency=1` (pinned in package.json's `test` script).
+// This suite mutates shared process-global state — process.env.APPO_CONFIG_HOME
+// in beforeEach/afterEach and globalThis.fetch via the mock — with isolation
+// provided only by serial ordering. Running `node --test` directly (no
+// concurrency flag) interleaves tests and corrupts the shared env/fetch. Always
+// run via `npm test`.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';

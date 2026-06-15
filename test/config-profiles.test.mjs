@@ -5,6 +5,11 @@
 // mkdtemp dir, and because config.mjs resolves the path PER CALL, that env (set
 // after ESM imports already ran) is honored on the very next read/write. The
 // real ~/.appo/config.json is never touched.
+//
+// REQUIRES `--test-concurrency=1` (pinned in package.json's `test` script):
+// the shared process.env.APPO_CONFIG_HOME is set/cleared per test with no other
+// isolation, so parallel runs would interleave and corrupt it. Always run via
+// `npm test`, never bare `node --test`.
 
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
