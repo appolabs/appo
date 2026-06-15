@@ -55,12 +55,18 @@ export async function checkForUpdate(installed, { fetchImpl = fetch, now = Date.
   const cache = readUpdateCache(); // { last_check_ms?, latest? }
   let latest = cache.latest;
   if (!cache.last_check_ms || now() - cache.last_check_ms > DAY) {
+    // Bound the registry call so a stalled (not failed) endpoint can never hang
+    // CLI exit (WR-01) — the bin hook awaits this before process.exit.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 1500);
     try {
-      const res = await fetchImpl(LATEST_URL, { headers: { Accept: 'application/json' } });
+      const res = await fetchImpl(LATEST_URL, { headers: { Accept: 'application/json' }, signal: ac.signal });
       if (res.ok) latest = (await res.json()).version;
       writeUpdateCache({ last_check_ms: now(), latest });
     } catch {
-      return; // swallow EVERY network error — never block or crash the CLI
+      return; // swallow EVERY network/timeout error — never block or crash the CLI
+    } finally {
+      clearTimeout(timer);
     }
   }
   if (latest && isNewer(latest, installed)) {

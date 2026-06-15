@@ -4,6 +4,12 @@ on:
   push:
     branches: [master, main]
 
+# Serialize releases so a bump-commit push can't run concurrently with the
+# original release run (WR-02). The bump commit also carries [skip ci].
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -45,7 +51,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           npm version patch --no-git-tag-version
           git add package.json
-          git commit -m "chore: bump version to $(node -p "require('./package.json').version")"
+          git commit -m "chore: bump version to $(node -p "require('./package.json').version") [skip ci]"
           git push
 
       - name: Get release version
@@ -64,15 +70,17 @@ jobs:
       - name: Test
         run: npm test
 
+      # Publish BEFORE tagging (WR-03): a publish failure must not leave a
+      # dangling vX.Y.Z tag advertising a version that was never published.
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+
       - name: Create tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
-
-      - name: Publish to npm
-        run: npm publish --provenance --access public
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
