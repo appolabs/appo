@@ -25,7 +25,7 @@ created: 2026-06-15
 
 > CRITICAL (from RESEARCH §test-harness): a bare `node --test` runs files concurrently and the
 > shared `globalThis.fetch`/`requests[]` state in `test/helpers/mockFetch.mjs` collides → spurious
-> failures. ALWAYS verify with `npm test` (which pins `--test-concurrency=1`). Current baseline: 67 pass.
+> failures. ALWAYS verify with `npm test` (which pins `--test-concurrency=1`). Current baseline: 66 pass.
 
 ---
 
@@ -46,7 +46,7 @@ created: 2026-06-15
 
 | Behavior | Requirement | Test Type | Automated Command | Notes |
 |----------|-------------|-----------|-------------------|-------|
-| Phase 1 cases refactored onto `src/ops.mjs` with NO behavior change | CLI-06 | regression | `npm test` | the existing 67 tests are the guard |
+| Phase 1 cases refactored onto `src/ops.mjs` with NO behavior change | CLI-06 | regression | `npm test` | the existing 66 tests are the guard |
 | `ops.mjs` functions issue the correct v1 method+path+body | CLI-06 | unit | `npm test` | assert on stubbed fetch args |
 | `ship --url --name` runs create→build→poll→publish in order | CLI-06 | unit | `npm test` | assert ordered fetch calls (create POST, build POST, build GET×N, publish POST) |
 | `ship <id>` skips create (starts at build) | CLI-06 | unit | `npm test` | assert no create POST |

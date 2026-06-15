@@ -481,17 +481,17 @@ function parseStores(raw) {
 
 > All HTTP-contract claims (build-status enum, create body, publish/build prerequisite envelopes, response codes) are `[VERIFIED]` against `../apps-web-app` source — not assumed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`--json` + a mid-pipeline thrown block — emit one object or let `renderError` print?**
    - What we know: D-12 requires ONE structured object at completion; the Phase 1 top-level catch calls `renderError` (human stderr).
    - What's unclear: whether `renderError`'s human output should be suppressed under `--json`.
-   - Recommendation: in `--json` mode, the orchestrator catches build/publish throws itself, records a `blocked` step with `err.envelope.code`, emits the ledger, returns 1 — and does NOT fall through to `renderError`. In human mode, fall through to `renderError` (or render inline) for the Blocked/Next: lines. (A4.) Resolve concretely in the plan.
+   - RESOLVED: in `--json` mode the orchestrator catches build/publish throws itself, records a `blocked` step with `err.envelope.code`, emits the single ledger object, returns 1 — does NOT fall through to `renderError`. In human mode it falls through to `renderError` for the Blocked/Next: lines. (Implemented in Plan 02-02 Task 2 `handleBlock`.)
 
 2. **Existing-id form (`appo ship <id>`) when the app already has a live/published store.**
    - What we know: publish returns 409 `conflict` if a requested store is already published.
    - What's unclear: should ship pre-skip already-published stores, or let the 409 surface?
-   - Recommendation: do NOT pre-validate (CLI must not re-implement backend state). Let 409 surface as a clean blocked step (`final_state: blocked`, exit 1) with the conflict message. Pre-filtering stores is a deferred enhancement.
+   - RESOLVED: do NOT pre-validate (CLI must not re-implement backend state). Let 409 surface as a clean blocked step (`final_state: blocked`, exit 1) with the conflict message. Pre-filtering stores is a deferred enhancement.
 
 ## Environment Availability
 
