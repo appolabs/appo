@@ -30,7 +30,7 @@
     "test": "vitest run",
     "test:integration": "vitest run test/integration/",
     "test:watch": "vitest",
-    "lint": "eslint --ext .mjs,.js bin/ src/ test/",
+    "lint": "eslint --ext .mjs bin/ src/ test/",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run lint && npm run typecheck && npm test"
   },
