@@ -7,7 +7,7 @@
 // json()). State is restored on reset so the real ~/.appo/config.json is never
 // left altered.
 
-import { readConfig, writeConfig, clearConfig, CONFIG_PATH } from '../../src/config.mjs';
+import { readConfig, writeConfig, clearConfig, configPath } from '../../src/config.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 
 /** Recorded requests, FIFO. Each entry: { method, path, url, body, headers }. */
@@ -74,8 +74,9 @@ function pathFromUrl(url) {
  * real credential (T-01-02).
  */
 export function stubToken(token = 'test-pat') {
+  const file = configPath().file;
   if (savedConfigRaw === null) {
-    savedConfigRaw = existsSync(CONFIG_PATH) ? readFileSync(CONFIG_PATH, 'utf-8') : false;
+    savedConfigRaw = existsSync(file) ? readFileSync(file, 'utf-8') : false;
   }
   writeConfig({ ...readConfig(), token, api_base: 'http://test.local' });
 }
