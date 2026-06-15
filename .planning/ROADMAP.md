@@ -70,7 +70,11 @@ Plans:
   3. Multiple environments/profiles supported (local vs production) without clobbering
   4. **Non-interactive auth**: `APPO_TOKEN` env var and/or `appo login --token <pat>` authenticate without opening a browser (the device flow cannot run headless) — required for CI/automation
   5. Token stored owner-only; `appo whoami` reports account + active environment
-**Plans**: TBD (run /gsd-plan-phase 3)
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: profile-aware src/config.mjs (profiles shape, read-time legacy normalization, --env/APPO_ENV/APPO_TOKEN precedence, writeProfile/clearProfileToken/setCurrent, APPO_CONFIG_HOME test seam) + test/config-profiles.test.mjs
+- [ ] 03-02-PLAN.md — Transport + non-interactive auth: env-aware apiFetch (token source + env-named 401) + login.mjs writeProfile write + loginWithToken validate-then-store + test/auth.test.mjs
+- [ ] 03-03-PLAN.md — CLI verb surface: logout server-side revoke (+ finally-clear), whoami enrichment, env list/use, login --token branch, --env wiring, USAGE + test/auth-cli.test.mjs
 
 ### Phase 4: Preview / open-on-device *(deferrable — off critical path)*
 
