@@ -47,7 +47,50 @@ export function readConfig() {
     profiles.default = { api_base: raw.api_base ?? null, token: raw.token ?? null };
   }
 
-  return { current: raw.current ?? 'default', profiles };
+  const result = { current: raw.current ?? 'default', profiles };
+  // Carry a present top-level update_check key through the normalize→write
+  // round-trip so the profile writers (writeProfile/setCurrent/clearProfileToken),
+  // which spread readConfig() into writeConfig, never drop the daily cache
+  // (Open Q2 option a). This is what makes "a profile write never drops the
+  // cache" actually hold.
+  if (raw.update_check !== undefined) result.update_check = raw.update_check;
+  return result;
+}
+
+/**
+ * Read the daily update-check cache (orthogonal to profiles). Returns the empty
+ * object if the file is absent or unparseable. Reads the RAW file (not via
+ * readConfig) so the cache path stays independent of the profile fold.
+ */
+export function readUpdateCache() {
+  const { file } = configPath();
+  if (!existsSync(file)) return {};
+  try {
+    return JSON.parse(readFileSync(file, 'utf-8')).update_check || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Merge update_check into the raw config file, preserving current/profiles, and
+ * reapply owner-only perms via writeConfig. Reads/merges the RAW file so a cache
+ * write never drops profiles (complements readConfig carry-through so a profile
+ * write never drops the cache).
+ */
+export function writeUpdateCache(update_check) {
+  const { file } = configPath();
+  /** @type {Record<string, unknown>} */
+  let raw = {};
+  if (existsSync(file)) {
+    try {
+      raw = JSON.parse(readFileSync(file, 'utf-8'));
+    } catch {
+      raw = {};
+    }
+  }
+  raw.update_check = update_check;
+  writeConfig(raw); // reuse existing writeConfig → mkdir 0o700 + chmod 0o600
 }
 
 /** Persist config, creating the config dir with owner-only perms (tokens live here). */

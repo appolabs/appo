@@ -38,7 +38,10 @@ async function captureStderr(fn) {
 }
 
 test('checkForUpdate hits the percent-encoded scoped URL and prints a notice when newer', async () => {
-  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ version: '9.9.9' }) }));
+  const fetchImpl = vi.fn(
+    /** @param {string} _url @param {object} [_init] */
+    async (_url, _init) => ({ ok: true, json: async () => ({ version: '9.9.9' }) }),
+  );
   const { text } = await captureStderr(() =>
     checkForUpdate('0.1.0', { fetchImpl, now: () => 1_000_000 }),
   );
@@ -49,7 +52,10 @@ test('checkForUpdate hits the percent-encoded scoped URL and prints a notice whe
 
 test('checkForUpdate sends NO Authorization header to the registry (PAT stays local)', async () => {
   writeProfile('default', { api_base: 'http://x', token: 'secret-pat' });
-  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ version: '9.9.9' }) }));
+  const fetchImpl = vi.fn(
+    /** @param {string} _url @param {{ headers?: Record<string, string> }} [_init] */
+    async (_url, _init) => ({ ok: true, json: async () => ({ version: '9.9.9' }) }),
+  );
   await captureStderr(() => checkForUpdate('0.1.0', { fetchImpl, now: () => 1_000_000 }));
   const init = fetchImpl.mock.calls[0][1] || {};
   const headers = init.headers || {};
