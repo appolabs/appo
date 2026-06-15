@@ -21,6 +21,7 @@ create, build, publish, push — from a shell or an agent.
 - [appo apps create / apps list / apps show / apps set-name](README.md#apps)
 - [appo build](README.md#build)
 - [appo status](README.md#status)
+- [appo preview](README.md#preview)
 - [appo configure](README.md#configure)
 - [appo rejection](README.md#rejection)
 - [appo fix-recipe](README.md#fix-recipe)

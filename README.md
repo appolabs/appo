@@ -125,6 +125,26 @@ appo status <id> --build <buildId>  # one build's status
 Prints the app overview, or a single build's status when `--build` is given. With
 `--json` it prints the raw v1 response body verbatim.
 
+## preview
+
+```bash
+appo preview <id>
+```
+
+Shows the preview target for an app — per-platform readiness, the iOS TestFlight
+URL, the Android deeplink, the canonical `preview_url`, and a scannable terminal QR
+code (when at least one platform is preview-ready).
+
+The output prints readiness first (`ios: preview-ready` / `not preview-ready yet`,
+same for `android`), then the platform-specific URLs (TestFlight URL only when iOS
+is ready, Android deeplink only when Android is ready), then the `preview_url`
+(always present), then the QR encoding `preview_url`.
+
+When neither platform is ready the QR is skipped and a `(no preview target yet)`
+line is printed instead. With `--json` the raw v1 response body is emitted verbatim
+— no QR, no curation. Exit 1 on API error (including app not found); exit 2 when
+`<id>` is omitted.
+
 ## configure
 
 ```bash

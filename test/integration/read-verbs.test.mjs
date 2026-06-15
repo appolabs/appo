@@ -126,6 +126,106 @@ test('rejection missing id returns 2', async () => {
   }
 });
 
+// --- preview --------------------------------------------------------------
+
+test('preview hits GET /api/v1/apps/7/preview and returns 0', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: {
+      ios_testflight_url: 'https://testflight.apple.com/join/XXXX',
+      android_deeplink: null,
+      preview_url: 'https://app.appo.io/preview/tok',
+      preview_ready: { ios: true, android: false },
+    },
+  });
+  const { result } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const req = lastRequest();
+  expect(req.method).toBe('GET');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+});
+
+test('preview --json emits flat body verbatim and no block glyphs', async () => {
+  stubToken();
+  const body = {
+    ios_testflight_url: null,
+    android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: false, android: false },
+  };
+  installMockFetch({ status: 200, body });
+  const { result, lines } = await captureLog(() => run(['preview', '7', '--json', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('');
+  expect(JSON.parse(out)).toEqual(body);
+  expect(out).not.toMatch(/[▀▄█]/);
+});
+
+test('preview 404 returns 1 (renderError)', async () => {
+  stubToken();
+  installMockFetch({
+    status: 404,
+    body: { error: 'not_found', code: 'resource_not_found', message: 'The requested resource was not found.' },
+  });
+  const originalErr = console.error;
+  console.error = () => {};
+  try {
+    const result = await run(['preview', '7', ...API]);
+    expect(result).toBe(1);
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test('preview missing id returns 2', async () => {
+  stubToken();
+  const originalErr = console.error;
+  console.error = () => {};
+  try {
+    const result = await run(['preview', ...API]);
+    expect(result).toBe(2);
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test('preview readiness D-04: neither ready -> "not preview-ready yet" lines + no QR + no glyphs', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: {
+      ios_testflight_url: null,
+      android_deeplink: null,
+      preview_url: 'https://app.appo.io/preview/tok',
+      preview_ready: { ios: false, android: false },
+    },
+  });
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toMatch(/not preview-ready yet/);
+  expect(out).toMatch(/no preview target yet/);
+  expect(out).not.toMatch(/[▀▄█]/);
+});
+
+test('preview readiness D-04: ios ready -> block glyph present (QR rendered)', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: {
+      ios_testflight_url: 'https://testflight.apple.com/join/XXXX',
+      android_deeplink: null,
+      preview_url: 'https://app.appo.io/preview/tok',
+      preview_ready: { ios: true, android: false },
+    },
+  });
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toMatch(/[▀▄█]/);
+});
+
 // --- fix-recipe -----------------------------------------------------------
 
 test('fix-recipe hits GET /api/v1/apps/{id}/rejection/recipe and returns 0', async () => {

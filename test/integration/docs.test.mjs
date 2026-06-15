@@ -12,7 +12,7 @@ const COMMANDS = [
   'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
   'apps create', 'apps list', 'apps show', 'apps set-name',
   'build', 'status', 'configure', 'rejection', 'fix-recipe', 'publish', 'push', 'resubmit',
-  'upgrade', 'version',
+  'upgrade', 'version', 'preview',
 ];
 
 test.each(COMMANDS)('README documents "%s"', (cmd) => {
@@ -30,7 +30,3 @@ test('llms.txt matches the SDK shape (title, tagline, sections, README anchors)'
   expect(LLMS).toMatch(/README\.md#/);
 });
 
-test('README + llms.txt do not document the deferred preview feature', () => {
-  expect(README).not.toContain('appo preview');
-  expect(LLMS).not.toContain('appo preview');
-});
