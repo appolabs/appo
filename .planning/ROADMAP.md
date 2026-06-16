@@ -25,7 +25,7 @@
 - [x] **Phase 5: Test suite & CI** — vitest unit + integration, GitHub Actions, lint/typecheck (completed)
 - [x] **Phase 6: Packaging, docs & release** — npm publish + scaffolder, `appo upgrade`/update-check, README/command-reference/llms.txt (completed)
 
-> **Post-v0.1 amendment (2026-06-16):** the CLI surface was abstracted to outcome verbs (commit `c5eb94e`). The user-facing **`build` verb was removed** (no `--platform`/`--branch`) — existing apps are rebuilt+republished via **`reship <id>`** and the operator decides the platform server-side; `publish` defaults to the app's stores; `configure` is content-only. Phase 1/2 plans here that describe a `build` verb are **superseded — do NOT re-execute them as-is**. Canonical surface of record: `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
+> **Post-v0.1 amendment (2026-06-16, shipped v4.0.0):** the CLI surface was abstracted to outcome verbs (`c5eb94e`, then collapsed further in `b223d25`). The user-facing **`build`, `reship`, `resubmit`, and `configure` verbs are gone** — a single **`appo ship`** covers the whole lifecycle (`--url --name` = new app; `<id>` = rebuild/republish/resubmit existing), with no `--platform`/`--branch` (the operator decides the platform server-side); `publish` defaults to the app's stores; **`apps update`** is the content-only editor (absorbed `configure` + `set-name`). Phase 1/2 plans here that describe a `build` verb are **superseded — do NOT re-execute them as-is**. Canonical surface of record: `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
 
 ## Phase Details
 
