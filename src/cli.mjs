@@ -36,17 +36,16 @@ Apps:
   appo apps set-name <id> <name>  Update an app's name
 
 Lifecycle:
-  appo ship <id> [--yes]                  Build an existing app and publish it
-  appo ship --url <u> --name <n> [--stores <list>] [--platform ios|android|all] [--timeout <s>] [--yes]   Create -> build -> poll -> publish in one command
-  appo status <id> [--build <buildId>]   App overview (or one build's status)
-  appo preview <id>              Show preview target (TestFlight/deeplink + QR)
-  appo build <id> [--platform ios|android|all] [--branch <ref>]   Trigger a build (returns immediately)
-  appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]   Update app fields
+  appo ship --url <u> --name <n> [--stores <list>] [--timeout <s>] [--yes]   Create, build and publish a new app in one command
+  appo reship <id> [--yes]                Rebuild and republish an existing app
+  appo status <id>                        App overview (publication state + next action)
+  appo preview <id>                       Show preview target (TestFlight/deeplink + QR)
+  appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   Update app name, URL and store metadata
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
-  appo publish <id> --stores apple_appstore,google_playstore --confirm   Publish to the stores
+  appo publish <id> [--confirm]           Publish to the app's stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
-  appo resubmit <id> --confirm           Resubmit a rejected app for review
+  appo resubmit <id> --confirm            Resubmit a rejected app for review
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -54,10 +53,9 @@ Options:
   --token <pat>  Personal access token for \`login --token\` (never stored elsewhere)
   --json         Print the raw v1 response body (machine-readable)
   --confirm      Perform the write for a destructive verb (publish/push/resubmit)
-  --yes          Confirm the publish step of \`ship\` (alias of --confirm for ship)
-  --timeout <s>  Max seconds to poll a build during \`ship\` (default 1800)
-  --stores <l>   Comma list of target stores for \`ship\`/\`publish\` (default both)
-  --platform <p> Build platform for \`ship\`/\`build\`: ios|android|all
+  --yes          Confirm the publish step of \`ship\`/\`reship\` (alias of --confirm)
+  --timeout <s>  Max seconds to poll a build during \`ship\`/\`reship\` (default 1800)
+  --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
   -h, --help     Show this help
   -v, --version  Print the CLI + Node version
 
@@ -67,8 +65,8 @@ Exit codes:
   2  usage error (missing or invalid arguments)
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 
-  ship maps these to its final lifecycle state: 0 shipped / 1 blocked or failed /
-  2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
+  ship/reship maps these to its final lifecycle state: 0 shipped / 1 blocked or
+  failed / 2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
 
 Environment variables:
   APPO_TOKEN     Ephemeral token, highest precedence, never written to disk
@@ -600,39 +598,14 @@ export async function run(argv) {
         }
       }
 
-      case 'build': {
-        if (!sub) { console.error('Usage: appo build <id> [--platform ios|android|all] [--branch <ref>]'); return 2; }
-        // --json carve-out: print the RAW {data:...} envelope verbatim (D-08). Gated
-        // BEFORE the human path so the unwrapping op is never reached in --json mode
-        // (mirrors case 'status'). ops.triggerBuild returns UNWRAPPED data and cannot
-        // serve this branch without breaking the verbatim-envelope contract.
-        if (flags.json) {
-          const body = {};
-          if (flags.platform) body.platform = flags.platform;   // ios|android|all (server-validated)
-          if (flags.branch)   body.branch   = flags.branch;     // /^[A-Za-z0-9._\/-]+$/ (server-validated)
-          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, body, env);
-          console.log(JSON.stringify(res));
-          return 0;
-        }
-        // Human path: the build-trigger POST has its ONE transport definition in
-        // ops.triggerBuild (shared with the Plan 02 ship orchestrator).
-        // D-03: never poll/wait — return the id immediately. A 422 prerequisite_failed
-        // (APP_BLOCKED etc.) propagates to the top-level renderError (D-06 actionable block).
-        const b = await ops.triggerBuild(apiBase, sub, { platform: flags.platform, branch: flags.branch }, env) || {};
-        console.log(`Build #${b.id} started (${b.platform}). Poll: appo status ${sub} --build ${b.id}`);
-        return 0;
-      }
-
       case 'configure': {
-        if (!sub) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]'); return 2; }
+        if (!sub) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]'); return 2; }
         const body = {};
         if (flags.name)            body.name = flags.name;
         if (flags.url)             body.base_url = flags.url;
         if (flags['meta-name'])    body.metadata_name = flags['meta-name'];
         if (flags['meta-desc'])    body.metadata_description = flags['meta-desc'];
-        if (flags['injected-css']) body.injected_css = flags['injected-css'];
-        if (flags['injected-js'])  body.injected_javascript = flags['injected-js'];
-        if (Object.keys(body).length === 0) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]'); return 2; }
+        if (Object.keys(body).length === 0) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]'); return 2; }
         await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${sub}`, body, env);   // 204 -> apiFetch returns null
         if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body to passthrough
         console.log(`Updated app ${sub}.`);
@@ -640,13 +613,15 @@ export async function run(argv) {
       }
 
       case 'publish': {
-        if (!sub || !flags.stores) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
-        // --stores is a comma list of canonical AppStore tokens; the apple/google
-        // alias mapping has its ONE definition in parseStores (shared with `ship`).
-        // The `!flags.stores` guard above preserves "missing --stores -> exit 2";
-        // the length check below rejects a present-but-empty value (e.g. `--stores ,,`).
+        if (!sub) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
+        // --stores is an OPTIONAL override; when ABSENT (undefined), parseStores
+        // defaults to the app's canonical stores (both) so the user never has to know
+        // store tokens. But an EXPLICIT empty value is a usage error: the user meant
+        // to name stores and gave none. '' is falsy (parseStores would default it), so
+        // reject it here; `--stores ,,` is caught by the length check below (IN-01).
+        if (flags.stores === '') { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         const stores = parseStores(flags.stores);
-        if (stores.length === 0) { console.error('Usage: appo publish <id> --stores apple_appstore,google_playstore --confirm'); return 2; }
+        if (stores.length === 0) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         const gated = confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
         await ops.publishApp(apiBase, sub, stores, env);        // 204 -> null
@@ -688,13 +663,22 @@ export async function run(argv) {
         return 0;
       }
 
-      case 'ship': {
+      case 'ship':
+      case 'reship': {
+        // `reship <id>` is the operator-facing verb for "rebuild and republish an
+        // existing app" — it requires an id and never the create form. `ship <id>`
+        // remains a synonym for back-compat; `ship --url --name` is the new-app form.
+        const isReship = command === 'reship';
         const hasId = sub && !sub.startsWith('--');
-        if (!hasId && (!flags.url || !flags.name)) {
+        if (isReship && !hasId) {
+          console.error('Usage: appo reship <id> [--yes]');
+          return 2;
+        }
+        if (!isReship && !hasId && (!flags.url || !flags.name)) {
           // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
           // stderr + exit 2 even under --json (the single-object ledger contract
           // applies only once a pipeline step has begun).
-          console.error('Usage: appo ship <id> | appo ship --url <u> --name <n> [--stores <list>] [--platform ios|android|all] [--yes] [--timeout <s>] [--json]');
+          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--timeout <s>] [--json]  |  appo reship <id> [--yes]');
           return 2;
         }
         const json = flags.json === true;
@@ -732,11 +716,13 @@ export async function run(argv) {
 
         // STEP build trigger. prerequisite_failed (Apple creds etc.) blocks HERE,
         // before any build exists. Surface app_id for resume on a post-create block.
+        // Platform/branch are operator-decided server-side — the CLI never surfaces
+        // them: the user ships an outcome, not a build configuration.
         let build;
         try {
-          build = await ops.triggerBuild(apiBase, appId, { platform: flags.platform, branch: flags.branch }, env);
+          build = await ops.triggerBuild(apiBase, appId, {}, env);
         } catch (err) {
-          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
+          if (!json) console.error(`  (app #${appId} exists — resume with: appo reship ${appId})`);
           return handleBlock(err, 'build', { app_id: appId });
         }
         const buildId = (build || {}).id;

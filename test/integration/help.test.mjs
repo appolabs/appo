@@ -15,7 +15,7 @@ async function captureLog(fn) {
 }
 
 const LIFECYCLE_VERBS = [
-  'build',
+  'reship',
   'status',
   'publish',
   'push',

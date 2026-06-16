@@ -86,6 +86,42 @@ test('ship <id> --yes skips create (no create POST)', async () => {
   expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/builds$/);   // first request is build, not create
 });
 
+// 2b. `reship <id>` is the operator-facing verb for "rebuild and republish an
+// existing app" — same pipeline as `ship <id>` (skips create, build is first).
+test('reship <id> --yes skips create and publishes (exit 0)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 202, body: { data: { id: 12, status: 'queued' } } }, // triggerBuild (first call)
+    { status: 200, body: { data: { status: 'ready' } } },          // getBuild -> terminal
+    { status: 204 },                                               // publish
+  ]);
+  const { result } = await captureLog(() => run(['reship', '5', '--yes', ...API]));
+  expect(result).toBe(0);
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/builds$/);   // first request is build, not create
+});
+
+// 2c. reship requires an id — the create form is ship-only.
+test('reship without an id -> exit 2, no HTTP', async () => {
+  stubToken();
+  installMockFetch({ status: 200 });
+  const result = await silentRun(['reship', ...API]);
+  expect(result).toBe(2);
+  expect(requests.length).toBe(0);
+});
+
+// 2d. reship never forwards a build platform/branch — the trigger body is empty
+// (the operator decides the platform server-side; the user ships an outcome).
+test('reship triggers a build with an empty body (no platform/branch leak)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 202, body: { data: { id: 12, status: 'queued' } } },
+    { status: 200, body: { data: { status: 'ready' } } },
+    { status: 204 },
+  ]);
+  await captureLog(() => run(['reship', '5', '--yes', ...API]));
+  expect(requests[0].body).toEqual({});   // build trigger carries no platform/branch
+});
+
 // 3. build failed -> exit 1, hint fix-recipe / rejection.
 test('ship build failed -> exit 1 with fix-recipe/rejection hint', async () => {
   stubToken();

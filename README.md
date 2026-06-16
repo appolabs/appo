@@ -34,16 +34,17 @@ as it happens. Drop `--yes` to inspect the publish preview before anything is
 written; re-run with `--yes` (or `--confirm`) to publish.
 
 ```bash
-appo ship <id>                                     # build + publish an existing app
+appo reship <id>                                   # rebuild + republish an existing app
 appo ship --url <u> --name <n> --yes               # full pipeline, skip the gate
 ```
 
-Flags: `--stores <list>` (target stores, default both), `--platform ios|android|all`,
+Flags: `--stores <list>` (override the target stores; defaults to the app's stores),
 `--timeout <s>` (max seconds to poll a build, default 1800), `--yes` (confirm the
 publish step), `--json` (emit one `{steps, final_state}` object instead of the live
-stream). `ship` maps its final lifecycle state to the [exit codes](#exit-codes):
-`0` shipped, `1` blocked or failed, `2` usage error, `3` gated (publish preview
-shown, no write — re-run with `--yes`).
+stream). The build platform is decided by Appo (the operator) — you ship an outcome,
+not a build configuration. `ship`/`reship` map their final lifecycle state to the
+[exit codes](#exit-codes): `0` shipped, `1` blocked or failed, `2` usage error,
+`3` gated (publish preview shown, no write — re-run with `--yes`).
 
 ## appo init
 
@@ -104,16 +105,19 @@ metadata name and description. `apps list` prints id, name, publication state, a
 base URL per app. `apps show <id>` prints the full app overview. `apps set-name`
 updates only the app name.
 
-## build
+## reship
 
 ```bash
-appo build <id> [--platform ios|android|all] [--branch <ref>]
+appo reship <id> [--yes]
 ```
 
-Triggers a build and returns the build id immediately — it does not wait. Poll it
-with `appo status <id> --build <buildId>`. A blocked prerequisite (for example a
-missing Apple credential) is rendered as an actionable blocked state. `--json`
-prints the raw v1 response.
+Rebuilds and republishes an existing app: it triggers a fresh build, polls until the
+build is ready, then publishes — the same pipeline as `appo ship` minus the create
+step. Use it to push a new version of an app that already exists. Without `--yes` it
+stops at the publish confirm-gate (exit `3`, no write). The build platform is decided
+by Appo — there is no `build` verb and no platform/branch flag: you reship an outcome,
+not a build configuration. A blocked prerequisite (for example a missing Apple
+credential) is rendered as an actionable blocked state.
 
 ## status
 
@@ -148,10 +152,11 @@ line is printed instead. With `--json` the raw v1 response body is emitted verba
 ## configure
 
 ```bash
-appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>] [--injected-css <css>] [--injected-js <js>]
+appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]
 ```
 
-Updates only the fields you supply. At least one field is required. `--json` prints
+Updates only the fields you supply — the app name, its base URL, and the store
+metadata (name and description). At least one field is required. `--json` prints
 `null` (the update returns no body). Not confirm-gated (reversible).
 
 ## rejection
@@ -175,12 +180,13 @@ limitations. `--json` emits the raw envelope.
 ## publish
 
 ```bash
-appo publish <id> --stores apple_appstore,google_playstore --confirm
+appo publish <id> --confirm
 ```
 
-Publishes to the named stores. Destructive: without `--confirm` it prints a preview
-and exits with code `3` (confirm required) — no write is performed. `--stores`
-accepts the canonical store tokens or the `apple`/`google` aliases.
+Publishes to the app's stores. Destructive: without `--confirm` it prints a preview
+and exits with code `3` (confirm required) — no write is performed. By default it
+targets the app's stores; `--stores <list>` is an optional override accepting the
+canonical store tokens or the `apple`/`google` aliases.
 
 ## push
 

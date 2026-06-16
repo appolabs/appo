@@ -123,10 +123,21 @@ test('publish --stores with only commas returns 2 (IN-01)', async () => {
   expect(requests.length).toBe(0);
 });
 
-test('publish missing --stores returns 2', async () => {
+test('publish without --stores defaults to both stores and gates (exit 3, no write)', async () => {
   stubToken();
-  const result = await silentRun(['publish', '7', ...API]);
-  expect(result).toBe(2);
+  installMockFetch({ status: 204 });
+  const { result } = await captureLog(() => run(['publish', '7', ...API]));
+  expect(result).toBe(3);
+  expect(requests.length).toBe(0); // gate before any POST
+});
+
+test('publish --confirm without --stores POSTs both canonical stores', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const { result } = await captureLog(() => run(['publish', '7', '--confirm', ...API]));
+  expect(result).toBe(0);
+  const req = lastRequest();
+  expect(req.body).toEqual({ app_stores: ['apple_appstore', 'google_playstore'] });
 });
 
 test('publish missing id returns 2', async () => {

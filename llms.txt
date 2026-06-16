@@ -4,7 +4,7 @@
 
 A thin, dependency-free Node client over the Appo public API (`/api/v1`) and the
 RFC 8628 device-authorization grant. Run the complete Appo app lifecycle —
-create, build, publish, push — from a shell or an agent.
+create, ship, publish, push — from a shell or an agent.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ create, build, publish, push — from a shell or an agent.
 - [appo login / logout / whoami](README.md#auth)
 - [appo env list / env use](README.md#environments)
 - [appo apps create / apps list / apps show / apps set-name](README.md#apps)
-- [appo build](README.md#build)
+- [appo reship](README.md#reship)
 - [appo status](README.md#status)
 - [appo preview](README.md#preview)
 - [appo configure](README.md#configure)
