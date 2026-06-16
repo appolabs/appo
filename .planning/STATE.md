@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: CLI Completeness
-status: executing
-stopped_at: Phase 4 context gathered (preview); ready to plan
-last_updated: "2026-06-15T16:09:06.500Z"
-last_activity: 2026-06-15
+status: milestone_complete
+stopped_at: v0.1 complete — all 6 phases shipped; CLI published as @appolabs/appo v3.0.0
+last_updated: "2026-06-16T01:30:00.000Z"
+last_activity: 2026-06-16
 progress:
   total_phases: 6
   completed_phases: 6
@@ -21,15 +21,17 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** Phase 04 — preview-open-on-device
+**Current focus:** v0.1 complete — all 6 phases shipped; CLI abstracted to outcome verbs (build -> reship) post-v0.1.
 
 ## Current Position
 
-Milestone: v0.1 CLI Completeness
-Phase: 05
-Plan: Not started
-Status: Executing Phase 04
-Last activity: 2026-06-15
+Milestone: v0.1 CLI Completeness — COMPLETE (6/6 phases, 17/17 plans)
+Phase: all complete
+Plan: —
+Status: Milestone complete; CLI published as @appolabs/appo v3.0.0
+Last activity: 2026-06-16
+
+**Post-v0.1 amendment (2026-06-16):** the CLI surface was abstracted to outcome verbs (commit `c5eb94e`) to realize the operator vision — the user-facing `build` verb was removed (no `--platform`/`--branch`; existing apps rebuilt+republished via `reship <id>`; operator decides the platform server-side), `publish` defaults to the app's stores, and `configure` is content-only (no CSS/JS injection). CLI<->MCP parity is asserted at the OUTCOME level: `trigger_build` is intentionally MCP-only, `ship`/`reship` intentionally CLI-only. Phase 1/2 plans describing a `build` verb are superseded; canonical surface is `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
 
 Bootstrapped from the apps-web-app session: the MVP CLI (login + apps create/list/show/set-name) was built and verified live (a real fresh user authenticated via the device flow and created an app). Backend is complete — device grant, `/api/v1` lifecycle, and the MCP `create_app` tool (apps-web-app Phase 186) are all shipped. This project holds the CLI-side completeness phases (1-6); cross-surface parity verification lives in apps-web-app Phase 187.
 

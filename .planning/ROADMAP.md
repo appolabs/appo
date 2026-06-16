@@ -2,15 +2,15 @@
 
 ## Milestones
 
-- 🚧 **v0.1 CLI Completeness** — Phases 1-6. From MVP to full operator parity with the `/mcp` agent surface, fronted by the `appo ship` one-command lifecycle, with non-interactive auth, preview, tests, and a published package.
+- ✅ **v0.1 CLI Completeness** (complete 2026-06-15) — Phases 1-6. From MVP to full operator parity with the `/mcp` agent surface, fronted by the `appo ship` one-command lifecycle, with non-interactive auth, preview, tests, and a published package. Shipped as `@appolabs/appo` v3.0.0.
 
 ## Completed Milestones
 
-(none)
+- ✅ **v0.1 CLI Completeness** — 6/6 phases, 17/17 plans (2026-06-15)
 
 ---
 
-### 🚧 v0.1 CLI Completeness
+### ✅ v0.1 CLI Completeness
 
 **Milestone Goal:** The `appo` CLI drives the complete app lifecycle at parity with the `/mcp` AppoServer tools and `/api/v1`, with a headline `appo ship` workflow, headless-capable auth, preview/open-on-device, automated tests, and a published npm package.
 
@@ -18,12 +18,14 @@
 
 **Killer feature:** `appo ship` (Phase 2) — one command takes a URL from zero to submitted, streaming each lifecycle step. Everything else is the surface it orchestrates.
 
-- [ ] **Phase 1: Operator command parity** — build/publish/status/push/configure/rejection/fix-recipe/**resubmit**; `--json`; exit codes; confirm-gates
-- [ ] **Phase 2: `appo ship` — orchestrated lifecycle (KILLER FEATURE)** — one command: create → build → status (poll) → publish, with streamed progress
-- [ ] **Phase 3: Auth & config hardening** — token expiry/refresh, server-side logout revoke, multi-environment profiles, **non-interactive auth** (`APPO_TOKEN` / `appo login --token`)
-- [ ] **Phase 4: Preview / open-on-device** *(unblocked — apps-web-app Phase 188 shipped 2026-06-15)* — `appo preview` (terminal QR + TestFlight/deeplink)
-- [ ] **Phase 5: Test suite & CI** — vitest unit + integration, GitHub Actions, lint/typecheck
-- [ ] **Phase 6: Packaging, docs & release** — npm publish + scaffolder, `appo upgrade`/update-check, README/command-reference/llms.txt
+- [x] **Phase 1: Operator command parity** — build/publish/status/push/configure/rejection/fix-recipe/**resubmit**; `--json`; exit codes; confirm-gates (completed)
+- [x] **Phase 2: `appo ship` — orchestrated lifecycle (KILLER FEATURE)** — one command: create → build → status (poll) → publish, with streamed progress (completed)
+- [x] **Phase 3: Auth & config hardening** — token expiry/refresh, server-side logout revoke, multi-environment profiles, **non-interactive auth** (`APPO_TOKEN` / `appo login --token`) (completed)
+- [x] **Phase 4: Preview / open-on-device** — `appo preview` (terminal QR + TestFlight/deeplink) (completed)
+- [x] **Phase 5: Test suite & CI** — vitest unit + integration, GitHub Actions, lint/typecheck (completed)
+- [x] **Phase 6: Packaging, docs & release** — npm publish + scaffolder, `appo upgrade`/update-check, README/command-reference/llms.txt (completed)
+
+> **Post-v0.1 amendment (2026-06-16):** the CLI surface was abstracted to outcome verbs (commit `c5eb94e`). The user-facing **`build` verb was removed** (no `--platform`/`--branch`) — existing apps are rebuilt+republished via **`reship <id>`** and the operator decides the platform server-side; `publish` defaults to the app's stores; `configure` is content-only. Phase 1/2 plans here that describe a `build` verb are **superseded — do NOT re-execute them as-is**. Canonical surface of record: `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
 
 ## Phase Details
 
