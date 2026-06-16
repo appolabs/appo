@@ -10,8 +10,8 @@ const LLMS = readFileSync('llms.txt', 'utf-8');
 
 const COMMANDS = [
   'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
-  'apps create', 'apps list', 'apps show', 'apps set-name',
-  'reship', 'status', 'configure', 'rejection', 'fix-recipe', 'publish', 'push', 'resubmit',
+  'apps create', 'apps list', 'apps show', 'apps update',
+  'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'preview',
 ];
 

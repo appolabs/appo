@@ -21,22 +21,6 @@ async function captureLog(fn) {
   }
 }
 
-// Capture both stdout (console.log) and stderr (console.error).
-async function captureAll(fn) {
-  const log = console.log;
-  const err = console.error;
-  const lines = [];
-  console.log = (...args) => lines.push(args.join(' '));
-  console.error = (...args) => lines.push(args.join(' '));
-  try {
-    const result = await fn();
-    return { result, lines };
-  } finally {
-    console.log = log;
-    console.error = err;
-  }
-}
-
 // Run with console.error muted (usage-guard branches write to stderr).
 async function silentRun(argv) {
   const original = console.error;
@@ -143,58 +127,6 @@ test('publish --confirm without --stores POSTs both canonical stores', async () 
 test('publish missing id returns 2', async () => {
   stubToken();
   const result = await silentRun(['publish', ...API]);
-  expect(result).toBe(2);
-});
-
-// --- resubmit (POST -> 200, confirm-gated, no body) -----------------------
-
-test('resubmit without --confirm issues NO write and returns 3', async () => {
-  stubToken();
-  installMockFetch({ status: 200, body: { data: { status: 'in_review' } } });
-  const { result } = await captureLog(() => run(['resubmit', '7', ...API]));
-  expect(result).toBe(3);
-  expect(requests.length).toBe(0); // T-01-13
-});
-
-test('resubmit preview mentions the Apple credential requirement', async () => {
-  stubToken();
-  installMockFetch({ status: 200, body: { data: { status: 'in_review' } } });
-  const { lines } = await captureLog(() => run(['resubmit', '7', ...API]));
-  expect(lines.join('\n')).toMatch(/Apple Developer credential/i);
-});
-
-test('resubmit with --confirm POSTs /resubmit with no body and returns 0', async () => {
-  stubToken();
-  installMockFetch({ status: 200, body: { data: { status: 'in_review' } } });
-  const { result } = await captureLog(() => run(['resubmit', '7', '--confirm', ...API]));
-  expect(result).toBe(0);
-  const req = lastRequest();
-  expect(req.method).toBe('POST');
-  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/resubmit$/);
-  expect(req.body).toBe(null); // no body sent
-});
-
-test('resubmit CUSTOMER_ASC_CREDENTIAL_MISSING renders blocked-state with dashboard_url, returns 1', async () => {
-  stubToken();
-  installMockFetch({
-    status: 422,
-    body: {
-      error: 'prerequisite_failed',
-      code: 'CUSTOMER_ASC_CREDENTIAL_MISSING',
-      message: 'Connect your Apple Developer account',
-      details: { next_action: 'complete_enrollment', dashboard_url: 'https://dash.example/connect' },
-    },
-  });
-  const { result, lines } = await captureAll(() => run(['resubmit', '7', '--confirm', ...API]));
-  expect(result).toBe(1);
-  const out = lines.join('\n');
-  expect(out).toMatch(/Blocked/);
-  expect(out).toMatch(/https:\/\/dash\.example\/connect/);
-});
-
-test('resubmit missing id returns 2', async () => {
-  stubToken();
-  const result = await silentRun(['resubmit', ...API]);
   expect(result).toBe(2);
 });
 

@@ -33,28 +33,26 @@ Apps:
   appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
   appo apps list                  List your apps
   appo apps show <id>             Show one app
-  appo apps set-name <id> <name>  Update an app's name
+  appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   Update name, URL and store metadata
 
 Lifecycle:
-  appo ship --url <u> --name <n> [--stores <list>] [--timeout <s>] [--yes]   Create, build and publish a new app in one command
-  appo reship <id> [--yes]                Rebuild and republish an existing app
+  appo ship --url <u> --name <n> [--stores <list>] [--timeout <s>] [--yes]   Create, build and publish a new app
+  appo ship <id> [--yes]                  Rebuild and republish an existing app (also resubmits after a rejection)
   appo status <id>                        App overview (publication state + next action)
   appo preview <id>                       Show preview target (TestFlight/deeplink + QR)
-  appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   Update app name, URL and store metadata
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
-  appo publish <id> [--confirm]           Publish to the app's stores
+  appo publish <id> [--confirm]           Publish an already-built app to its stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
-  appo resubmit <id> --confirm            Resubmit a rejected app for review
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
   --env <name>   Select the environment/profile (env: APPO_ENV)
   --token <pat>  Personal access token for \`login --token\` (never stored elsewhere)
   --json         Print the raw v1 response body (machine-readable)
-  --confirm      Perform the write for a destructive verb (publish/push/resubmit)
-  --yes          Confirm the publish step of \`ship\`/\`reship\` (alias of --confirm)
-  --timeout <s>  Max seconds to poll a build during \`ship\`/\`reship\` (default 1800)
+  --confirm      Perform the write for a destructive verb (publish/push)
+  --yes          Confirm the publish step of \`ship\` (alias of --confirm)
+  --timeout <s>  Max seconds to poll a build during \`ship\` (default 1800)
   --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
   -h, --help     Show this help
   -v, --version  Print the CLI + Node version
@@ -65,7 +63,7 @@ Exit codes:
   2  usage error (missing or invalid arguments)
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 
-  ship/reship maps these to its final lifecycle state: 0 shipped / 1 blocked or
+  ship maps these to its final lifecycle state: 0 shipped / 1 blocked or
   failed / 2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
 
 Environment variables:
@@ -202,7 +200,7 @@ function printPreviewPayload(d) {
   }
 }
 
-/** Human-readable preview of a pending destructive write (publish/push/resubmit).
+/** Human-readable preview of a pending destructive write (publish/push).
  *  Reuses the aligned line(k,v) idiom from printApp. Pure presentation — no fetch. */
 function printPreview(preview) {
   if (!preview) return;
@@ -528,13 +526,19 @@ export async function run(argv) {
           printApp(app);
           return 0;
         }
-        if (sub === 'set-name') {
-          if (!rest[0] || !rest[1]) {
-            console.error('Usage: appo apps set-name <id> <name>');
-            return 2;
-          }
-          await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${rest[0]}`, { name: rest.slice(1).join(' ') }, env);
-          console.log(`Updated app ${rest[0]}.`);
+        if (sub === 'update') {
+          const id = rest[0];
+          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]';
+          if (!id) { console.error(usage); return 2; }
+          const body = {};
+          if (flags.name)         body.name = flags.name;
+          if (flags.url)          body.base_url = flags.url;
+          if (flags['meta-name']) body.metadata_name = flags['meta-name'];
+          if (flags['meta-desc']) body.metadata_description = flags['meta-desc'];
+          if (Object.keys(body).length === 0) { console.error(usage); return 2; }
+          await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}`, body, env);   // 204 -> null
+          if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body
+          console.log(`Updated app ${id}.`);
           return 0;
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);
@@ -598,20 +602,6 @@ export async function run(argv) {
         }
       }
 
-      case 'configure': {
-        if (!sub) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]'); return 2; }
-        const body = {};
-        if (flags.name)            body.name = flags.name;
-        if (flags.url)             body.base_url = flags.url;
-        if (flags['meta-name'])    body.metadata_name = flags['meta-name'];
-        if (flags['meta-desc'])    body.metadata_description = flags['meta-desc'];
-        if (Object.keys(body).length === 0) { console.error('Usage: appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]'); return 2; }
-        await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${sub}`, body, env);   // 204 -> apiFetch returns null
-        if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body to passthrough
-        console.log(`Updated app ${sub}.`);
-        return 0;
-      }
-
       case 'publish': {
         if (!sub) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         // --stores is an OPTIONAL override; when ABSENT (undefined), parseStores
@@ -627,22 +617,6 @@ export async function run(argv) {
         await ops.publishApp(apiBase, sub, stores, env);        // 204 -> null
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
         console.log(`Publication started for: ${stores.join(', ')}`);
-        return 0;
-      }
-
-      case 'resubmit': {
-        if (!sub) { console.error('Usage: appo resubmit <id> --confirm'); return 2; }
-        const gated = confirmGate(flags, {
-          will: 'resubmit', app_id: previewId(sub),
-          current_state: 'rejected', target_state: 'in_review',
-          note: 'A customer-owned Apple Developer credential is required before resubmitting.',
-        });
-        if (gated !== null) return gated;                       // exit 3, NO write
-        const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/resubmit`, null, env);  // 200 { data:{status:'in_review'} }
-        // 422 prerequisite_failed (CUSTOMER_ASC_CREDENTIAL_MISSING / INVALID_APP_STATE)
-        // propagates to the shared renderError as an actionable Blocked state (D-06).
-        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
-        console.log('Resubmission started — now in review.');
         return 0;
       }
 
@@ -663,22 +637,17 @@ export async function run(argv) {
         return 0;
       }
 
-      case 'ship':
-      case 'reship': {
-        // `reship <id>` is the operator-facing verb for "rebuild and republish an
-        // existing app" — it requires an id and never the create form. `ship <id>`
-        // remains a synonym for back-compat; `ship --url --name` is the new-app form.
-        const isReship = command === 'reship';
+      case 'ship': {
+        // Single outcome verb — "get my app live". `ship --url --name` creates a new
+        // app; `ship <id>` rebuilds and republishes an existing one (this also covers
+        // resubmit-after-rejection). No first-vs-Nth distinction is surfaced — the
+        // user expresses the outcome, the platform decides build/publish mechanics.
         const hasId = sub && !sub.startsWith('--');
-        if (isReship && !hasId) {
-          console.error('Usage: appo reship <id> [--yes]');
-          return 2;
-        }
-        if (!isReship && !hasId && (!flags.url || !flags.name)) {
+        if (!hasId && (!flags.url || !flags.name)) {
           // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
           // stderr + exit 2 even under --json (the single-object ledger contract
           // applies only once a pipeline step has begun).
-          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--timeout <s>] [--json]  |  appo reship <id> [--yes]');
+          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--timeout <s>] [--json]  |  appo ship <id> [--yes]');
           return 2;
         }
         const json = flags.json === true;
@@ -722,7 +691,7 @@ export async function run(argv) {
         try {
           build = await ops.triggerBuild(apiBase, appId, env);
         } catch (err) {
-          if (!json) console.error(`  (app #${appId} exists — resume with: appo reship ${appId})`);
+          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
           return handleBlock(err, 'build', { app_id: appId });
         }
         const buildId = (build || {}).id;

@@ -34,15 +34,18 @@ as it happens. Drop `--yes` to inspect the publish preview before anything is
 written; re-run with `--yes` (or `--confirm`) to publish.
 
 ```bash
-appo reship <id>                                   # rebuild + republish an existing app
+appo ship <id>                                     # rebuild + republish an existing app
 appo ship --url <u> --name <n> --yes               # full pipeline, skip the gate
 ```
 
-Flags: `--stores <list>` (override the target stores; defaults to the app's stores),
-`--timeout <s>` (max seconds to poll a build, default 1800), `--yes` (confirm the
-publish step), `--json` (emit one `{steps, final_state}` object instead of the live
-stream). The build platform is decided by Appo (the operator) — you ship an outcome,
-not a build configuration. `ship`/`reship` map their final lifecycle state to the
+`appo ship` is the single "get my app live" verb: with `--url`/`--name` it creates a
+new app, with an `<id>` it rebuilds and republishes an existing one (this also covers
+resubmitting after an App Store rejection). Flags: `--stores <list>` (override the
+target stores; defaults to the app's stores), `--timeout <s>` (max seconds to poll a
+build, default 1800), `--yes` (confirm the publish step), `--json` (emit one
+`{steps, final_state}` object instead of the live stream). The build platform is
+decided by Appo (the operator) — you ship an outcome, not a build configuration.
+`ship` maps its final lifecycle state to the
 [exit codes](#exit-codes): `0` shipped, `1` blocked or failed, `2` usage error,
 `3` gated (publish preview shown, no write — re-run with `--yes`).
 
@@ -97,27 +100,19 @@ profile with `*` and never prints tokens. Select an environment per-command with
 appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
 appo apps list             # list your apps
 appo apps show <id>        # show one app
-appo apps set-name <id> <name>   # rename an app
+appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   # edit app fields
 ```
 
 `apps create` registers a new app from a name and a base URL, with optional store
 metadata name and description. `apps list` prints id, name, publication state, and
-base URL per app. `apps show <id>` prints the full app overview. `apps set-name`
-updates only the app name.
+base URL per app. `apps show <id>` prints the full app overview. `apps update <id>`
+edits only the fields you supply — the app name, its base URL, and the store metadata
+(name and description); at least one field is required. `--json` prints `null` (the
+update returns no body). Not confirm-gated (reversible).
 
-## reship
-
-```bash
-appo reship <id> [--yes]
-```
-
-Rebuilds and republishes an existing app: it triggers a fresh build, polls until the
-build is ready, then publishes — the same pipeline as `appo ship` minus the create
-step. Use it to push a new version of an app that already exists. Without `--yes` it
-stops at the publish confirm-gate (exit `3`, no write). The build platform is decided
-by Appo — there is no `build` verb and no platform/branch flag: you reship an outcome,
-not a build configuration. A blocked prerequisite (for example a missing Apple
-credential) is rendered as an actionable blocked state.
+> To rebuild and republish an existing app (or resubmit after a rejection), use
+> `appo ship <id>` — there is no separate `reship`/`build`/`resubmit` verb. You ship
+> an outcome, not a build configuration.
 
 ## status
 
@@ -148,16 +143,6 @@ When neither platform is ready the QR is skipped and a `(no preview target yet)`
 line is printed instead. With `--json` the raw v1 response body is emitted verbatim
 — no QR, no curation. Exit 1 on API error (including app not found); exit 2 when
 `<id>` is omitted.
-
-## configure
-
-```bash
-appo configure <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]
-```
-
-Updates only the fields you supply — the app name, its base URL, and the store
-metadata (name and description). At least one field is required. `--json` prints
-`null` (the update returns no body). Not confirm-gated (reversible).
 
 ## rejection
 
@@ -197,16 +182,6 @@ appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--s
 Sends a push notification. Destructive: without `--confirm` it prints a preview and
 exits with code `3` — no write. The preview omits the recipient count (exposed only
 after send). On success it reports the number of devices reached.
-
-## resubmit
-
-```bash
-appo resubmit <id> --confirm
-```
-
-Resubmits a rejected app for review. Destructive: without `--confirm` it prints a
-preview and exits with code `3` — no write. A missing customer Apple Developer
-credential is rendered as an actionable blocked state.
 
 ## upgrade
 

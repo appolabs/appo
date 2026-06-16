@@ -15,17 +15,16 @@ async function captureLog(fn) {
 }
 
 const LIFECYCLE_VERBS = [
-  'reship',
+  'ship',
   'status',
+  'preview',
   'publish',
   'push',
-  'configure',
   'rejection',
   'fix-recipe',
-  'resubmit',
 ];
 
-test('--help returns 0 and enumerates all 8 lifecycle verbs', async () => {
+test('--help returns 0 and enumerates all 7 lifecycle verbs', async () => {
   const { result, lines } = await captureLog(() => run(['--help']));
   expect(result).toBe(0);
   const out = lines.join('\n');
