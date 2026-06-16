@@ -24,16 +24,14 @@ export async function createApp(apiBase, { name, base_url, metadata_name, metada
 
 // POST /api/v1/apps/{id}/builds -> 202 { data: AppBuildResource }
 /**
+ * Trigger a build. Platform/branch are operator-decided server-side — the CLI
+ * ships an outcome, not a build configuration (post-v0.1 abstraction).
  * @param {string} apiBase
  * @param {string} id
- * @param {{ platform?: string, branch?: string }} [opts]
  * @param {string} [env]
  */
-export async function triggerBuild(apiBase, id, { platform, branch } = {}, env) {
-  const body = {};
-  if (platform) body.platform = platform;   // ios|android|all (server-validated)
-  if (branch) body.branch = branch;          // /^[A-Za-z0-9._\/-]+$/ (server-validated)
-  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds`, body, env));
+export async function triggerBuild(apiBase, id, env) {
+  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds`, {}, env));
 }
 
 // GET /api/v1/apps/{id} -> 200 { data: AppResource }

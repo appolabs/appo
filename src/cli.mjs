@@ -720,7 +720,7 @@ export async function run(argv) {
         // them: the user ships an outcome, not a build configuration.
         let build;
         try {
-          build = await ops.triggerBuild(apiBase, appId, {}, env);
+          build = await ops.triggerBuild(apiBase, appId, env);
         } catch (err) {
           if (!json) console.error(`  (app #${appId} exists — resume with: appo reship ${appId})`);
           return handleBlock(err, 'build', { app_id: appId });
