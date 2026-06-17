@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v0.1 CLI Completeness** (complete 2026-06-15) — Phases 1-6. From MVP to full operator parity with the `/mcp` agent surface, fronted by the `appo ship` one-command lifecycle, with non-interactive auth, preview, tests, and a published package. Shipped as `@appolabs/appo` v3.0.0.
+- 🚧 **v0.2 Ship-Intent Surface** — Phase 7. Align the CLI to the operator boundary: `ship` becomes create + publish-intent (no client-side build/poll — builds are staff-issued server-side), and `apps update` is limited to icon/url/name (store metadata removed from the CLI). Cross-repo: depends on `apps-web-app` v3.1 (Phases 189 build-removal + 190 icon endpoint).
 
 ## Completed Milestones
 
@@ -124,3 +125,25 @@ Plans:
 - [x] 06-01-PLAN.md — CLI features: src/upgrade.mjs (injectable runUpgrade + checkForUpdate) + config update_check cache + cli.mjs wiring (`--version`/`-v`, `init`, `upgrade`, update-check hook, USAGE) + unit tests (SC2/SC3)
 - [x] 06-02-PLAN.md — Packaging/release: package.json publish metadata + prepublishOnly + llms.txt in files + `.github/workflows/release.yml` (npm, no build, trusted publishing); verified via `npm pack --dry-run`, NO publish (SC1, D-09)
 - [x] 06-03-PLAN.md — Docs: rewrite README.md (full surface, ship-first, releasing runbook) + `llms.txt` (SDK shape) + command-coverage test; Wave-2 phase gate (SC4)
+
+---
+
+### 🚧 v0.2 Ship-Intent Surface
+
+**Milestone Goal:** The CLI never triggers or polls a build. `ship` expresses publish-intent (builds are issued by Appo staff server-side), and `apps update` is limited to the three user-editable fields (icon, url, name).
+
+**Depends on:** v0.1. Cross-repo: `apps-web-app` Phase 189 (build removed from the user surface) + Phase 190 (icon endpoint on the agent surface).
+
+- [ ] **Phase 7: Ship-intent surface + config rescope** — `ship` = create (if `--url`/`--name`) + publish-intent, no build/poll; remove `ops.triggerBuild` + the pollBuild loop; `apps update` = icon/url/name (drop metadata, add `--icon`).
+
+### Phase 7: Ship-intent surface + config rescope
+
+**Goal**: The CLI issues no builds. `ship` creates (when given `--url`/`--name`) and signals publish-intent, returning immediately; staff issue the build server-side. `apps update` edits only icon/url/name.
+**Requirements**: CLI operator boundary (no REQ IDs)
+**Depends on**: Phase 6; cross-repo `apps-web-app` Phase 189 + Phase 190
+**Success Criteria** (what must be TRUE):
+  1. `appo ship --url <u> --name <n>` creates the app and signals publish-intent (the publish/publication-start path) WITHOUT calling `POST /builds` and WITHOUT polling; `appo ship <id>` signals (re)publish-intent the same way
+  2. `ops.triggerBuild` and the `pollBuild` loop are removed; no CLI code path calls `POST /api/v1/apps/{app}/builds`
+  3. `apps update <id>` accepts only `--name`, `--url`, and a new `--icon` (image set via the apps-web-app icon endpoint, Phase 190); the `--meta-name`/`--meta-desc` flags are removed
+  4. Tests, README, `llms.txt` updated; `npm test`, lint, and typecheck green
+**Plans**: TBD (run /gsd-plan-phase 7)
