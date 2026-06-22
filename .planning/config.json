@@ -10,7 +10,7 @@
   },
   "granularity": "coarse",
   "workflow": {
-    "_auto_chain_active": true,
+    "_auto_chain_active": false,
     "research": true,
     "nyquist_validation": true
   }
