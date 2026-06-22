@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Ship-Intent Surface
-status: executing
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-06-22T14:24:13.012Z"
+status: verifying
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-06-22T14:32:44.227Z"
 last_activity: 2026-06-22
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 20
-  completed_plans: 19
-  percent: 95
+  completed_plans: 20
+  percent: 100
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md
 Milestone: v0.1 CLI Completeness — COMPLETE (6/6 phases, 17/17 plans)
 Phase: 07 (ship-intent-surface) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-22
 
 **Post-v0.1 amendment (2026-06-16, v4.0.0):** the CLI surface was abstracted to outcome verbs (`c5eb94e`, collapsed further in `b223d25`) to realize the operator vision — the user-facing `build`, `reship`, `resubmit`, and `configure` verbs are gone; a single `appo ship` covers the whole lifecycle (`--url --name` = new; `<id>` = rebuild/republish/resubmit), with no `--platform`/`--branch` (operator decides the platform server-side); `publish` defaults to the app's stores; `apps update` is the content-only editor (absorbed configure + set-name). CLI<->MCP parity is asserted at the OUTCOME level: `trigger_build`/`trigger_resubmission` intentionally MCP-only, `ship` intentionally CLI-only. Phase 1/2 plans describing a `build` verb are superseded; canonical surface is `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
@@ -61,6 +61,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 06]: README rewritten to the full v0.1 CLI surface (ship-first quickstart, every verb, env vars, exit codes, profiles, CI auth, RELEASING runbook); llms.txt in SDK shape links every command into a README anchor; docs.test.mjs greps both docs for the full inventory. Phase 06 gate green (187 tests, lint+typecheck), tarball ships 10 whitelisted files incl. llms.txt; no publish (D-09).
 - [Phase 07]: ship reshaped to create -> publish-intent: triggerBuild/pollBuild/realSleep deleted, no CLI path issues POST .../builds; EXIT reduced to {shipped:0,gated:3,blocked:1}; ship tests assert request-absence of /builds (SC-1/SC-2).
 - [Phase 07]: apps update rescoped to name/url/icon: new flat-response ops.setIcon (POST .../icon, no unwrap, read res.icon_url); --meta-name/--meta-desc removed (src + tests + USAGE); two-call dispatch runs PATCH before POST /icon (D-04); PATCH-only --json stays null, icon-bearing emits {icon_url}; icon 422 rides renderError's else-branch (exit 1); zero client-side icon validation (server-side SSRF, T-07-04). SC-3 done.
+- [Phase 07-ship-intent-surface]: Docs re-synced to the ship-intent surface: README documents ship = create + publish-intent (no build/poll/--timeout) and apps update = name/url/icon (--icon documented, --meta-* removed); llms.txt left unchanged (anchor-based, no removed flag bodies). docs.test.mjs gained negative-assertion guards (README+llms.txt free of --meta-*/--timeout; src/ free of triggerBuild/pollBuild). Phase gate green (192 tests, lint, typecheck). SC-4 done.
 
 ### Blockers/Concerns
 
@@ -68,6 +69,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-22T14:24:06.580Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-06-22T14:32:36.573Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
