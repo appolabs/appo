@@ -39,3 +39,10 @@ export async function publishApp(apiBase, id, app_stores, env) {
 export async function getPreview(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env));
 }
+
+// POST /api/v1/apps/{id}/icon -> 200 { icon_url } (flat, NOT a {data:} envelope).
+// 422 { message, errors: { icon_url: [...] } } on SSRF/validation reject (apiFetch throws).
+// Do NOT unwrap — the body is flat. Read res.icon_url at the call site.
+export async function setIcon(apiBase, id, icon_url, env) {
+  return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/icon`, { icon_url }, env);
+}

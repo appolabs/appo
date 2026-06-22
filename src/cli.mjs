@@ -30,10 +30,10 @@ Packaging:
   appo --version, -v              Print the CLI + Node version
 
 Apps:
-  appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
+  appo apps create --name <n> --url <u>   Create a new app
   appo apps list                  List your apps
   appo apps show <id>             Show one app
-  appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   Update name, URL and store metadata
+  appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   Update name, URL and icon
 
 Lifecycle:
   appo ship --url <u> --name <n> [--stores <list>] [--yes]   Create and ship a new app
@@ -489,17 +489,37 @@ export async function run(argv) {
         }
         if (sub === 'update') {
           const id = rest[0];
-          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]';
+          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]';
           if (!id) { console.error(usage); return 2; }
+
           const body = {};
-          if (flags.name)         body.name = flags.name;
-          if (flags.url)          body.base_url = flags.url;
-          if (flags['meta-name']) body.metadata_name = flags['meta-name'];
-          if (flags['meta-desc']) body.metadata_description = flags['meta-desc'];
-          if (Object.keys(body).length === 0) { console.error(usage); return 2; }
-          await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}`, body, env);   // 204 -> null
-          if (flags.json) { console.log('null'); return 0; }              // Pitfall 5 / D-08: no body
+          if (flags.name) body.name = flags.name;
+          if (flags.url)  body.base_url = flags.url;
+          // Empty-value guard: a bare `--icon` parses to boolean true, failing the typeof
+          // string test — falls through to the usage error when it is the only flag.
+          const wantIcon = typeof flags.icon === 'string' && flags.icon;
+
+          if (Object.keys(body).length === 0 && !wantIcon) { console.error(usage); return 2; }
+
+          // Two-call dispatch (D-04): PATCH first (name/url), THEN POST /icon. No transaction —
+          // a PATCH throw skips the icon call and renders the error (the user re-runs).
+          let iconUrl;
+          if (Object.keys(body).length > 0) {
+            await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}`, body, env);   // 204 -> null
+          }
+          if (wantIcon) {
+            const res = await ops.setIcon(apiBase, id, flags.icon, env);         // 200 { icon_url }
+            iconUrl = res?.icon_url;
+          }
+
+          if (flags.json) {
+            // Pitfall 5: keep `null` for a PATCH-only update (204, no body); emit { icon_url }
+            // only when the icon ran.
+            console.log(wantIcon ? JSON.stringify({ icon_url: iconUrl }) : 'null');
+            return 0;
+          }
           console.log(`Updated app ${id}.`);
+          if (wantIcon) console.log(`  icon set: ${iconUrl}`);
           return 0;
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);
@@ -630,8 +650,8 @@ export async function run(argv) {
 
         let appId = hasId ? sub : null;
 
-        // STEP create (new-app form only) — metadata params dropped (dead on the
-        // user surface; v1 ignores them server-side).
+        // STEP create (new-app form only) — only name + base_url; the v1 surface
+        // ignores any other fields server-side.
         if (!appId) {
           let app;
           try {
