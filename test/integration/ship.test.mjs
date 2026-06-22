@@ -52,108 +52,53 @@ afterEach(() => resetMockFetch());
 
 const API = ['--api', 'http://test.local'];
 
-// Integration tests queue a SINGLE `ready` getBuild so the poll loop never reaches
-// a real sleep (terminal on the first poll). The multi-status sequence is reserved
-// for the pollBuild unit tests with an injected no-op sleep.
+// Post-Phase-7 invariant (SC-1/SC-2): `ship` never triggers or polls a build.
+// Builds are issued by Appo staff server-side. Every ship case below asserts the
+// NEGATIVE: zero requests matching /\/builds$/ were issued. The mock FIFO returns
+// the last queued response repeatedly, so a lingering build call would be silently
+// absorbed — request-absence is the only reliable guard.
 
-// 1. Happy path: create -> build -> poll(ready) -> publish, exit 0, shipped.
-test('ship --yes runs create->build->poll(ready)->publish, exit 0, final_state shipped', async () => {
+// 1. Happy path (new-app form): create -> publish-intent, exit 0, shipped. NO /builds.
+test('ship --url --name --yes creates then publishes, NO /builds, exit 0', async () => {
   stubToken();
   installMockFetch([
-    { status: 201, body: { data: { id: 5 } } },                    // createApp
-    { status: 202, body: { data: { id: 12, status: 'queued' } } }, // triggerBuild
-    { status: 200, body: { data: { status: 'ready' } } },          // getBuild -> terminal (no sleep)
-    { status: 204 },                                               // publishApp
+    { status: 201, body: { data: { id: 5 } } },  // createApp
+    { status: 204 },                              // publishApp (intent) — NO build, NO poll
   ]);
   const { result } = await captureLog(() =>
-    run(['ship', '--url', 'https://x', '--name', 'X', '--yes', '--timeout', '60', ...API]));
+    run(['ship', '--url', 'https://x', '--name', 'X', '--yes', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
   expect(req.method).toBe('POST');
   expect(req.path).toMatch(/\/api\/v1\/apps\/5\/publish$/);
   expect(req.body).toEqual({ app_stores: ['apple_appstore', 'google_playstore'] });
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);  // SC-1/SC-2 invariant
 });
 
-// 2. Existing-id skips create (first request is the build POST).
-test('ship <id> --yes skips create (no create POST)', async () => {
+// 2. Existing-id skips create — the FIRST request is the publish POST, never a build.
+test('ship <id> --yes skips create (first request is publish, NO /builds)', async () => {
   stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12, status: 'queued' } } }, // triggerBuild (first call)
-    { status: 200, body: { data: { status: 'ready' } } },          // getBuild -> terminal
-    { status: 204 },                                               // publish
-  ]);
-  await captureLog(() => run(['ship', '5', '--yes', ...API]));
-  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/builds$/);   // first request is build, not create
-});
-
-// 2b. `ship <id>` rebuilds and republishes an existing app — same pipeline as the
-// create form but skips create (build is first). Also covers resubmit-after-rejection.
-test('ship <id> --yes rebuilds and republishes (exit 0)', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12, status: 'queued' } } }, // triggerBuild (first call)
-    { status: 200, body: { data: { status: 'ready' } } },          // getBuild -> terminal
-    { status: 204 },                                               // publish
-  ]);
+  installMockFetch([{ status: 204 }]);  // publishApp only
   const { result } = await captureLog(() => run(['ship', '5', '--yes', ...API]));
   expect(result).toBe(0);
-  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/builds$/);   // first request is build, not create
+  expect(requests[0].method).toBe('POST');
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/publish$/);  // first request is publish, not create/build
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// 2c. ship never forwards a build platform/branch — the trigger body is empty
-// (the operator decides the platform server-side; the user ships an outcome).
-test('ship <id> triggers a build with an empty body (no platform/branch leak)', async () => {
+// 3. no --yes -> exit 3, NO publish POST, NO /builds (the high-severity gate invariant).
+test('ship <id> without --yes -> exit 3, NO publish POST, NO /builds', async () => {
   stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12, status: 'queued' } } },
-    { status: 200, body: { data: { status: 'ready' } } },
-    { status: 204 },
-  ]);
-  await captureLog(() => run(['ship', '5', '--yes', ...API]));
-  expect(requests[0].body).toEqual({});   // build trigger carries no platform/branch
-});
-
-// 3. build failed -> exit 1, hint fix-recipe / rejection.
-test('ship build failed -> exit 1 with fix-recipe/rejection hint', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12 } } },
-    { status: 200, body: { data: { status: 'failed' } } },
-  ]);
-  const { result, lines } = await captureLog(() => run(['ship', '5', '--yes', ...API]));
-  expect(result).toBe(1);
-  expect(lines.join('\n')).toMatch(/fix-recipe|rejection/);
-});
-
-// 4. poll timeout -> exit 1, resume hints. --timeout 0 returns timeout on first
-//    non-terminal status without sleeping.
-test('ship poll timeout -> exit 1 with appo status resume hints', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12 } } },
-    { status: 200, body: { data: { status: 'building' } } },
-  ]);
-  const { result, lines } = await captureLog(() =>
-    run(['ship', '5', '--yes', '--timeout', '0', ...API]));
-  expect(result).toBe(1);
-  expect(lines.join('\n')).toMatch(/appo status 5 --build/);
-  expect(lines.join('\n')).toMatch(/appo status 5/);
-});
-
-// 5. no --yes -> exit 3, NO publish POST (the high-severity gate invariant).
-test('ship without --yes -> exit 3 and issues NO publish POST', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12 } } },
-    { status: 200, body: { data: { status: 'ready' } } },
-  ]);
+  installMockFetch([{ status: 204 }]);  // never reached — gate fires first
   const { result } = await captureLog(() => run(['ship', '5', ...API]));
   expect(result).toBe(3);
   expect(requests.filter(r => /\/publish$/.test(r.path)).length).toBe(0);  // gate: NO publish write
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// 6. build prerequisite_failed -> exit 1, Blocked + dashboard_url, surfaced app_id.
-test('ship build prerequisite_failed -> exit 1, Blocked + dashboard_url + resume app_id', async () => {
+// 4. publish prerequisite_failed -> exit 1, Blocked + dashboard_url, surfaced app_id.
+//    The block now fires on the publish step (no build step exists). NO /builds.
+test('ship publish prerequisite_failed -> exit 1, Blocked + dashboard_url + resume app_id', async () => {
   stubToken();
   installMockFetch([
     { status: 201, body: { data: { id: 5 } } },                       // create ok
@@ -167,9 +112,10 @@ test('ship build prerequisite_failed -> exit 1, Blocked + dashboard_url + resume
   expect(lines.join('\n')).toMatch(/Blocked/);
   expect(lines.join('\n')).toMatch(/dash\/settings/);
   expect(lines.join('\n')).toMatch(/ship 5/);   // resume hint surfaces the created app_id
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// 7. usage error -> exit 2, no HTTP, for both plain and --json invocations.
+// 5. usage error -> exit 2, no HTTP, for both plain and --json invocations.
 test('ship with no id and no --url/--name -> exit 2, no HTTP (plain + --json)', async () => {
   stubToken();
   installMockFetch({ status: 200 });
@@ -183,35 +129,31 @@ test('ship with no id and no --url/--name -> exit 2, no HTTP (plain + --json)', 
   expect(requests.length).toBe(0);
 });
 
-// 8a. --json one-object ledger on success.
+// 6a. --json one-object ledger on success. final_state shipped, no build step in the ledger.
 test('ship --json emits one {steps,final_state} object, final_state shipped, exit 0', async () => {
   stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12 } } },
-    { status: 200, body: { data: { status: 'ready' } } },
-    { status: 204 },
-  ]);
+  installMockFetch([{ status: 204 }]);  // publishApp
   const { result, lines } = await captureLog(() =>
     run(['ship', '5', '--yes', '--json', ...API]));
   expect(result).toBe(0);
   const out = JSON.parse(lines.join(''));            // exactly one JSON line
   expect(Array.isArray(out.steps)).toBeTruthy();
   expect(out.final_state).toBe('shipped');
+  expect(out.steps.some((s) => s.step === 'build')).toBe(false);  // no build/poll steps
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// 8b. --json gated: final_state gated, exit 3, no publish POST.
+// 6b. --json gated: final_state gated, exit 3, no publish POST, no /builds.
 test('ship --json without --yes -> final_state gated, exit 3, no publish POST', async () => {
   stubToken();
-  installMockFetch([
-    { status: 202, body: { data: { id: 12 } } },
-    { status: 200, body: { data: { status: 'ready' } } },
-  ]);
+  installMockFetch([{ status: 204 }]);  // never reached — gate fires first
   const { result, lines } = await captureLog(() =>
     run(['ship', '5', '--json', ...API]));
   expect(result).toBe(3);
   const out = JSON.parse(lines.join(''));
   expect(out.final_state).toBe('gated');
   expect(requests.filter(r => /\/publish$/.test(r.path)).length).toBe(0);
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
 // IN-01: a non-numeric id must echo the raw value in the gate preview, never NaN
@@ -261,11 +203,12 @@ test('ship create with empty 2xx body does not throw (WR-01 guard)', async () =>
   const { result } = await captureLog(() =>
     run(['ship', '--url', 'https://x', '--name', 'X', '--yes', '--json', ...API]));
   expect(result).toBe(1);   // blocked, not an uncaught TypeError
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// WR-02: on a build-trigger block for an EXISTING-id ship (no create step), the
-// --json ledger must still carry app_id so a consumer can resume.
-test('ship <id> build block surfaces app_id in the --json ledger (WR-02)', async () => {
+// WR-02: on a publish block for an EXISTING-id ship (no create step), the --json
+// ledger must still carry app_id so a consumer can resume.
+test('ship <id> publish block surfaces app_id in the --json ledger (WR-02)', async () => {
   stubToken();
   installMockFetch([
     { status: 422, body: { error: 'prerequisite_failed', code: 'APPLE_CREDENTIALS_MISSING', message: 'creds required' } },
@@ -276,4 +219,5 @@ test('ship <id> build block surfaces app_id in the --json ledger (WR-02)', async
   expect(out.final_state).toBe('blocked');
   const block = out.steps.find((s) => s.status === 'blocked');
   expect(block.app_id).toBe('7');   // resume id present even without a create step
+  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
