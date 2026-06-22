@@ -62,8 +62,8 @@ Exit codes:
   2  usage error (missing or invalid arguments)
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 
-  ship maps these to its final lifecycle state: 0 shipped / 1 blocked or
-  failed / 2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
+  ship maps these to its final lifecycle state: 0 shipped / 1 blocked /
+  2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
 
 Environment variables:
   APPO_TOKEN     Ephemeral token, highest precedence, never written to disk
