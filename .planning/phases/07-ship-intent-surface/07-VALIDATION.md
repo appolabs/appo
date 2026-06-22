@@ -1,10 +1,11 @@
 ---
 phase: 7
 slug: ship-intent-surface
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-06-22
+validated: 2026-06-22
 ---
 
 # Phase 7 — Validation Strategy
@@ -38,16 +39,16 @@ created: 2026-06-22
 
 | SC | Behavior | Test Type | Automated Command | File Exists | Status |
 |----|----------|-----------|-------------------|-------------|--------|
-| SC-1 | `ship --url --name` creates then publish-intent, no /builds, no poll | integration | `npx vitest run test/integration/ship.test.mjs -t "creates then publishes"` | ❌ W0 (reshape) | ⬜ pending |
-| SC-1 | `ship <id>` signals (re)publish-intent; first request is `POST .../publish` | integration | `npx vitest run test/integration/ship.test.mjs -t "without --yes"` | ❌ W0 (reshape) | ⬜ pending |
-| SC-2 | No code path issues `POST .../builds` (request-absence assert in every ship test) | integration | `npx vitest run test/integration/ship.test.mjs` | ❌ W0 | ⬜ pending |
-| SC-2 | `triggerBuild`/`pollBuild` removed (source grep returns 0) | static | `! grep -rn "triggerBuild\|pollBuild" src/` | ❌ W0 (new guard) | ⬜ pending |
-| SC-3 | `apps update --icon` → `POST .../icon` with `{icon_url}` body | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "icon POSTs"` | ❌ W0 (new) | ⬜ pending |
-| SC-3 | `apps update --icon` 422 → exit 1, server message surfaced via renderError | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "SSRF reject"` | ❌ W0 (new) | ⬜ pending |
-| SC-3 | `--meta-name`/`--meta-desc` removed; PATCH still maps name/url | integration | `npx vitest run test/integration/write-verbs.test.mjs` | ❌ W0 (edit) | ⬜ pending |
-| SC-3 | PATCH-then-icon ordering when both content + icon given | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "PATCH then POST"` | ❌ W0 (new) | ⬜ pending |
-| SC-4 | README/llms.txt document the surface; no `--meta-*`/`--timeout`/build-poll wording | unit | `npx vitest run test/integration/docs.test.mjs` | ⚠️ exists; needs negative asserts | ⬜ pending |
-| SC-4 | Full gate green | suite | `npm test && npm run lint && npm run typecheck` | ✓ scripts exist | ⬜ pending |
+| SC-1 | `ship --url --name` creates then publish-intent, no /builds, no poll | integration | `npx vitest run test/integration/ship.test.mjs -t "creates then publishes"` | ✅ | ✅ green (1) |
+| SC-1 | `ship <id>` signals (re)publish-intent; first request is `POST .../publish` | integration | `npx vitest run test/integration/ship.test.mjs -t "without --yes"` | ✅ | ✅ green (2) |
+| SC-2 | No code path issues `POST .../builds` (request-absence assert in every ship test) | integration | `npx vitest run test/integration/ship.test.mjs` | ✅ | ✅ green (12) |
+| SC-2 | `triggerBuild`/`pollBuild` removed (source grep returns 0) | static | `! grep -rn "triggerBuild\|pollBuild" src/` | ✅ | ✅ green (empty) |
+| SC-3 | `apps update --icon` → `POST .../icon` with `{icon_url}` body | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "icon POSTs"` | ✅ | ✅ green (1) |
+| SC-3 | `apps update --icon` 422 → exit 1, server message surfaced via renderError | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "SSRF reject"` | ✅ | ✅ green (1) |
+| SC-3 | `--meta-name`/`--meta-desc` removed; PATCH still maps name/url | integration | `npx vitest run test/integration/write-verbs.test.mjs` | ✅ | ✅ green (7) |
+| SC-3 | PATCH-then-icon ordering when both content + icon given | integration | `npx vitest run test/integration/write-verbs.test.mjs -t "PATCH then POST"` | ✅ | ✅ green (1) |
+| SC-4 | README/llms.txt document the surface; no `--meta-*`/`--timeout`/build-poll wording | unit | `npx vitest run test/integration/docs.test.mjs` | ✅ (negative guards added :36/:46) | ✅ green (41) |
+| SC-4 | Full gate green | suite | `npm test && npm run lint && npm run typecheck` | ✅ | ✅ green (192 + lint + tsc) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,11 +56,11 @@ created: 2026-06-22
 
 ## Wave 0 Requirements
 
-- [ ] Reshape `test/integration/ship.test.mjs` — drop all 202-build / 200-poll canned responses; add a `no /builds request` assertion to every retained case; delete the `failed`/`timeout`/`platform-leak` cases (no build to fail/leak). Covers SC-1, SC-2.
-- [ ] Delete `test/unit/ship.test.mjs` — it imports only `pollBuild` (removed). Covers SC-2.
-- [ ] Edit `test/integration/write-verbs.test.mjs` — delete the two `--meta-name`/`--meta-desc` mapping tests; add `--icon` happy path, `--icon` 422 reject, and PATCH-then-icon ordering. Covers SC-3.
-- [ ] Add a static guard (in `docs.test.mjs` or a small new unit) asserting `src/` contains no `triggerBuild`/`pollBuild` and README/llms.txt contain no `--meta-name`/`--meta-desc`/`--timeout`. Covers SC-2/SC-4 regression-lock.
-- [ ] Framework install: none — toolchain present (vitest/eslint/tsc devDeps installed).
+- [x] Reshape `test/integration/ship.test.mjs` — dropped the 202-build / 200-poll canned responses; every retained case asserts `no /builds request`; failed/timeout/platform-leak cases removed. Covers SC-1, SC-2.
+- [x] Delete `test/unit/ship.test.mjs` — removed (it imported only `pollBuild`). Covers SC-2.
+- [x] Edit `test/integration/write-verbs.test.mjs` — `--meta-*` mapping tests deleted; `--icon` happy path, 422 reject, and PATCH-then-icon ordering added. Covers SC-3.
+- [x] Static regression guards added in `docs.test.mjs` (:36 README/llms.txt free of `--meta-*`/`--timeout`/build-poll; :46 `src/` free of `triggerBuild`/`pollBuild`). Covers SC-2/SC-4 regression-lock.
+- [x] Framework install: none needed — toolchain present (vitest/eslint/tsc devDeps installed).
 
 ---
 
@@ -75,11 +76,29 @@ created: 2026-06-22
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s (full suite ~1.3s)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-22
+
+---
+
+## Validation Audit 2026-06-22
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited (SC rows) | 10 |
+| COVERED (green) | 10 |
+| PARTIAL | 0 |
+| MISSING | 0 |
+| Gaps found | 0 |
+| Tests generated this audit | 0 (full coverage already present) |
+
+State A audit: every SC→test mapping was re-run and resolves to a real passing test
+(ship 12, write-verbs 7, docs 41; source grep guard empty; full gate 192 + lint + tsc).
+No gaps — `nyquist_compliant: true`. The single manual-only item (live end-to-end against
+a real `apps-web-app` backend) remains documented above and is off the automated critical path.
