@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1
-milestone_name: CLI Completeness
-status: milestone_complete
-stopped_at: v0.1 complete â€” all 6 phases shipped; CLI published as @appolabs/appo v3.0.0
-last_updated: "2026-06-16T01:30:00.000Z"
+milestone: v0.2
+milestone_name: Ship-Intent Surface
+status: completed
+stopped_at: Phase 7 context gathered
+last_updated: "2026-06-22T13:48:58.727Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 6
@@ -66,6 +66,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-15T13:37:24.610Z
-Stopped at: Phase 4 context gathered (preview); ready to plan
-Resume file: .planning/phases/04-preview-open-on-device/04-CONTEXT.md
+Last session: 2026-06-22T13:48:58.721Z
+Stopped at: Phase 7 context gathered
+Resume file: .planning/phases/07-ship-intent-surface/07-CONTEXT.md
