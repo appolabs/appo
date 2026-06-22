@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Ship-Intent Surface
-status: completed
+status: executing
 stopped_at: Phase 7 context gathered
-last_updated: "2026-06-22T13:48:58.727Z"
-last_activity: 2026-06-16
+last_updated: "2026-06-22T14:12:23.720Z"
+last_activity: 2026-06-22 -- Phase 07 planning complete
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 17
+  total_plans: 20
   completed_plans: 17
-  percent: 100
+  percent: 85
 ---
 
 # Project State
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md
 Milestone: v0.1 CLI Completeness — COMPLETE (6/6 phases, 17/17 plans)
 Phase: all complete
 Plan: —
-Status: Milestone complete; CLI abstracted post-v0.1 and shipped as @appolabs/appo v4.0.0
-Last activity: 2026-06-16
+Status: Ready to execute
+Last activity: 2026-06-22 -- Phase 07 planning complete
 
 **Post-v0.1 amendment (2026-06-16, v4.0.0):** the CLI surface was abstracted to outcome verbs (`c5eb94e`, collapsed further in `b223d25`) to realize the operator vision — the user-facing `build`, `reship`, `resubmit`, and `configure` verbs are gone; a single `appo ship` covers the whole lifecycle (`--url --name` = new; `<id>` = rebuild/republish/resubmit), with no `--platform`/`--branch` (operator decides the platform server-side); `publish` defaults to the app's stores; `apps update` is the content-only editor (absorbed configure + set-name). CLI<->MCP parity is asserted at the OUTCOME level: `trigger_build`/`trigger_resubmission` intentionally MCP-only, `ship` intentionally CLI-only. Phase 1/2 plans describing a `build` verb are superseded; canonical surface is `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
 
