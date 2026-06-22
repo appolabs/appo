@@ -146,4 +146,8 @@ Plans:
   2. `ops.triggerBuild` and the `pollBuild` loop are removed; no CLI code path calls `POST /api/v1/apps/{app}/builds`
   3. `apps update <id>` accepts only `--name`, `--url`, and a new `--icon` (image set via the apps-web-app icon endpoint, Phase 190); the `--meta-name`/`--meta-desc` flags are removed
   4. Tests, README, `llms.txt` updated; `npm test`, lint, and typecheck green
-**Plans**: TBD (run /gsd-plan-phase 7)
+**Plans**: 3 plans
+Plans:
+- [ ] 07-01-PLAN.md — Build-transport removal + ship reshape (create→publish-intent); reshape ship.test, delete unit/ship.test (SC-1, SC-2)
+- [ ] 07-02-PLAN.md — `apps update` rescope (name/url/icon) + new `ops.setIcon`; reshape write-verbs.test (SC-3)
+- [ ] 07-03-PLAN.md — Docs (README/llms.txt) + docs.test negative guards + full phase gate (SC-4)
