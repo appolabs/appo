@@ -20,8 +20,8 @@ appo --version   # prints: appo/<version> node/<version>
 ## Ship
 
 `appo ship` is the one-command lifecycle: it creates an app (when given a URL and
-name), triggers a build, polls until the build is ready, then publishes — stopping
-at a confirm-gate before the publish unless you pass `--yes`.
+name), then signals publish-intent — Appo issues the build server-side and submits
+it for you. It stops at a confirm-gate before the publish unless you pass `--yes`.
 
 ```bash
 npm install -g @appolabs/appo
@@ -29,24 +29,26 @@ appo init                                          # bootstrap config + first lo
 appo ship --url https://example.com --name "My App"
 ```
 
-That single `ship` call runs create → build → poll → publish and streams each step
-as it happens. Drop `--yes` to inspect the publish preview before anything is
-written; re-run with `--yes` (or `--confirm`) to publish.
+That single `ship` call runs create → publish-intent and reports the result. Appo
+builds and submits your app; track it with `appo status <id>`. Drop `--yes` to
+inspect the publish preview before anything is written; re-run with `--yes` (or
+`--confirm`) to publish.
 
 ```bash
-appo ship <id>                                     # rebuild + republish an existing app
-appo ship --url <u> --name <n> --yes               # full pipeline, skip the gate
+appo ship <id>                                     # (re)publish an existing app
+appo ship --url <u> --name <n> --yes               # create + ship, skip the publish gate
 ```
 
 `appo ship` is the single "get my app live" verb: with `--url`/`--name` it creates a
-new app, with an `<id>` it rebuilds and republishes an existing one (this also covers
-resubmitting after an App Store rejection). Flags: `--stores <list>` (override the
-target stores; defaults to the app's stores), `--timeout <s>` (max seconds to poll a
-build, default 1800), `--yes` (confirm the publish step), `--json` (emit one
-`{steps, final_state}` object instead of the live stream). The build platform is
-decided by Appo (the operator) — you ship an outcome, not a build configuration.
+new app, with an `<id>` it signals (re)publish-intent on an existing one (this also
+covers resubmitting after an App Store rejection). Appo builds and submits server-side;
+track progress with `appo status <id>` or `appo preview <id>`. Flags: `--stores <list>`
+(override the target stores; defaults to the app's stores), `--yes` (confirm the publish
+step), `--json` (emit one `{steps, final_state}` object — `final_state` in
+`{shipped, gated, blocked}` — instead of the live stream). The build platform is decided
+by Appo (the operator) — you ship an outcome, not a build configuration.
 `ship` maps its final lifecycle state to the
-[exit codes](#exit-codes): `0` shipped, `1` blocked or failed, `2` usage error,
+[exit codes](#exit-codes): `0` shipped, `1` blocked, `2` usage error,
 `3` gated (publish preview shown, no write — re-run with `--yes`).
 
 ## appo init
@@ -97,22 +99,24 @@ profile with `*` and never prints tokens. Select an environment per-command with
 ## Apps
 
 ```bash
-appo apps create --name <n> --url <u> [--meta-name <m>] [--meta-desc <d>]
+appo apps create --name <n> --url <u>
 appo apps list             # list your apps
 appo apps show <id>        # show one app
-appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   # edit app fields
+appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   # edit name, base URL, icon
 ```
 
-`apps create` registers a new app from a name and a base URL, with optional store
-metadata name and description. `apps list` prints id, name, publication state, and
-base URL per app. `apps show <id>` prints the full app overview. `apps update <id>`
-edits only the fields you supply — the app name, its base URL, and the store metadata
-(name and description); at least one field is required. `--json` prints `null` (the
-update returns no body). Not confirm-gated (reversible).
+`apps create` registers a new app from a name and a base URL. `apps list` prints id,
+name, publication state, and base URL per app. `apps show <id>` prints the full app
+overview. `apps update <id>` edits only the fields you supply — the app name, its base
+URL, and the app icon; at least one field is required. `--icon` takes an https image
+URL, which Appo fetches and sets via the icon endpoint. When `--name`/`--url` and
+`--icon` are given together the field update runs first, then the icon is set. `--json`
+prints `null` for a name/URL-only update (it returns no body) and `{ icon_url }` when
+an icon was set. Not confirm-gated (reversible).
 
-> To rebuild and republish an existing app (or resubmit after a rejection), use
-> `appo ship <id>` — there is no separate `reship`/`build`/`resubmit` verb. You ship
-> an outcome, not a build configuration.
+> To republish an existing app (or resubmit after a rejection), use `appo ship <id>` —
+> Appo rebuilds and resubmits server-side. There is no separate `reship`/`build`/`resubmit`
+> verb. You ship an outcome, not a build configuration.
 
 ## status
 
@@ -216,7 +220,7 @@ flow. The default API base is `http://localhost:8002` (local development).
 | `2`  | usage error (missing or invalid arguments)                                   |
 | `3`  | confirm required (destructive verb invoked without `--confirm`; no write)    |
 
-`ship` maps these to its final lifecycle state: `0` shipped, `1` blocked or failed,
+`ship` maps these to its final lifecycle state: `0` shipped, `1` blocked,
 `2` usage, `3` gated (publish preview shown, no write — re-run with `--yes`).
 
 ## CI auth
