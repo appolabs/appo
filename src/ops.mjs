@@ -15,23 +15,8 @@ export function unwrap(payload) {
 }
 
 // POST /api/v1/apps -> 201 { data: AppResource }
-export async function createApp(apiBase, { name, base_url, metadata_name, metadata_description }, env) {
-  const body = { name, base_url };
-  if (metadata_name) body.metadata_name = metadata_name;
-  if (metadata_description) body.metadata_description = metadata_description;
-  return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env));
-}
-
-// POST /api/v1/apps/{id}/builds -> 202 { data: AppBuildResource }
-/**
- * Trigger a build. Platform/branch are operator-decided server-side — the CLI
- * ships an outcome, not a build configuration (post-v0.1 abstraction).
- * @param {string} apiBase
- * @param {string} id
- * @param {string} [env]
- */
-export async function triggerBuild(apiBase, id, env) {
-  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds`, {}, env));
+export async function createApp(apiBase, { name, base_url }, env) {
+  return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', { name, base_url }, env));
 }
 
 // GET /api/v1/apps/{id} -> 200 { data: AppResource }

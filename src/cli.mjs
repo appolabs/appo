@@ -36,8 +36,8 @@ Apps:
   appo apps update <id> [--name <n>] [--url <u>] [--meta-name <m>] [--meta-desc <d>]   Update name, URL and store metadata
 
 Lifecycle:
-  appo ship --url <u> --name <n> [--stores <list>] [--timeout <s>] [--yes]   Create, build and publish a new app
-  appo ship <id> [--yes]                  Rebuild and republish an existing app (also resubmits after a rejection)
+  appo ship --url <u> --name <n> [--stores <list>] [--yes]   Create and ship a new app
+  appo ship <id> [--yes]                  Ship an existing app (republish / resubmit after a rejection)
   appo status <id>                        App overview (publication state + next action)
   appo preview <id>                       Show preview target (TestFlight/deeplink + QR)
   appo rejection <id>                     Show the active App Store rejection
@@ -52,7 +52,6 @@ Options:
   --json         Print the raw v1 response body (machine-readable)
   --confirm      Perform the write for a destructive verb (publish/push)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
-  --timeout <s>  Max seconds to poll a build during \`ship\` (default 1800)
   --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
   -h, --help     Show this help
   -v, --version  Print the CLI + Node version
@@ -246,41 +245,6 @@ function renderError(err) {
   return 1;
 }
 
-const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/** Poll a build to terminal. Public build-status enum: queued|building|ready|failed
- *  (VERIFIED — 02-RESEARCH.md). ready == terminal success, failed == terminal failure;
- *  anything else keeps polling. sleep/intervalMs/timeoutMs are injectable so tests run
- *  instantly. onChange streams a line only on status change (D-06). The timeout check is
- *  placed AFTER the terminal checks and BEFORE the sleep, so timeoutMs:0 with a single
- *  non-terminal response returns timeout after one poll.
- *
- *  IN-02: a malformed/empty poll body (`build == null`) is treated as a non-terminal
- *  status (loop continues), so the returned `build` MAY be nullish on `timeout`. Every
- *  outcome therefore also carries `last_status` (string|undefined) — read that, not
- *  `res.build.*`, when a caller needs the last observed status without a null guard.
- *
- *  @param {string} apiBase
- *  @param {string|number} appId
- *  @param {string|number} buildId
- *  @param {{ intervalMs?: number, timeoutMs?: number, sleep?: (ms: number) => Promise<unknown>,
- *            onChange?: (status: unknown, build: unknown) => void, env?: string }} [opts] */
-export async function pollBuild(apiBase, appId, buildId, {
-  intervalMs = 5000, timeoutMs = 1_800_000, sleep = realSleep, onChange = () => {}, env,
-} = {}) {
-  const start = Date.now();
-  let last = null;
-  for (;;) {
-    const build = await ops.getBuild(apiBase, appId, buildId, env);
-    const status = build?.status;
-    if (status !== last) { onChange(status, build); last = status; }
-    if (status === 'ready')  return { outcome: 'ready', build, last_status: status };
-    if (status === 'failed') return { outcome: 'failed', build, last_status: status };
-    if (Date.now() - start >= timeoutMs) return { outcome: 'timeout', build, last_status: status };
-    await sleep(intervalMs);
-  }
-}
-
 /** Preview-safe app id (IN-01): coerce to a number only when the positional id is
  *  numeric, otherwise echo the raw string the user typed. A bare `Number(sub)` on a
  *  non-numeric id (typo/slug) surfaces `NaN` in the human preview and the JSON literal
@@ -313,7 +277,7 @@ function shipReport(json) {
   return { log, record, finish };
 }
 
-const EXIT = { shipped: 0, gated: 3, blocked: 1, failed: 1 };  // usage error (2) returned before any step
+const EXIT = { shipped: 0, gated: 3, blocked: 1 };  // failed/timeout removed (no build); usage error (2) returned before any step
 
 export { confirmGate, renderError };
 
@@ -498,10 +462,7 @@ export async function run(argv) {
             console.error('Usage: appo apps create --name <n> --url <u>');
             return 2;
           }
-          const app = await ops.createApp(apiBase, {
-            name: flags.name, base_url: flags.url,
-            metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
-          }, env);
+          const app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url }, env);
           console.log('Created app:');
           printApp(app);
           return 0;
@@ -647,7 +608,7 @@ export async function run(argv) {
           // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
           // stderr + exit 2 even under --json (the single-object ledger contract
           // applies only once a pipeline step has begun).
-          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--timeout <s>] [--json]  |  appo ship <id> [--yes]');
+          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--json]  |  appo ship <id> [--yes]');
           return 2;
         }
         const json = flags.json === true;
@@ -669,61 +630,22 @@ export async function run(argv) {
 
         let appId = hasId ? sub : null;
 
-        // STEP create (new-app form only).
+        // STEP create (new-app form only) — metadata params dropped (dead on the
+        // user surface; v1 ignores them server-side).
         if (!appId) {
           let app;
           try {
-            app = await ops.createApp(apiBase, {
-              name: flags.name, base_url: flags.url,
-              metadata_name: flags['meta-name'], metadata_description: flags['meta-desc'],
-            }, env);
+            app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url }, env);
           } catch (err) { return handleBlock(err, 'create'); }
           appId = (app || {}).id;
           record({ step: 'create', status: 'ok', app_id: appId });
           log(`> create ... ok app #${appId}`);
         }
 
-        // STEP build trigger. prerequisite_failed (Apple creds etc.) blocks HERE,
-        // before any build exists. Surface app_id for resume on a post-create block.
-        // Platform/branch are operator-decided server-side — the CLI never surfaces
-        // them: the user ships an outcome, not a build configuration.
-        let build;
-        try {
-          build = await ops.triggerBuild(apiBase, appId, env);
-        } catch (err) {
-          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
-          return handleBlock(err, 'build', { app_id: appId });
-        }
-        const buildId = (build || {}).id;
-        record({ step: 'build', status: 'ok', build_id: buildId });
-        log(`> build #${buildId} ... ${build.status}`);
-
-        // STEP poll to terminal (injectable sleep defaults to real setTimeout).
-        // Honor an explicit --timeout 0 (forces an immediate timeout): only fall
-        // back to the 1800s default when the flag is absent or non-numeric — a bare
-        // `|| 1800` would coerce the legitimate 0 back to the default.
-        const timeoutSecs = Number.isFinite(Number(flags.timeout)) && flags.timeout !== true
-          ? Number(flags.timeout) : 1800;
-        const res = await pollBuild(apiBase, appId, buildId, {
-          timeoutMs: timeoutSecs * 1000,
-          onChange: (s) => log(`  ${s} -> ...`),
-          env,
-        });
-        if (res.outcome === 'failed') {
-          record({ step: 'build', status: 'failed', build_id: buildId });
-          log(`x build failed. Next: appo fix-recipe ${appId}  (or: appo rejection ${appId})`);
-          return finish('failed', EXIT.failed);
-        }
-        if (res.outcome === 'timeout') {
-          // The internal terminal `rejected` coarsens to public `building` (Pitfall 2):
-          // point the user at the app overview as well as the build status.
-          record({ step: 'build', status: 'timeout', build_id: buildId, last_status: res.last_status });
-          log(`x timed out at "${res.last_status}". Resume: appo status ${appId} --build ${buildId}  (or: appo status ${appId})`);
-          return finish('failed', EXIT.failed);
-        }
-        log(`ok build ready`);
-
-        // STEP publish — honor the confirm-gate DECISION (reuses printPreview only).
+        // STEP publish-intent — REPLACES the former build+poll steps. Builds are
+        // issued by Appo staff server-side; the CLI never triggers or polls one.
+        // publishApp on a never-built app is valid (StartPublication has no build
+        // dependency). Honor the confirm-gate DECISION (reuses printPreview only).
         const preview = { will: 'publish', app_id: previewId(appId), target_stores: stores };
         if (!wantYes) {
           if (!json) printPreview(preview);
@@ -733,9 +655,13 @@ export async function run(argv) {
         log(`> publish ...`);
         try {
           await ops.publishApp(apiBase, appId, stores, env);   // 204 == success; 409/422 throw
-        } catch (err) { return handleBlock(err, 'publish', { app_id: appId }); }
+        } catch (err) {
+          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
+          return handleBlock(err, 'publish', { app_id: appId });
+        }
         record({ step: 'publish', status: 'ok', target_stores: stores });
-        log(`ok shipped: ${stores.join(', ')}`);
+        log(`ok submitted: ${stores.join(', ')} — Appo will build and submit it.`);
+        log(`  track: appo status ${appId}   preview: appo preview ${appId}`);
         return finish('shipped', EXIT.shipped);
       }
 
