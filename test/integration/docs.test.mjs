@@ -30,3 +30,22 @@ test('llms.txt matches the SDK shape (title, tagline, sections, README anchors)'
   expect(LLMS).toMatch(/README\.md#/);
 });
 
+// Negative regression guards (SC-2/SC-4): the COMMANDS greps above check command
+// NAMES only, so flag-body drift would ship silently. These lock the removed flags
+// and build-trigger code paths out of the docs and src/ — CI fails if any reappear.
+test('README drops removed flags/wording', () => {
+  expect(README).not.toContain('--meta-name');
+  expect(README).not.toContain('--meta-desc');
+  expect(README).not.toContain('--timeout');
+  expect(README).not.toMatch(/create\s*→\s*build\s*→\s*poll\s*→\s*publish/);
+  expect(LLMS).not.toContain('--meta-name');
+  expect(LLMS).not.toContain('--meta-desc');
+  expect(LLMS).not.toContain('--timeout');
+});
+
+test('src/ has no build-trigger code paths', () => {
+  const cli = readFileSync('src/cli.mjs', 'utf-8');
+  const ops = readFileSync('src/ops.mjs', 'utf-8');
+  expect(cli + ops).not.toMatch(/triggerBuild|pollBuild/);
+});
+
