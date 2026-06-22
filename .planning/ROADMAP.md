@@ -149,5 +149,5 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 07-01-PLAN.md — Build-transport removal + ship reshape (create→publish-intent); reshape ship.test, delete unit/ship.test (SC-1, SC-2)
-- [ ] 07-02-PLAN.md — `apps update` rescope (name/url/icon) + new `ops.setIcon`; reshape write-verbs.test (SC-3)
+- [x] 07-02-PLAN.md — `apps update` rescope (name/url/icon) + new `ops.setIcon`; reshape write-verbs.test (SC-3)
 - [ ] 07-03-PLAN.md — Docs (README/llms.txt) + docs.test negative guards + full phase gate (SC-4)

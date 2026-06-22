@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Ship-Intent Surface
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-06-22T14:19:19.238Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-06-22T14:24:13.012Z"
 last_activity: 2026-06-22
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 20
-  completed_plans: 18
-  percent: 90
+  completed_plans: 19
+  percent: 95
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Milestone: v0.1 CLI Completeness â€” COMPLETE (6/6 phases, 17/17 plans)
 Phase: 07 (ship-intent-surface) â€” EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-22
 
@@ -60,6 +60,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 - [Phase 06-packaging-docs-release]: [Phase 06]: package.json publish metadata (publishConfig.access:public + repository/homepage/bugs/keywords/author) + build-free prepublishOnly gate (lint+typecheck+test) + llms.txt in files; release.yml mirrors the SDK trusted-publishing flow on npm (no pnpm, no build, [master,main], npm publish --provenance --access public via id-token). D-09 honored: verified SC1 via npm pack --dry-run only â€” no publish/tag/registration.
 - [Phase 06]: README rewritten to the full v0.1 CLI surface (ship-first quickstart, every verb, env vars, exit codes, profiles, CI auth, RELEASING runbook); llms.txt in SDK shape links every command into a README anchor; docs.test.mjs greps both docs for the full inventory. Phase 06 gate green (187 tests, lint+typecheck), tarball ships 10 whitelisted files incl. llms.txt; no publish (D-09).
 - [Phase 07]: ship reshaped to create -> publish-intent: triggerBuild/pollBuild/realSleep deleted, no CLI path issues POST .../builds; EXIT reduced to {shipped:0,gated:3,blocked:1}; ship tests assert request-absence of /builds (SC-1/SC-2).
+- [Phase 07]: apps update rescoped to name/url/icon: new flat-response ops.setIcon (POST .../icon, no unwrap, read res.icon_url); --meta-name/--meta-desc removed (src + tests + USAGE); two-call dispatch runs PATCH before POST /icon (D-04); PATCH-only --json stays null, icon-bearing emits {icon_url}; icon 422 rides renderError's else-branch (exit 1); zero client-side icon validation (server-side SSRF, T-07-04). SC-3 done.
 
 ### Blockers/Concerns
 
@@ -67,6 +68,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE â€
 
 ## Session Continuity
 
-Last session: 2026-06-22T14:19:12.306Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-06-22T14:24:06.580Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
