@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Ship-Intent Surface
 status: executing
-stopped_at: Phase 7 context gathered
-last_updated: "2026-06-22T14:12:23.720Z"
-last_activity: 2026-06-22 -- Phase 07 planning complete
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-06-22T14:19:19.238Z"
+last_activity: 2026-06-22
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 20
-  completed_plans: 17
-  percent: 85
+  completed_plans: 18
+  percent: 90
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Run the complete Appo app lifecycle from the terminal/agent, at parity with the dashboard and the `/mcp` agent surface.
-**Current focus:** v0.1 complete — all 6 phases shipped; CLI abstracted to a single `ship` outcome verb post-v0.1 (shipped v4.0.0).
+**Current focus:** Phase 07 — ship-intent-surface
 
 ## Current Position
 
 Milestone: v0.1 CLI Completeness — COMPLETE (6/6 phases, 17/17 plans)
-Phase: all complete
-Plan: —
+Phase: 07 (ship-intent-surface) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-22 -- Phase 07 planning complete
+Last activity: 2026-06-22
 
 **Post-v0.1 amendment (2026-06-16, v4.0.0):** the CLI surface was abstracted to outcome verbs (`c5eb94e`, collapsed further in `b223d25`) to realize the operator vision — the user-facing `build`, `reship`, `resubmit`, and `configure` verbs are gone; a single `appo ship` covers the whole lifecycle (`--url --name` = new; `<id>` = rebuild/republish/resubmit), with no `--platform`/`--branch` (operator decides the platform server-side); `publish` defaults to the app's stores; `apps update` is the content-only editor (absorbed configure + set-name). CLI<->MCP parity is asserted at the OUTCOME level: `trigger_build`/`trigger_resubmission` intentionally MCP-only, `ship` intentionally CLI-only. Phase 1/2 plans describing a `build` verb are superseded; canonical surface is `apps-web-app/docs/CROSS-SURFACE-PARITY.md`.
 
@@ -59,6 +59,7 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 - [Phase 06]: appo --version/-v + upgrade + daily update-check + idempotent init landed on Node built-ins only (no runtime dep); update_check cache survives profile writes via readConfig carry-through (Open Q2 option a).
 - [Phase 06-packaging-docs-release]: [Phase 06]: package.json publish metadata (publishConfig.access:public + repository/homepage/bugs/keywords/author) + build-free prepublishOnly gate (lint+typecheck+test) + llms.txt in files; release.yml mirrors the SDK trusted-publishing flow on npm (no pnpm, no build, [master,main], npm publish --provenance --access public via id-token). D-09 honored: verified SC1 via npm pack --dry-run only — no publish/tag/registration.
 - [Phase 06]: README rewritten to the full v0.1 CLI surface (ship-first quickstart, every verb, env vars, exit codes, profiles, CI auth, RELEASING runbook); llms.txt in SDK shape links every command into a README anchor; docs.test.mjs greps both docs for the full inventory. Phase 06 gate green (187 tests, lint+typecheck), tarball ships 10 whitelisted files incl. llms.txt; no publish (D-09).
+- [Phase 07]: ship reshaped to create -> publish-intent: triggerBuild/pollBuild/realSleep deleted, no CLI path issues POST .../builds; EXIT reduced to {shipped:0,gated:3,blocked:1}; ship tests assert request-absence of /builds (SC-1/SC-2).
 
 ### Blockers/Concerns
 
@@ -66,6 +67,6 @@ ROADMAP AUDIT (2026-06-14) applied: added Phase 2 `appo ship` (KILLER FEATURE �
 
 ## Session Continuity
 
-Last session: 2026-06-22T13:48:58.721Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-ship-intent-surface/07-CONTEXT.md
+Last session: 2026-06-22T14:19:12.306Z
+Stopped at: Completed 07-01-PLAN.md
+Resume file: None
