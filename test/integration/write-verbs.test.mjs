@@ -21,6 +21,23 @@ async function captureLog(fn) {
   }
 }
 
+// Capture both stdout (console.log) and stderr (console.error) — the icon 422 path
+// writes the surfaced message via renderError to stderr.
+async function captureAll(fn) {
+  const log = console.log;
+  const err = console.error;
+  const lines = [];
+  console.log = (...args) => lines.push(args.join(' '));
+  console.error = (...args) => lines.push(args.join(' '));
+  try {
+    const result = await fn();
+    return { result, lines };
+  } finally {
+    console.log = log;
+    console.error = err;
+  }
+}
+
 // Run with console.error muted (usage-guard branches write to stderr).
 async function silentRun(argv) {
   const original = console.error;
@@ -50,20 +67,39 @@ test('apps update PATCHes /api/v1/apps/{id} with only supplied fields and return
   expect(lines.join('\n')).toMatch(/Updated app 7\./);
 });
 
-test('apps update maps --url and --meta-name to v1 body fields', async () => {
+test('apps update --icon POSTs /icon with icon_url and reports it', async () => {
   stubToken();
-  installMockFetch({ status: 204 });
-  await captureLog(() => run(['apps', 'update', '7', '--url', 'https://x', '--meta-name', 'Store Name', ...API]));
+  installMockFetch([{ status: 200, body: { icon_url: 'https://cdn/x.png' } }]);
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--icon', 'https://src/x.png', ...API]));
+  expect(result).toBe(0);
   const req = lastRequest();
-  expect(req.body).toEqual({ base_url: 'https://x', metadata_name: 'Store Name' });
+  expect(req.method).toBe('POST');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/icon$/);
+  expect(req.body).toEqual({ icon_url: 'https://src/x.png' });
+  expect(lines.join('\n')).toMatch(/cdn\/x\.png/);
 });
 
-test('apps update maps --meta-desc to metadata_description', async () => {
+test('apps update --icon 422 (SSRF reject) -> exit 1, surfaces the message', async () => {
   stubToken();
-  installMockFetch({ status: 204 });
-  await captureLog(() => run(['apps', 'update', '7', '--meta-desc', 'A great app', ...API]));
-  const req = lastRequest();
-  expect(req.body).toEqual({ metadata_description: 'A great app' });
+  installMockFetch([{ status: 422, body: { message: 'The icon URL must use https.', errors: { icon_url: ['The icon URL must use https.'] } } }]);
+  const { result, lines } = await captureAll(() =>
+    run(['apps', 'update', '7', '--icon', 'http://insecure/x.png', ...API]));
+  expect(result).toBe(1);
+  expect(lines.join('\n')).toMatch(/must use https/);
+});
+
+test('apps update --name --icon runs PATCH then POST /icon in order', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },                                          // PATCH
+    { status: 200, body: { icon_url: 'https://cdn/x.png' } }, // POST /icon
+  ]);
+  await captureLog(() => run(['apps', 'update', '7', '--name', 'New', '--icon', 'https://src/x.png', ...API]));
+  expect(requests[0].method).toBe('PATCH');
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7$/);
+  expect(requests[1].method).toBe('POST');
+  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7\/icon$/);
 });
 
 test('apps update --json on a 204 prints "null" and returns 0', async () => {
