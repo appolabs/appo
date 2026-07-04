@@ -10,6 +10,7 @@ import { login, loginWithToken } from './login.mjs';
 import { apiFetch } from './api.mjs';
 import * as ops from './ops.mjs';
 import { unwrap } from './ops.mjs';
+import { downloadArtifact } from './download.mjs';
 import { renderQr } from './qr.mjs';
 import { createRequire } from 'node:module';
 import { runUpgrade } from './upgrade.mjs';
@@ -45,6 +46,12 @@ Lifecycle:
   appo publish <id> [--confirm]           Publish an already-built app to its stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
 
+Test builds (self-serve, self-managed apps only):
+  appo build <id> [--platform ios|android]   Trigger a test build (default: android)
+  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
+  appo devices list               List your registered iOS test devices
+  appo devices register           Show the iOS device registration link + QR (one-time per device)
+
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
   --env <name>   Select the environment/profile (env: APPO_ENV)
@@ -53,6 +60,9 @@ Options:
   --confirm      Perform the write for a destructive verb (publish/push)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
   --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
+  --platform <p> Target platform for \`build\`: ios or android (default: android)
+  --build <n>    Target a specific build id (\`status\`/\`download\`; default: latest)
+  --output <p>   Write the downloaded artifact to this path (default: derived filename)
   -h, --help     Show this help
   -v, --version  Print the CLI + Node version
 
@@ -616,6 +626,110 @@ export async function run(argv) {
         // recipients_count is a sibling of `data` (additional) — read off the raw envelope.
         console.log(`Sent to ${res?.recipients_count ?? 0} device(s).`);
         return 0;
+      }
+
+      case 'build': {
+        // Self-serve `test` build trigger (SSB-01) — no confirm-gate: building is
+        // reversible and consumes no user-visible resource. The `publish` build
+        // stays operator-internal; this verb cannot reach it (the request body
+        // carries platform only — kind is server-fixed to test, SSB-02).
+        if (!sub) { console.error('Usage: appo build <id> [--platform ios|android]'); return 2; }
+        if (flags.platform !== undefined && !['ios', 'android'].includes(flags.platform)) {
+          console.error('Usage: appo build <id> [--platform ios|android]');
+          return 2;
+        }
+        try {
+          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, flags.platform ? { platform: flags.platform } : {}, env);
+          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+          const b = unwrap(res);
+          console.log('Test build triggered:');
+          printBuild(b);
+          console.log(`  track:    appo status ${sub} --build ${b.id}`);
+          console.log(`  download: appo download ${sub}   (once status is 'ready')`);
+          return 0;
+        } catch (err) {
+          // D-08: --json always emits the raw envelope verbatim.
+          if (flags.json && err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
+          // 409 = iOS with no registered device (server message) — add the CLI-native next step.
+          if (err.status === 409) {
+            console.error(`\n  ${err.message}`);
+            console.error('  Register your iPhone first: appo devices register\n');
+            return 1;
+          }
+          throw err; // 403 capability_denied / 404 -> renderError
+        }
+      }
+
+      case 'download': {
+        // Fetch the installable artifact (DL-01). Without --build, targets the
+        // newest ready build; a not-yet-ready latest build reports its status
+        // instead of failing opaquely.
+        if (!sub) { console.error('Usage: appo download <id> [--build <n>] [--output <path>]'); return 2; }
+        try {
+          let buildId = flags.build;
+          if (!buildId) {
+            const builds = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/builds`, null, env)) || [];
+            if (builds.length === 0) {
+              console.log(`No builds yet. Trigger one: appo build ${sub}`);
+              return 1;
+            }
+            const ready = builds.find((b) => b.status === 'ready' && b.artifact_url);
+            if (!ready) {
+              const latest = builds[0];
+              console.log(`Latest build #${latest.id} is '${latest.status}' — artifact not ready yet.`);
+              console.log(`  check: appo status ${sub} --build ${latest.id}`);
+              return 1;
+            }
+            buildId = ready.id;
+          }
+          const { file, bytes } = await downloadArtifact(apiBase, sub, buildId, env, typeof flags.output === 'string' ? flags.output : undefined);
+          if (flags.json) { console.log(JSON.stringify({ build_id: previewId(buildId), file, bytes })); return 0; }
+          console.log(`Saved build #${buildId} artifact -> ${file} (${bytes} bytes)`);
+          return 0;
+        } catch (err) {
+          // D-08: --json always emits the raw envelope verbatim.
+          if (flags.json && err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
+          throw err; // 409 not-ready / 403 / 404 -> renderError
+        }
+      }
+
+      case 'devices': {
+        // iOS ad-hoc test-device surface (DEV-01). `register` renders the signed
+        // 24h enrollment link + QR (opened on the iPhone, zero Apple login);
+        // `list` shows the registered pool (UDIDs arrive pre-truncated server-side).
+        if (sub === 'register') {
+          const res = await apiFetch(apiBase, 'GET', '/api/v1/devices/ad-hoc/registration-url', null, env);
+          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+          const url = unwrap(res)?.url;
+          console.log('Open this link on your iPhone to register it (valid 24h):');
+          console.log(`  ${url}`);
+          console.log('');
+          // Same forced-contrast QR printing as `preview` — black-on-white per
+          // row so the code scans regardless of terminal theme.
+          const CONTRAST = '\x1b[30;47m';
+          const RESET = '\x1b[0m';
+          for (const row of renderQr(url).split('\n')) {
+            console.log(`${CONTRAST}${row}${RESET}`);
+          }
+          console.log('');
+          console.log('Then trigger an iOS build: appo build <id> --platform ios');
+          return 0;
+        }
+        if (sub === 'list' || sub === undefined) {
+          const res = await apiFetch(apiBase, 'GET', '/api/v1/devices/ad-hoc', null, env);
+          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+          const devices = unwrap(res) || [];
+          if (devices.length === 0) {
+            console.log('No registered devices. Run `appo devices register` to add your iPhone.');
+            return 0;
+          }
+          for (const d of devices) {
+            console.log(`  ${String(d.id).padEnd(5)} ${String(d.device_name ?? '(unnamed)').padEnd(24)} ${String(d.status).padEnd(10)} ${d.udid}`);
+          }
+          return 0;
+        }
+        console.error(`Unknown devices subcommand: ${sub}`);
+        return 2;
       }
 
       case 'ship': {

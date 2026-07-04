@@ -25,6 +25,9 @@ create, ship, publish, push — from a shell or an agent.
 - [appo fix-recipe](README.md#fix-recipe)
 - [appo publish](README.md#publish)
 - [appo push](README.md#push)
+- [appo build](README.md#build)
+- [appo download](README.md#download)
+- [appo devices list / devices register](README.md#devices)
 - [appo upgrade / --version](README.md#upgrade)
 
 ## Reference

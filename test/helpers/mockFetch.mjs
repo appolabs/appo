@@ -49,8 +49,18 @@ export function installMockFetch(responses) {
     return {
       status,
       ok: status >= 200 && status < 300,
+      // Final (post-redirect) URL, used by the artifact-filename derivation.
+      // Canned responses may override it via { url } to simulate the S3 hop.
+      url: canned?.url ?? String(url),
       async json() {
         return canned?.body ?? null;
+      },
+      // Binary body for the download path: canned { bytes } (Uint8Array/Buffer
+      // or string) is returned as an ArrayBuffer, mirroring undici's Response.
+      async arrayBuffer() {
+        const bytes = canned?.bytes ?? new Uint8Array(0);
+        const buf = typeof bytes === 'string' ? Buffer.from(bytes) : Buffer.from(bytes);
+        return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
       },
     };
   });

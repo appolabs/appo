@@ -13,6 +13,7 @@ const COMMANDS = [
   'apps create', 'apps list', 'apps show', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'preview',
+  'build', 'download', 'devices list', 'devices register',
 ];
 
 test.each(COMMANDS)('README documents "%s"', (cmd) => {
