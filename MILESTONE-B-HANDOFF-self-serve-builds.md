@@ -1,8 +1,8 @@
 # Milestone B Handoff: self-serve `test` builds (appo CLI)
 
-**Status:** Design-stage seed — pending the Milestone B roadmap in apps-web-app.
+**Status:** DELIVERED 2026-07-04 — `appo build` / `appo download` / `appo devices list|register` shipped in v4.1.0 (apps-web-app v3.3 Phase 203, AGT-02). Kept for contract reference.
 **Source of truth:** `apps-web-app/docs/superpowers/specs/2026-06-23-dev-self-serve-build-and-download-design.md`
-**Build this in `../appo`'s own GSD** once the apps-web-app REST `test`-build endpoint exists. Do not implement ahead of that endpoint.
+**Backend endpoints consumed:** `POST /api/v1/apps/{id}/builds`, `GET .../builds`, `GET .../builds/{n}/download`, `GET /api/v1/devices/ad-hoc`, `GET /api/v1/devices/ad-hoc/registration-url` (apps-web-app Phases 197-200).
 
 ## What the CLI gains
 
