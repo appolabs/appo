@@ -314,3 +314,23 @@ Before any publish, confirm package ownership and the intended version: a packag
 named `@appolabs/appo` already appears on the registry. Verify you own the name and
 that the version you are publishing is correct before running `npm publish` — do not
 assume the name is unclaimed.
+
+## Library usage
+
+The API core ships as importable modules alongside the CLI — the first consumer
+is `@appolabs/appo-mcp`, which reuses the same lifecycle calls, auth resolution,
+and profiles instead of maintaining a parallel client:
+
+```js
+import { getPreview, listApps } from "@appolabs/appo/ops";
+import { resolveApiBase, activeProfileName, storedToken } from "@appolabs/appo/config";
+
+const env = activeProfileName();
+const apiBase = resolveApiBase(undefined, env);
+const preview = await getPreview(apiBase, 128, env);
+```
+
+Token resolution matches the CLI: `APPO_TOKEN` first, then the active profile's
+stored token from `appo login`. The exported modules (`./ops`, `./api`,
+`./config`) never print or exit — errors throw with the v1 envelope attached
+(`err.status`, `err.envelope`). Type stubs ship as `.d.mts` next to each module.

@@ -1,7 +1,7 @@
 {
   "name": "@appolabs/appo",
-  "version": "4.1.0",
-  "description": "Appo CLI — create and manage native apps from your terminal or an agent.",
+  "version": "4.2.0",
+  "description": "Appo CLI \u2014 create and manage native apps from your terminal or an agent.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -25,6 +25,21 @@
   "type": "module",
   "bin": {
     "appo": "bin/appo.mjs"
+  },
+  "exports": {
+    "./ops": {
+      "types": "./src/ops.d.mts",
+      "default": "./src/ops.mjs"
+    },
+    "./api": {
+      "types": "./src/api.d.mts",
+      "default": "./src/api.mjs"
+    },
+    "./config": {
+      "types": "./src/config.d.mts",
+      "default": "./src/config.mjs"
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "test": "vitest run",
