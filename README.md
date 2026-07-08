@@ -150,8 +150,8 @@ is ready, Android deeplink only when Android is ready), then the `preview_url`
 
 When neither platform is ready the QR is skipped and a `(no preview target yet)`
 line is printed instead. With `--json` the raw v1 response body is emitted verbatim
-— no QR, no curation. Exit 1 on API error (including app not found); exit 2 when
-`<id>` is omitted.
+— no QR, no curation. Exit 1 on API error (including app not found, or no apps to
+resolve); exit 2 when several apps exist and no id was given outside a TTY.
 
 ## rejection
 

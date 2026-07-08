@@ -4,7 +4,7 @@
 
 - ✅ **v0.1 CLI Completeness** (complete 2026-06-15) — Phases 1-6. From MVP to full operator parity with the `/mcp` agent surface, fronted by the `appo ship` one-command lifecycle, with non-interactive auth, preview, tests, and a published package. Shipped as `@appolabs/appo` v3.0.0.
 - 🚧 **v0.2 Ship-Intent Surface** — Phase 7. Align the CLI to the operator boundary: `ship` becomes create + publish-intent (no client-side build/poll — builds are staff-issued server-side), and `apps update` is limited to icon/url/name (store metadata removed from the CLI). Cross-repo: depends on `apps-web-app` v3.1 (Phases 189 build-removal + 190 icon endpoint).
-- ⬜ **v0.3 Library Surface** — Phase 8. Expose the API core as an importable library (`exports` map for `./ops`, `./api`, `./config`) so `@appolabs/appo-mcp` reuses it instead of maintaining a parallel client. Cross-repo: unblocks `../appo-mcp` v2.0 (CLI-Capability Alignment).
+- ✅ **v0.3 Library Surface** (complete 2026-07-08) — Phase 8. Expose the API core as an importable library (`exports` map for `./ops`, `./api`, `./config`) so `@appolabs/appo-mcp` reuses it instead of maintaining a parallel client. Cross-repo: unblocks `../appo-mcp` v2.0 (CLI-Capability Alignment).
 
 ## Completed Milestones
 
@@ -155,13 +155,13 @@ Plans:
 
 ---
 
-### ⬜ v0.3 Library Surface
+### ✅ v0.3 Library Surface
 
 **Milestone Goal:** `@appolabs/appo` doubles as a library: the API core (`ops`, `api`, `config`) is importable by sibling packages — first consumer is `@appolabs/appo-mcp` v2.0 — so lifecycle behavior, auth resolution, and environment/profile handling exist in exactly one place.
 
 **Depends on:** v0.2. Cross-repo: consumed by `../appo-mcp/.planning/ROADMAP.md` (v2.0 CLI-Capability Alignment, Phase 1).
 
-- [ ] **Phase 8: Package exports for ops/api/config** — add an `exports` map (`./ops`, `./api`, `./config`), keep `bin` untouched, document the library surface.
+- [x] **Phase 8: Package exports for ops/api/config** — add an `exports` map (`./ops`, `./api`, `./config`), keep `bin` untouched, document the library surface.
 
 ### Phase 8: Package exports for ops/api/config
 
