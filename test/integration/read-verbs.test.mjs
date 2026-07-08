@@ -178,16 +178,81 @@ test('preview 404 returns 1 (renderError)', async () => {
   }
 });
 
-test('preview missing id returns 2', async () => {
+// --- preview without id: app resolution ------------------------------------
+
+const RESOLVED_PREVIEW_BODY = {
+  ios_testflight_url: null,
+  android_deeplink: 'appo://preview?token=t',
+  preview_url: 'https://app.appo.io/preview/tok',
+  preview_ready: { ios: false, android: true },
+};
+
+test('preview with no id and a single app resolves it and hits its preview', async () => {
   stubToken();
+  installMockFetch([
+    { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
+    { status: 200, body: RESOLVED_PREVIEW_BODY },
+  ]);
+  const { result, lines } = await captureLog(() => run(['preview', ...API]));
+  expect(result).toBe(0);
+  const req = lastRequest();
+  expect(req.method).toBe('GET');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+  expect(lines.join('\n')).toContain('Using Shop (id 7)');
+});
+
+test('preview --json with no id and a single app emits the flat body verbatim', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
+    { status: 200, body: RESOLVED_PREVIEW_BODY },
+  ]);
+  const { result, lines } = await captureLog(() => run(['preview', '--json', ...API]));
+  expect(result).toBe(0);
+  expect(JSON.parse(lines.join(''))).toEqual(RESOLVED_PREVIEW_BODY);
+});
+
+test('preview with no id and no apps exits 1 with the create hint', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: { data: [] } });
+  const errors = [];
   const originalErr = console.error;
-  console.error = () => {};
+  console.error = (...args) => errors.push(args.join(' '));
+  let result;
   try {
-    const result = await run(['preview', ...API]);
-    expect(result).toBe(2);
+    result = await run(['preview', ...API]);
   } finally {
     console.error = originalErr;
   }
+  expect(result).toBe(1);
+  expect(errors.join('\n')).toContain('appo apps create');
+});
+
+test('preview with no id and several apps (non-TTY) exits 2 listing them', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: {
+      data: [
+        { id: 7, name: 'Shop', base_url: 'https://shop.example' },
+        { id: 9, name: 'Blog', base_url: 'https://blog.example' },
+      ],
+    },
+  });
+  const errors = [];
+  const originalErr = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  let result;
+  try {
+    result = await run(['preview', ...API]);
+  } finally {
+    console.error = originalErr;
+  }
+  expect(result).toBe(2);
+  const out = errors.join('\n');
+  expect(out).toContain('appo preview <id>');
+  expect(out).toContain('Shop');
+  expect(out).toContain('Blog');
 });
 
 test('preview readiness D-04: neither ready -> "not preview-ready yet" lines + no QR + no glyphs', async () => {

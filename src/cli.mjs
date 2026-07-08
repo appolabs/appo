@@ -13,6 +13,7 @@ import { unwrap } from './ops.mjs';
 import { downloadArtifact } from './download.mjs';
 import { renderQr } from './qr.mjs';
 import { createRequire } from 'node:module';
+import * as readline from 'node:readline/promises';
 import { runUpgrade } from './upgrade.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
@@ -40,7 +41,7 @@ Lifecycle:
   appo ship --url <u> --name <n> [--stores <list>] [--yes]   Create and ship a new app
   appo ship <id> [--yes]                  Ship an existing app (republish / resubmit after a rejection)
   appo status <id>                        App overview (publication state + next action)
-  appo preview <id>                       Show preview target (TestFlight/deeplink + QR)
+  appo preview [id]                       Show preview target (TestFlight/deeplink + QR); no id: your only app, or a picker
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
   appo publish <id> [--confirm]           Publish an already-built app to its stores
@@ -265,6 +266,50 @@ function previewId(id) {
   return Number.isInteger(n) && String(n) === String(id) ? n : id;
 }
 
+/** Resolve which app `appo preview` targets when no positional id is given.
+ *  One app -> use it. None -> actionable create hint (exit 1). Several -> a
+ *  numbered picker on a TTY; otherwise the list plus a usage hint (exit 2),
+ *  since scripts and --json runs cannot answer a prompt. Returns { id } on
+ *  success or { exit } when the caller should stop with that code. */
+async function resolvePreviewApp(apiBase, env, flags) {
+  const apps = await ops.listApps(apiBase, env);
+  if (apps.length === 0) {
+    console.error('No apps yet. Create one: appo apps create --name <n> --url <u>');
+    return { exit: 1 };
+  }
+  if (apps.length === 1) {
+    if (!flags.json) {
+      console.log(`Using ${apps[0].name} (id ${apps[0].id}), your only app.\n`);
+    }
+    return { id: apps[0].id };
+  }
+  const interactive = !flags.json && process.stdin.isTTY && process.stdout.isTTY;
+  if (!interactive) {
+    console.error('Several apps found. Pass an id: appo preview <id>');
+    for (const a of apps) {
+      console.error(`  ${String(a.id).padEnd(5)} ${a.name}  ${a.base_url}`);
+    }
+    return { exit: 2 };
+  }
+  console.log('Select an app to preview:');
+  apps.forEach((a, i) => {
+    console.log(`  ${i + 1}) ${a.name}  (id ${a.id})  ${a.base_url}`);
+  });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  let answer;
+  try {
+    answer = (await rl.question(`Choice [1-${apps.length}]: `)).trim();
+  } finally {
+    rl.close();
+  }
+  const n = Number(answer);
+  if (!Number.isInteger(n) || n < 1 || n > apps.length) {
+    console.error('Invalid choice.');
+    return { exit: 2 };
+  }
+  return { id: apps[n - 1].id };
+}
+
 /** Default to both canonical store tokens; map friendly aliases apple/google. */
 function parseStores(raw) {
   if (!raw || raw === true) return ['apple_appstore', 'google_playstore'];
@@ -478,7 +523,7 @@ export async function run(argv) {
           return 0;
         }
         if (sub === 'list') {
-          const apps = unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
+          const apps = await ops.listApps(apiBase, env);
           if (apps.length === 0) {
             console.log('No apps yet. Create one: appo apps create --name <n> --url <u>');
             return 0;
@@ -549,15 +594,20 @@ export async function run(argv) {
       }
 
       case 'preview': {
-        if (!sub) { console.error('Usage: appo preview <id>'); return 2; }
+        let id = sub;
+        if (!id) {
+          const resolved = await resolvePreviewApp(apiBase, env, flags);
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          id = resolved.id;
+        }
         // --json: verbatim flat body (D-05/D-08). Direct apiFetch — never reaches the printer/QR.
         if (flags.json) {
-          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/preview`, null, env);
+          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env);
           console.log(JSON.stringify(res));
           return 0;
         }
         // Human path: 404 throws -> top-level catch -> renderError (exit 1).
-        const d = await ops.getPreview(apiBase, sub, env);
+        const d = await ops.getPreview(apiBase, id, env);
         printPreviewPayload(d);
         return 0;
       }

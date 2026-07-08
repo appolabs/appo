@@ -131,12 +131,17 @@ Prints the app overview, or a single build's status when `--build` is given. Wit
 ## preview
 
 ```bash
-appo preview <id>
+appo preview [id]
 ```
 
 Shows the preview target for an app — per-platform readiness, the iOS TestFlight
 URL, the Android deeplink, the canonical `preview_url`, and a scannable terminal QR
 code (when at least one platform is preview-ready).
+
+The id is optional. Without it, `appo preview` targets your only app directly, or —
+when the account has several — shows a numbered picker on an interactive terminal.
+In scripts and with `--json`, several apps produce an error listing the ids instead
+of a prompt.
 
 The output prints readiness first (`ios: preview-ready` / `not preview-ready yet`,
 same for `android`), then the platform-specific URLs (TestFlight URL only when iOS

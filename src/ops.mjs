@@ -24,6 +24,11 @@ export async function getApp(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}`, null, env));
 }
 
+// GET /api/v1/apps -> 200 { data: AppResource[] }
+export async function listApps(apiBase, env) {
+  return unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
+}
+
 // GET /api/v1/apps/{id}/builds/{buildId} -> 200 { data: AppBuildResource }
 export async function getBuild(apiBase, id, buildId, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/builds/${buildId}`, null, env));
