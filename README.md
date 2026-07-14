@@ -4,6 +4,12 @@ Create and manage native Appo apps from the terminal or an agent — at parity w
 the dashboard. A thin, dependency-free Node client over the Appo public API
 (`/api/v1`) and the RFC 8628 device-authorization grant (`/api/oauth/device/*`).
 
+> Looking for the JavaScript bridge inside the app (push, biometrics, camera
+> from your web code)? That is
+> [`@appolabs/sdk`](https://www.npmjs.com/package/@appolabs/sdk).
+> Note: versions of this package below 3.0.0 were that legacy bridge SDK —
+> they are deprecated on npm and point here. Docs: <https://goappo.io/docs>.
+
 ## Install
 
 ```bash
