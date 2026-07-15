@@ -39,8 +39,7 @@ Apps:
 
 Lifecycle:
   appo new --url <u> [--name <n>]         Create your app — name defaults from the URL
-  appo ship --url <u> --name <n> [--stores <list>] [--yes]   Create and ship a new app
-  appo ship <id> [--yes]                  Ship an existing app (republish / resubmit after a rejection)
+  appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
   appo preview [id]                       Show preview target (TestFlight/deeplink + QR); no id: your only app, or a picker
   appo rejection <id>                     Show the active App Store rejection
@@ -448,7 +447,7 @@ export async function run(argv) {
         const line = (k, v) => console.log(`  ${k.padEnd(18)} ${v}`);
         line('env', env);
         line('api_base', apiBase);
-        line('status', `ready — ${apps.length} app(s). Next: appo ship --url <u> --name <n>`);
+        line('status', `ready — ${apps.length} app(s). Next: appo new --url <u>`);
         return 0;
       }
 
@@ -831,16 +830,19 @@ export async function run(argv) {
       }
 
       case 'ship': {
-        // Single outcome verb — "get my app live". `ship --url --name` creates a new
-        // app; `ship <id>` rebuilds and republishes an existing one (this also covers
-        // resubmit-after-rejection). No first-vs-Nth distinction is surfaced — the
-        // user expresses the outcome, the platform decides build/publish mechanics.
-        const hasId = sub && !sub.startsWith('--');
-        if (!hasId && (!flags.url || !flags.name)) {
+        // Store-publication verb — `ship <id>` signals publish-intent on an
+        // existing app (this also covers republish / resubmit-after-rejection).
+        // Creation lives in `appo new`. No first-vs-Nth distinction is surfaced
+        // — the user expresses the outcome, the platform decides build/publish
+        // mechanics.
+        const appId = sub && !sub.startsWith('--') ? sub : null;
+        if (!appId || flags.url !== undefined) {
           // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
           // stderr + exit 2 even under --json (the single-object ledger contract
-          // applies only once a pipeline step has begun).
-          console.error('Usage: appo ship --url <u> --name <n> [--stores <list>] [--yes] [--json]  |  appo ship <id> [--yes]');
+          // applies only once a pipeline step has begun). The retired creation
+          // arm (--url/--name) points at its new home: appo new.
+          console.error('Usage: appo ship <id> [--stores <list>] [--yes] [--json]');
+          console.error('New app? Create it first: appo new --url <u>');
           return 2;
         }
         const json = flags.json === true;
@@ -860,24 +862,10 @@ export async function run(argv) {
           return finish('blocked', EXIT.blocked);
         };
 
-        let appId = hasId ? sub : null;
-
-        // STEP create (new-app form only) — only name + base_url; the v1 surface
-        // ignores any other fields server-side.
-        if (!appId) {
-          let app;
-          try {
-            app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url }, env);
-          } catch (err) { return handleBlock(err, 'create'); }
-          appId = (app || {}).id;
-          record({ step: 'create', status: 'ok', app_id: appId });
-          log(`> create ... ok app #${appId}`);
-        }
-
-        // STEP publish-intent — REPLACES the former build+poll steps. Builds are
-        // issued by Appo staff server-side; the CLI never triggers or polls one.
-        // publishApp on a never-built app is valid (StartPublication has no build
-        // dependency). Honor the confirm-gate DECISION (reuses printPreview only).
+        // STEP publish-intent — the only step. Builds are issued by Appo staff
+        // server-side; the CLI never triggers or polls one. publishApp on a
+        // never-built app is valid (StartPublication has no build dependency).
+        // Honor the confirm-gate DECISION (reuses printPreview only).
         const preview = { will: 'publish', app_id: previewId(appId), target_stores: stores };
         if (!wantYes) {
           if (!json) printPreview(preview);
@@ -888,7 +876,6 @@ export async function run(argv) {
         try {
           await ops.publishApp(apiBase, appId, stores, env);   // 204 == success; 409/422 throw
         } catch (err) {
-          if (!json) console.error(`  (app #${appId} exists — resume with: appo ship ${appId})`);
           return handleBlock(err, 'publish', { app_id: appId });
         }
         record({ step: 'publish', status: 'ok', target_stores: stores });

@@ -58,31 +58,29 @@ const API = ['--api', 'http://test.local'];
 // the last queued response repeatedly, so a lingering build call would be silently
 // absorbed — request-absence is the only reliable guard.
 
-// 1. Happy path (new-app form): create -> publish-intent, exit 0, shipped. NO /builds.
-test('ship --url --name --yes creates then publishes, NO /builds, exit 0', async () => {
+// 1. The creation arm is gone (v5.0): `ship --url/--name` is a usage error that
+//    points at `appo new` — exit 2, NO HTTP, BEFORE the ledger.
+test('ship --url --name -> exit 2 with appo new pointer, no HTTP', async () => {
   stubToken();
-  installMockFetch([
-    { status: 201, body: { data: { id: 5 } } },  // createApp
-    { status: 204 },                              // publishApp (intent) — NO build, NO poll
-  ]);
-  const { result } = await captureLog(() =>
+  installMockFetch({ status: 200 });
+  const { result, lines } = await captureAll(() =>
     run(['ship', '--url', 'https://x', '--name', 'X', '--yes', ...API]));
-  expect(result).toBe(0);
-  const req = lastRequest();
-  expect(req.method).toBe('POST');
-  expect(req.path).toMatch(/\/api\/v1\/apps\/5\/publish$/);
-  expect(req.body).toEqual({ app_stores: ['apple_appstore', 'google_playstore'] });
-  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);  // SC-1/SC-2 invariant
+  expect(result).toBe(2);
+  expect(lines.join('\n')).toMatch(/Usage: appo ship <id>/);
+  expect(lines.join('\n')).toMatch(/appo new --url <u>/);
+  expect(requests.length).toBe(0);
 });
 
-// 2. Existing-id skips create — the FIRST request is the publish POST, never a build.
-test('ship <id> --yes skips create (first request is publish, NO /builds)', async () => {
+// 2. Happy path: `ship <id> --yes` — the FIRST request is the publish POST,
+//    never a create or a build.
+test('ship <id> --yes publishes directly (first request is publish, NO /builds)', async () => {
   stubToken();
   installMockFetch([{ status: 204 }]);  // publishApp only
   const { result } = await captureLog(() => run(['ship', '5', '--yes', ...API]));
   expect(result).toBe(0);
   expect(requests[0].method).toBe('POST');
   expect(requests[0].path).toMatch(/\/api\/v1\/apps\/5\/publish$/);  // first request is publish, not create/build
+  expect(requests[0].body).toEqual({ app_stores: ['apple_appstore', 'google_playstore'] });
   expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
@@ -96,27 +94,24 @@ test('ship <id> without --yes -> exit 3, NO publish POST, NO /builds', async () 
   expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
-// 4. publish prerequisite_failed -> exit 1, Blocked + dashboard_url, surfaced app_id.
-//    The block now fires on the publish step (no build step exists). NO /builds.
-test('ship publish prerequisite_failed -> exit 1, Blocked + dashboard_url + resume app_id', async () => {
+// 4. publish prerequisite_failed -> exit 1, Blocked + dashboard_url. The block
+//    fires on the publish step (the only step). NO /builds.
+test('ship <id> publish prerequisite_failed -> exit 1, Blocked + dashboard_url', async () => {
   stubToken();
   installMockFetch([
-    { status: 201, body: { data: { id: 5 } } },                       // create ok
     { status: 422, body: { error: 'prerequisite_failed', code: 'APPLE_CREDENTIALS_MISSING',
                             message: 'Apple credentials required',
                             details: { next_action: 'open_dashboard', dashboard_url: 'https://dash/settings' } } },
   ]);
-  const { result, lines } = await captureAll(() =>
-    run(['ship', '--url', 'https://x', '--name', 'X', '--yes', ...API]));
+  const { result, lines } = await captureAll(() => run(['ship', '5', '--yes', ...API]));
   expect(result).toBe(1);
   expect(lines.join('\n')).toMatch(/Blocked/);
   expect(lines.join('\n')).toMatch(/dash\/settings/);
-  expect(lines.join('\n')).toMatch(/ship 5/);   // resume hint surfaces the created app_id
   expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
 });
 
 // 5. usage error -> exit 2, no HTTP, for both plain and --json invocations.
-test('ship with no id and no --url/--name -> exit 2, no HTTP (plain + --json)', async () => {
+test('ship with no id -> exit 2, no HTTP (plain + --json)', async () => {
   stubToken();
   installMockFetch({ status: 200 });
   const result = await silentRun(['ship', ...API]);
@@ -192,22 +187,8 @@ test('publish maps apple/google aliases to canonical tokens via parseStores (IN-
   expect(req.body).toEqual({ app_stores: ['apple_appstore', 'google_playstore'] });
 });
 
-// WR-01: an empty/non-enveloped 2xx body must NOT throw a raw TypeError — the
-// create result is guarded (|| {}); the run resolves to a controlled exit code.
-test('ship create with empty 2xx body does not throw (WR-01 guard)', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 201, body: {} },                                       // create: empty body, no id
-    { status: 422, body: { error: 'prerequisite_failed', code: 'X', message: 'blocked' } },
-  ]);
-  const { result } = await captureLog(() =>
-    run(['ship', '--url', 'https://x', '--name', 'X', '--yes', '--json', ...API]));
-  expect(result).toBe(1);   // blocked, not an uncaught TypeError
-  expect(requests.filter(r => /\/builds$/.test(r.path)).length).toBe(0);
-});
-
-// WR-02: on a publish block for an EXISTING-id ship (no create step), the --json
-// ledger must still carry app_id so a consumer can resume.
+// WR-02: on a publish block, the --json ledger must still carry app_id so a
+// consumer can resume.
 test('ship <id> publish block surfaces app_id in the --json ledger (WR-02)', async () => {
   stubToken();
   installMockFetch([
