@@ -274,7 +274,7 @@ function previewId(id) {
 async function resolvePreviewApp(apiBase, env, flags) {
   const apps = await ops.listApps(apiBase, env);
   if (apps.length === 0) {
-    console.error('No apps yet. Create one: appo apps create --name <n> --url <u>');
+    console.error('No apps yet. Create one: appo new --url <u>');
     return { exit: 1 };
   }
   if (apps.length === 1) {
@@ -539,7 +539,7 @@ export async function run(argv) {
         if (sub === 'list') {
           const apps = await ops.listApps(apiBase, env);
           if (apps.length === 0) {
-            console.log('No apps yet. Create one: appo apps create --name <n> --url <u>');
+            console.log('No apps yet. Create one: appo new --url <u>');
             return 0;
           }
           for (const a of apps) {

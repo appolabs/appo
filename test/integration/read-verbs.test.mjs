@@ -225,7 +225,7 @@ test('preview with no id and no apps exits 1 with the create hint', async () => 
     console.error = originalErr;
   }
   expect(result).toBe(1);
-  expect(errors.join('\n')).toContain('appo apps create');
+  expect(errors.join('\n')).toContain('appo new --url');
 });
 
 test('preview with no id and several apps (non-TTY) exits 2 listing them', async () => {
