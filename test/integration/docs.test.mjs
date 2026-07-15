@@ -9,7 +9,7 @@ const README = readFileSync('README.md', 'utf-8');
 const LLMS = readFileSync('llms.txt', 'utf-8');
 
 const COMMANDS = [
-  'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
+  'appo new', 'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
   'apps create', 'apps list', 'apps show', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'preview',
@@ -42,6 +42,16 @@ test('README drops removed flags/wording', () => {
   expect(LLMS).not.toContain('--meta-name');
   expect(LLMS).not.toContain('--meta-desc');
   expect(LLMS).not.toContain('--timeout');
+});
+
+// v5.0: ship lost its creation arm — `ship --url` must not resurface anywhere
+// (docs or source). Creation is `appo new --url <u>`.
+test('no ship --url references remain (creation moved to appo new)', () => {
+  expect(README).not.toContain('ship --url');
+  expect(LLMS).not.toContain('ship --url');
+  const cli = readFileSync('src/cli.mjs', 'utf-8');
+  const ops = readFileSync('src/ops.mjs', 'utf-8');
+  expect(cli + ops).not.toContain('ship --url');
 });
 
 test('src/ has no build-trigger code paths', () => {

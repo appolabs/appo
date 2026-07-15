@@ -4,16 +4,19 @@
 
 A thin, dependency-free Node client over the Appo public API (`/api/v1`) and the
 RFC 8628 device-authorization grant. Run the complete Appo app lifecycle —
-create, ship, publish, push — from a shell or an agent.
+create, ship, publish, push — from a shell or an agent. Two canonical commands:
+`appo new` (the app on your phone) and `appo ship` (the app on the stores).
 
 ## Quick Start
 
 - [Install](README.md#install)
 - [appo init](README.md#appo-init)
+- [appo new](README.md#appo-new)
 - [appo ship](README.md#ship)
 
 ## Commands
 
+- [appo new](README.md#appo-new)
 - [appo ship](README.md#ship)
 - [appo init](README.md#appo-init)
 - [appo login / logout / whoami](README.md#auth)

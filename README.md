@@ -23,37 +23,52 @@ Check the version with:
 appo --version   # prints: appo/<version> node/<version>
 ```
 
-## Ship
+## appo new
 
-`appo ship` is the one-command lifecycle: it creates an app (when given a URL and
-name), then signals publish-intent — Appo issues the build server-side and submits
-it for you. It stops at a confirm-gate before the publish unless you pass `--yes`.
+The two canonical commands: `appo new` — the app on your phone; `appo ship` —
+the app on the stores.
+
+`appo new` creates your app from a URL:
 
 ```bash
 npm install -g @appolabs/appo
-appo init                                          # bootstrap config + first login
-appo ship --url https://example.com --name "My App"
+appo init                                  # bootstrap config + first login
+appo new --url tuosito.com                 # create the app (name: Tuosito)
 ```
 
-That single `ship` call runs create → publish-intent and reports the result. Appo
-builds and submits your app; track it with `appo status <id>`. Drop `--yes` to
-inspect the publish preview before anything is written; re-run with `--yes` (or
-`--confirm`) to publish.
+`--url` is required; a bare domain gets `https://` prepended. `--name` is
+optional — without it the name derives from the URL hostname: leading `www.`
+stripped, first label, capitalized (`www.pizza-mario.it` -> `Pizza-mario`).
 
 ```bash
-appo ship <id>                                     # (re)publish an existing app
-appo ship --url <u> --name <n> --yes               # create + ship, skip the publish gate
+appo new --url <u> --name <n>              # explicit name
+appo new --url <u> --json                  # raw creation response envelope
 ```
 
-`appo ship` is the single "get my app live" verb: with `--url`/`--name` it creates a
-new app, with an `<id>` it signals (re)publish-intent on an existing one (this also
-covers resubmitting after an App Store rejection). Appo builds and submits server-side;
-track progress with `appo status <id>` or `appo preview <id>`. Flags: `--stores <list>`
-(override the target stores; defaults to the app's stores), `--yes` (confirm the publish
-step), `--json` (emit one `{steps, final_state}` object — `final_state` in
-`{shipped, gated, blocked}` — instead of the live stream). The build platform is decided
-by Appo (the operator) — you ship an outcome, not a build configuration.
-`ship` maps its final lifecycle state to the
+On success it prints the new app id and the two next steps: `appo preview <id>`
+(the app on your phone) and `appo ship <id>` (the app on the stores). A missing
+`--url` is a usage error (exit `2`, no request issued); API errors exit `1`.
+
+## Ship
+
+`appo ship <id>` signals publish-intent on an existing app — Appo issues the
+build server-side and submits it to the stores for you. It stops at a
+confirm-gate before the publish unless you pass `--yes`. The same verb covers
+republishing and resubmitting after an App Store rejection — there is no
+separate `reship`/`build`/`resubmit` verb.
+
+```bash
+appo ship <id>                             # publish preview (gate), no write
+appo ship <id> --yes                       # confirm and ship
+```
+
+Appo builds and submits server-side; track progress with `appo status <id>` or
+`appo preview <id>`. Flags: `--stores <list>` (override the target stores;
+defaults to the app's stores), `--yes` (confirm the publish step; `--confirm`
+is an alias), `--json` (emit one `{steps, final_state}` object — `final_state`
+in `{shipped, gated, blocked}` — instead of the live stream). The build platform
+is decided by Appo (the operator) — you ship an outcome, not a build
+configuration. `ship` maps its final lifecycle state to the
 [exit codes](#exit-codes): `0` shipped, `1` blocked, `2` usage error,
 `3` gated (publish preview shown, no write — re-run with `--yes`).
 
@@ -67,7 +82,7 @@ appo init --token <pat>    # non-interactive first login for CI/agents
 Bootstraps the config in `~/.appo/config.json` (owner-only) and performs the first
 login. It is idempotent: if the active environment already has a stored token,
 `init` reports the active env and writes nothing (no clobber). On success it prints
-the active env, the API base, and the next step (`appo ship --url <u> --name <n>`).
+the active env, the API base, and the next step (`appo new --url <u>`).
 
 ## Auth
 
