@@ -38,6 +38,7 @@ Apps:
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   Update name, URL and icon
 
 Lifecycle:
+  appo new --url <u> [--name <n>]         Create your app — name defaults from the URL
   appo ship --url <u> --name <n> [--stores <list>] [--yes]   Create and ship a new app
   appo ship <id> [--yes]                  Ship an existing app (republish / resubmit after a rejection)
   appo status <id>                        App overview (publication state + next action)
@@ -308,6 +309,20 @@ async function resolvePreviewApp(apiBase, env, flags) {
     return { exit: 2 };
   }
   return { id: apps[n - 1].id };
+}
+
+/** Ensure the URL carries a scheme; a bare domain (`tuosito.com`) gets https
+ *  prepended client-side, before any HTTP. */
+function ensureScheme(raw) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+/** Default app name from a URL: hostname minus a leading `www.`, first label,
+ *  capitalized (`https://www.pizza-mario.it` -> `Pizza-mario`). Throws on an
+ *  unparseable URL — the caller maps that to a usage error. */
+function nameFromUrl(url) {
+  const label = new URL(url).hostname.replace(/^www\./, '').split('.')[0];
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 /** Default to both canonical store tokens; map friendly aliases apple/google. */
@@ -780,6 +795,39 @@ export async function run(argv) {
         }
         console.error(`Unknown devices subcommand: ${sub}`);
         return 2;
+      }
+
+      case 'new': {
+        // Creation verb — `new` puts the app on your phone, `ship <id>` puts it
+        // on the stores. Single-step (no ledger): errors flow to the top-level
+        // catch -> renderError like the other simple verbs.
+        const usage = 'Usage: appo new --url <u> [--name <n>] [--json]';
+        // Empty-value guard: a bare `--url` parses as boolean true; both it and
+        // a missing flag are usage errors — BEFORE any HTTP.
+        if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
+        const base_url = ensureScheme(flags.url);
+        let name = typeof flags.name === 'string' && flags.name ? flags.name : null;
+        if (!name) {
+          try {
+            name = nameFromUrl(base_url);
+          } catch {
+            console.error(usage);   // unparseable URL — usage error, no HTTP
+            return 2;
+          }
+        }
+        // --json: verbatim creation envelope (D-08). Direct apiFetch — never
+        // reaches the human renderer.
+        if (flags.json) {
+          const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', { name, base_url }, env);
+          console.log(JSON.stringify(res));
+          return 0;
+        }
+        const app = (await ops.createApp(apiBase, { name, base_url }, env)) || {};
+        console.log(`Created app #${app.id} — ${app.name}`);
+        console.log(`  url: ${app.base_url}`);
+        console.log(`  preview on your phone: appo preview ${app.id}`);
+        console.log(`  ship to the stores:    appo ship ${app.id}`);
+        return 0;
       }
 
       case 'ship': {
