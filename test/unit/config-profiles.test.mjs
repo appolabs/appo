@@ -137,8 +137,8 @@ test('resolveApiBase precedence: --api > APPO_API_BASE > profile > default (trai
   delete process.env.APPO_API_BASE;
   expect(resolveApiBase(undefined, 'default')).toBe('http://prof.local');
 
-  // nothing set + unknown env → built-in default
-  expect(resolveApiBase(undefined, 'nope')).toBe('http://localhost:8002');
+  // nothing set + unknown env → built-in default (production)
+  expect(resolveApiBase(undefined, 'nope')).toBe('https://apps.goappo.io');
 });
 
 test('storedToken precedence + non-persistence: APPO_TOKEN wins and is never written', () => {

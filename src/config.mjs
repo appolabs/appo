@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, chmodSync } from 'node:fs';
 
-const DEFAULT_API_BASE = 'http://localhost:8002';
+const DEFAULT_API_BASE = 'https://apps.goappo.io';
 
 /**
  * Resolve the config directory and file PER CALL.

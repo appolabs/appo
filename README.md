@@ -279,7 +279,8 @@ notice to stderr when a newer version is available; the check is skipped under
 
 Create a PAT in the dashboard, then `appo login --token <pat>` or set `APPO_TOKEN`
 in your environment (for example in CI/agents) to authenticate without the browser
-flow. The default API base is `http://localhost:8002` (local development).
+flow. The default API base is `https://apps.goappo.io` (production); override it with
+`--api` or `APPO_API_BASE` (for example `http://localhost:8002` for local development).
 
 ## Exit codes
 
