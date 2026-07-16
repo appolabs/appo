@@ -94,7 +94,7 @@ test('new without --url -> exit 2 with usage line, no HTTP', async () => {
   installMockFetch({ status: 201 });
   const { result, lines } = await captureAll(() => run(['new', ...API]));
   expect(result).toBe(2);
-  expect(lines.join('\n')).toMatch(/Usage: appo new --url <u> \[--name <n>\] \[--json\]/);
+  expect(lines.join('\n')).toMatch(/Usage: appo new --url <u> \[--name <n>\] \[--prepare\] \[--json\]/);
   expect(requests.length).toBe(0);
   // A bare `--url` (no value) parses as boolean true — same usage error, no HTTP.
   const bare = await captureAll(() => run(['new', '--url', ...API]));
@@ -115,4 +115,27 @@ test('new --json emits the raw creation envelope verbatim, exit 0', async () => 
     data: { id: 9, name: 'Tuosito', base_url: 'https://tuosito.com' },
     extra: 'kept',
   });
+});
+
+// 6. --prepare flag: body must include prep_mode=appo_managed.
+test('new --url --prepare sends prep_mode=appo_managed in body', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 201, body: { data: { id: 10, name: 'X', base_url: 'https://x.com' } } },
+  ]);
+  const { result } = await captureLog(() =>
+    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', ...API]));
+  expect(result).toBe(0);
+  expect(lastRequest().body).toEqual({ name: 'X', base_url: 'https://x.com', prep_mode: 'appo_managed' });
+});
+
+// 7. Without --prepare: body must NOT contain prep_mode.
+test('new --url without --prepare does not send prep_mode', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 201, body: { data: { id: 11, name: 'Y', base_url: 'https://y.com' } } },
+  ]);
+  await captureLog(() => run(['new', '--url', 'https://y.com', '--name', 'Y', ...API]));
+  expect(lastRequest().body).toEqual({ name: 'Y', base_url: 'https://y.com' });
+  expect(lastRequest().body.prep_mode).toBeUndefined();
 });
