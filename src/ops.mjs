@@ -15,8 +15,10 @@ export function unwrap(payload) {
 }
 
 // POST /api/v1/apps -> 201 { data: AppResource }
-export async function createApp(apiBase, { name, base_url }, env) {
-  return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', { name, base_url }, env));
+export async function createApp(apiBase, { name, base_url, prep_mode }, env) {
+  const body = { name, base_url };
+  if (prep_mode) body.prep_mode = prep_mode;
+  return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env));
 }
 
 // GET /api/v1/apps/{id} -> 200 { data: AppResource }

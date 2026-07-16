@@ -800,7 +800,7 @@ export async function run(argv) {
         // Creation verb — `new` puts the app on your phone, `ship <id>` puts it
         // on the stores. Single-step (no ledger): errors flow to the top-level
         // catch -> renderError like the other simple verbs.
-        const usage = 'Usage: appo new --url <u> [--name <n>] [--json]';
+        const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare] [--json]';
         // Empty-value guard: a bare `--url` parses as boolean true; both it and
         // a missing flag are usage errors — BEFORE any HTTP.
         if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
@@ -814,14 +814,17 @@ export async function run(argv) {
             return 2;
           }
         }
+        const prepMode = flags.prepare === true ? 'appo_managed' : undefined;
         // --json: verbatim creation envelope (D-08). Direct apiFetch — never
         // reaches the human renderer.
         if (flags.json) {
-          const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', { name, base_url }, env);
+          const body = { name, base_url };
+          if (prepMode) body.prep_mode = prepMode;
+          const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env);
           console.log(JSON.stringify(res));
           return 0;
         }
-        const app = (await ops.createApp(apiBase, { name, base_url }, env)) || {};
+        const app = (await ops.createApp(apiBase, { name, base_url, prep_mode: prepMode }, env)) || {};
         console.log(`Created app #${app.id} — ${app.name}`);
         console.log(`  url: ${app.base_url}`);
         console.log(`  preview on your phone: appo preview ${app.id}`);
