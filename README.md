@@ -42,8 +42,13 @@ stripped, first label, capitalized (`www.pizza-mario.it` -> `Pizza-mario`).
 
 ```bash
 appo new --url <u> --name <n>              # explicit name
+appo new --url <u> --prepare               # request Appo preparation
 appo new --url <u> --json                  # raw creation response envelope
 ```
+
+`--prepare` — requests that Appo prepare the app content (icons, splash screen,
+store copy). Default: you prepare it yourself. Omit the flag when the app's
+source code is available locally and you can configure the content directly.
 
 On success it prints the new app id and the two next steps: `appo preview <id>`
 (the app on your phone) and `appo ship <id>` (the app on the stores). A missing
