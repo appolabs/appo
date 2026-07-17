@@ -95,7 +95,7 @@ test('new without --url -> exit 2 with usage line, no HTTP', async () => {
   installMockFetch({ status: 201 });
   const { result, lines } = await captureAll(() => run(['new', ...API]));
   expect(result).toBe(2);
-  expect(lines.join('\n')).toMatch(/Usage: appo new --url <u> \[--name <n>\] \[--prepare\] \[--json\]/);
+  expect(lines.join('\n')).toMatch(/Usage: appo new --url <u>/);
   expect(requests.length).toBe(0);
   // A bare `--url` (no value) parses as boolean true — same usage error, no HTTP.
   const bare = await captureAll(() => run(['new', '--url', ...API]));
@@ -153,13 +153,11 @@ const ANON_BODY = {
   build_id: 1,
   status_url: 'https://x.test/s',
   claim_token: 'a'.repeat(40),
-  ios_available: false,
-  ios_note: 'iOS requires an account',
 };
 
 // 8. No token → POSTs to /anonymous/create with no Authorization header and
-//    body {url: <normalized>}. Regression: does NOT hit /api/v1/apps.
-test('new --url with no token posts to /anonymous/create with no Authorization header', async () => {
+//    body {url, platform:'android'} (default). Regression: does NOT hit /api/v1/apps.
+test('new --url with no token posts to /anonymous/create with platform=android default', async () => {
   clearConfig(); // ensure no stale token from previous tests
   installMockFetch([{ status: 200, body: ANON_BODY }]);
   const { result } = await captureLog(() =>
@@ -168,13 +166,13 @@ test('new --url with no token posts to /anonymous/create with no Authorization h
   const req = lastRequest();
   expect(req.path).toMatch(/\/anonymous\/create$/);
   expect(req.method).toBe('POST');
-  expect(req.body).toEqual({ url: 'https://x.com' });
+  expect(req.body).toEqual({ url: 'https://x.com', platform: 'android' });
   // No Authorization header must be present on the anonymous request.
   expect(req.headers['Authorization']).toBeUndefined();
 });
 
-// 9. Anonymous happy path: prints created app, iOS note, and claim link.
-test('new anonymous prints created app + iOS note + claim link', async () => {
+// 9. Anonymous happy path (android default): prints created app and claim link.
+test('new anonymous prints created app + claim link (android default)', async () => {
   clearConfig();
   installMockFetch([{ status: 200, body: ANON_BODY }]);
   const { result, lines } = await captureLog(() =>
@@ -182,8 +180,9 @@ test('new anonymous prints created app + iOS note + claim link', async () => {
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toMatch(/Created anonymous app #9/);
-  expect(out).toMatch(/iOS requires an account/);
   expect(out).toMatch(/register\?claim_token=/);
+  // ios_note is dead — must not be printed.
+  expect(out).not.toMatch(/ios_note|iOS requires/i);
 });
 
 // 10. Anonymous happy path: persists anonymous_claim_token to the CLI config.
@@ -222,4 +221,58 @@ test('new --url with a stored token still hits /api/v1/apps (authenticated path 
   ]);
   await captureLog(() => run(['new', '--url', 'https://x.com', '--name', 'X', ...API]));
   expect(lastRequest().path).toMatch(/\/api\/v1\/apps$/);
+});
+
+// ─── Platform flag (--platform) ───────────────────────────────────────────────
+
+// 13. --platform ios sends platform=ios in the POST body.
+test('new --platform ios sends platform=ios in POST body', async () => {
+  clearConfig();
+  const iosCreateBody = {
+    id: 20,
+    name: 'X',
+    base_url: 'https://x.com',
+    status_url: 'https://x.test/status',
+    claim_token: 'b'.repeat(40),
+    platform: 'ios',
+    registration_url: 'https://x.test/register-device',
+  };
+  // Provide status response so the poll exits immediately with 'ready'.
+  const iosStatusBody = { status: 'ready', install_url: 'https://x.test/install' };
+  installMockFetch([
+    { status: 201, body: iosCreateBody },
+    { status: 200, body: iosStatusBody },
+  ]);
+  const { result } = await captureLog(() =>
+    run(['new', '--url', 'x.com', '--platform', 'ios', ...API]));
+  expect(result).toBe(0);
+  // First request must have platform=ios in body.
+  const req = requests[0];
+  expect(req.path).toMatch(/\/anonymous\/create$/);
+  expect(req.body).toEqual({ url: 'https://x.com', platform: 'ios' });
+});
+
+// 14. ios_full response (200 with ios_full:true): prints degradation message, exits 0.
+test('new anonymous ios_full response prints slots-full message and exits 0', async () => {
+  clearConfig();
+  installMockFetch([{
+    status: 200,
+    body: { ios_full: true, platform: 'ios', message: 'iOS trial slots are full right now. Try --platform android instead.' },
+  }]);
+  const { result, lines } = await captureLog(() =>
+    run(['new', '--url', 'x.com', '--platform', 'ios', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toMatch(/iOS trial slots are full/);
+});
+
+// 15. Invalid --platform value: usage error, exit 2, no HTTP.
+test('new --platform with invalid value exits 2 with usage line, no HTTP', async () => {
+  clearConfig();
+  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  const { result, lines } = await captureAll(() =>
+    run(['new', '--url', 'x.com', '--platform', 'windows', ...API]));
+  expect(result).toBe(2);
+  expect(lines.join('\n')).toMatch(/ios\|android/);
+  expect(requests.length).toBe(0);
 });

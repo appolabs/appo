@@ -39,7 +39,7 @@ Apps:
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   Update name, URL and icon
 
 Lifecycle:
-  appo new --url <u> [--name <n>]         Create your app — name defaults from the URL
+  appo new --url <u> [--name <n>] [--platform ios|android]   Create your app — name defaults from the URL
   appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
   appo preview [id]                       Show preview target (TestFlight/deeplink + QR); no id: your only app, or a picker
@@ -62,7 +62,7 @@ Options:
   --confirm      Perform the write for a destructive verb (publish/push)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
   --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
-  --platform <p> Target platform for \`build\`: ios or android (default: android)
+  --platform <p> Target platform for \`new\` (anonymous) and \`build\`: ios or android (default: android)
   --build <n>    Target a specific build id (\`status\`/\`download\`; default: latest)
   --output <p>   Write the downloaded artifact to this path (default: derived filename)
   -h, --help     Show this help
@@ -801,10 +801,16 @@ export async function run(argv) {
         // Creation verb — `new` puts the app on your phone, `ship <id>` puts it
         // on the stores. Single-step (no ledger): errors flow to the top-level
         // catch -> renderError like the other simple verbs.
-        const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare] [--json]';
+        const usage = 'Usage: appo new --url <u> [--name <n>] [--platform ios|android] [--prepare] [--json]';
         // Empty-value guard: a bare `--url` parses as boolean true; both it and
         // a missing flag are usage errors — BEFORE any HTTP.
         if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
+        // --platform validation: must be ios or android when supplied (mirrors `build` command pattern).
+        const platform = typeof flags.platform === 'string' ? flags.platform : 'android';
+        if (!['ios', 'android'].includes(platform)) {
+          console.error('Usage: appo new --url <u> [--platform ios|android]');
+          return 2;
+        }
         const base_url = ensureScheme(flags.url);
         let name = typeof flags.name === 'string' && flags.name ? flags.name : null;
         if (!name) {
@@ -822,10 +828,13 @@ export async function run(argv) {
         if (!token) {
           // Anonymous path — public endpoint, no Authorization header, no apiFetch.
           // --prepare is silently ignored (anonymous apps are always self-prepared, D-07).
+          const CONTRAST_ANON = '\x1b[30;47m';
+          const RESET_ANON = '\x1b[0m';
+
           const res = await fetch(`${apiBase}/anonymous/create`, {
             method: 'POST',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: base_url }),
+            body: JSON.stringify({ url: base_url, platform }),
           });
           const data = await res.json().catch(() => ({}));
 
@@ -840,17 +849,90 @@ export async function run(argv) {
             return 1;
           }
 
+          // Guard-full response (200 with ios_full): honest degradation message.
+          if (data.ios_full) {
+            console.log(data.message ?? 'iOS trial slots are full right now. Try --platform android instead.');
+            return 0;
+          }
+
           // Persist the claim token so the user can claim later from any surface.
           writeProfile(env, { anonymous_app_id: data.id, anonymous_claim_token: data.claim_token });
 
-          // Human output — created app + terminal QR for the install link + iOS note + claim link.
           console.log(`Created anonymous app #${data.id} — ${data.name}`);
           console.log(`  url: ${data.base_url}`);
-          if (data.ios_note) console.log(`  note: ${data.ios_note}`);   // WOW-05 honest surfacing
           console.log('');
+
+          if (platform === 'ios') {
+            // iOS path: print device registration QR first, then poll for
+            // awaiting-registration → pending → ready, then print install QR.
+            console.log('Register your iPhone by scanning this QR code:');
+            for (const row of renderQr(data.registration_url).split('\n')) {
+              console.log(`${CONTRAST_ANON}${row}${RESET_ANON}`);
+            }
+            console.log('');
+            console.log('Waiting for device registration...');
+
+            // Poll status URL through awaiting-registration (human-time step) to ready.
+            // Check immediately then sleep; dots indicate waiting between polls.
+            // iOS registration is a manual human step so the timeout is generous (30 min).
+            const IOS_POLL_INTERVAL_MS = 5000;
+            const IOS_POLL_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+            const pollStart = Date.now();
+            let installUrl = null;
+
+            while (Date.now() - pollStart < IOS_POLL_TIMEOUT_MS) {
+              let statusData;
+              try {
+                const statusRes = await fetch(data.status_url, {
+                  headers: { Accept: 'application/json' },
+                });
+                statusData = await statusRes.json().catch(() => ({}));
+              } catch {
+                process.stdout.write('.');
+                await new Promise((r) => setTimeout(r, IOS_POLL_INTERVAL_MS));
+                continue;
+              }
+
+              if (statusData.status === 'awaiting-registration') {
+                // Device not yet registered — keep polling with progress dots.
+                process.stdout.write('.');
+                await new Promise((r) => setTimeout(r, IOS_POLL_INTERVAL_MS));
+                continue;
+              }
+
+              if (statusData.status === 'ready') {
+                installUrl = statusData.install_url;
+                break;
+              }
+
+              if (statusData.status === 'failed') {
+                console.error('\nBuild failed.');
+                return 1;
+              }
+
+              // pending / any other transient state — keep polling.
+              process.stdout.write('.');
+              await new Promise((r) => setTimeout(r, IOS_POLL_INTERVAL_MS));
+            }
+
+            if (!installUrl) {
+              console.error('\nTimed out waiting for the iOS trial build.');
+              console.error(`Check status manually: ${data.status_url}`);
+              return 1;
+            }
+
+            console.log('\n');
+            console.log('Your iOS app is ready. Scan to install:');
+            for (const row of renderQr(installUrl).split('\n')) {
+              console.log(`${CONTRAST_ANON}${row}${RESET_ANON}`);
+            }
+            console.log('');
+            console.log(`Claim this app: ${apiBase}/register?claim_token=${data.claim_token}`);
+            return 0;
+          }
+
+          // Android default path (unchanged behavior).
           console.log('Scan to install on your phone:');
-          const CONTRAST_ANON = '\x1b[30;47m';
-          const RESET_ANON = '\x1b[0m';
           for (const row of renderQr(data.status_url).split('\n')) {
             console.log(`${CONTRAST_ANON}${row}${RESET_ANON}`);
           }
