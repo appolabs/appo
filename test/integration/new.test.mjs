@@ -7,6 +7,7 @@ import {
   requests,
   stubToken,
 } from '../helpers/mockFetch.mjs';
+import { readConfig, clearConfig } from '../../src/config.mjs';
 
 // Capture console.log output around an async call (verbs are async).
 async function captureLog(fn) {
@@ -138,4 +139,87 @@ test('new --url without --prepare does not send prep_mode', async () => {
   await captureLog(() => run(['new', '--url', 'https://y.com', '--name', 'Y', ...API]));
   expect(lastRequest().body).toEqual({ name: 'Y', base_url: 'https://y.com' });
   expect(lastRequest().body.prep_mode).toBeUndefined();
+});
+
+// ─── Anonymous path (no stored token) ────────────────────────────────────────
+// Each anonymous test calls clearConfig() first to wipe any token written by
+// the authenticated tests above (stubToken writes to the shared worker config;
+// resetMockFetch does not clear it).
+
+const ANON_BODY = {
+  id: 9,
+  name: 'X',
+  base_url: 'https://x.com',
+  build_id: 1,
+  status_url: 'https://x.test/s',
+  claim_token: 'a'.repeat(40),
+  ios_available: false,
+  ios_note: 'iOS requires an account',
+};
+
+// 8. No token → POSTs to /anonymous/create with no Authorization header and
+//    body {url: <normalized>}. Regression: does NOT hit /api/v1/apps.
+test('new --url with no token posts to /anonymous/create with no Authorization header', async () => {
+  clearConfig(); // ensure no stale token from previous tests
+  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  const { result } = await captureLog(() =>
+    run(['new', '--url', 'x.com', ...API]));
+  expect(result).toBe(0);
+  const req = lastRequest();
+  expect(req.path).toMatch(/\/anonymous\/create$/);
+  expect(req.method).toBe('POST');
+  expect(req.body).toEqual({ url: 'https://x.com' });
+  // No Authorization header must be present on the anonymous request.
+  expect(req.headers['Authorization']).toBeUndefined();
+});
+
+// 9. Anonymous happy path: prints created app, iOS note, and claim link.
+test('new anonymous prints created app + iOS note + claim link', async () => {
+  clearConfig();
+  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  const { result, lines } = await captureLog(() =>
+    run(['new', '--url', 'x.com', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toMatch(/Created anonymous app #9/);
+  expect(out).toMatch(/iOS requires an account/);
+  expect(out).toMatch(/register\?claim_token=/);
+});
+
+// 10. Anonymous happy path: persists anonymous_claim_token to the CLI config.
+test('new anonymous persists the claim token to config', async () => {
+  clearConfig();
+  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  await captureLog(() => run(['new', '--url', 'x.com', ...API]));
+  const cfg = readConfig();
+  // The active profile (determined by env) should carry the claim token.
+  const profiles = cfg.profiles;
+  const hasToken = Object.values(profiles).some(
+    (p) => p && p.anonymous_claim_token === 'a'.repeat(40),
+  );
+  expect(hasToken).toBe(true);
+});
+
+// 11. Anonymous 409 (one-per-device limit): prints the limit message, exits 1.
+test('new anonymous 409 prints limit message and exits 1', async () => {
+  clearConfig();
+  installMockFetch([{
+    status: 409,
+    body: { message: 'limit', register_url: 'https://x.test/register' },
+  }]);
+  const { result, lines } = await captureAll(() =>
+    run(['new', '--url', 'x.com', ...API]));
+  expect(result).toBe(1);
+  const out = lines.join('\n');
+  expect(out).toMatch(/limit/);
+});
+
+// 12. Regression: with a stored token, new still hits /api/v1/apps (authenticated path unchanged).
+test('new --url with a stored token still hits /api/v1/apps (authenticated path unchanged)', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } },
+  ]);
+  await captureLog(() => run(['new', '--url', 'https://x.com', '--name', 'X', ...API]));
+  expect(lastRequest().path).toMatch(/\/api\/v1\/apps$/);
 });

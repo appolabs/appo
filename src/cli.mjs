@@ -2,6 +2,7 @@ import {
   resolveApiBase,
   activeProfileName,
   storedToken,
+  writeProfile,
   clearProfileToken,
   setCurrent,
   readConfig,
@@ -814,6 +815,50 @@ export async function run(argv) {
             return 2;
           }
         }
+
+        // Auth-state branch — check BEFORE any apiFetch call (apiFetch throws
+        // "Not authenticated" when no token; anonymous path bypasses it entirely).
+        const token = storedToken(env);
+        if (!token) {
+          // Anonymous path — public endpoint, no Authorization header, no apiFetch.
+          // --prepare is silently ignored (anonymous apps are always self-prepared, D-07).
+          const res = await fetch(`${apiBase}/anonymous/create`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: base_url }),
+          });
+          const data = await res.json().catch(() => ({}));
+
+          if (res.status === 409) {
+            console.error(data.message || 'This device already has an anonymous trial.');
+            console.error('Claim it or create an account to make more:');
+            if (data.register_url) console.error(`  ${data.register_url}`);
+            return 1;
+          }
+          if (!res.ok) {
+            console.error(`Anonymous create failed (${res.status}).`);
+            return 1;
+          }
+
+          // Persist the claim token so the user can claim later from any surface.
+          writeProfile(env, { anonymous_app_id: data.id, anonymous_claim_token: data.claim_token });
+
+          // Human output — created app + terminal QR for the install link + iOS note + claim link.
+          console.log(`Created anonymous app #${data.id} — ${data.name}`);
+          console.log(`  url: ${data.base_url}`);
+          if (data.ios_note) console.log(`  note: ${data.ios_note}`);   // WOW-05 honest surfacing
+          console.log('');
+          console.log('Scan to install on your phone:');
+          const CONTRAST_ANON = '\x1b[30;47m';
+          const RESET_ANON = '\x1b[0m';
+          for (const row of renderQr(data.status_url).split('\n')) {
+            console.log(`${CONTRAST_ANON}${row}${RESET_ANON}`);
+          }
+          console.log('');
+          console.log(`Claim this app: ${apiBase}/register?claim_token=${data.claim_token}`);
+          return 0;
+        }
+
         const prepMode = flags.prepare === true ? 'appo_managed' : undefined;
         // --json: verbatim creation envelope (D-08). Direct apiFetch — never
         // reaches the human renderer.
