@@ -226,8 +226,7 @@ appo build <id> --platform ios      # iOS test build (requires a registered devi
 ```
 
 Triggers a self-serve **test** build — an installable you download and try on your
-own device, distinct from store publishing (`appo ship` / `appo publish`). Available
-on self-managed apps only; other apps get a clear capability error. The trigger
+own device, distinct from store publishing (`appo ship` / `appo publish`). The trigger
 returns immediately (the build takes minutes): track it with
 `appo status <id> --build <n>`, then fetch it with `appo download <id>`.
 

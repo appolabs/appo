@@ -47,7 +47,7 @@ Lifecycle:
   appo publish <id> [--confirm]           Publish an already-built app to its stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
 
-Test builds (self-serve, self-managed apps only):
+Test builds (self-serve):
   appo build <id> [--platform ios|android]   Trigger a test build (default: android)
   appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
   appo devices list               List your registered iOS test devices
