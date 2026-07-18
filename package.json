@@ -1,6 +1,6 @@
 {
   "name": "@appolabs/appo",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "description": "Appo CLI \u2014 create and manage native apps from your terminal or an agent.",
   "license": "MIT",
   "repository": {

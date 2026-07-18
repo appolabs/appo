@@ -145,50 +145,76 @@ test('new --url without --prepare does not send prep_mode', async () => {
 // Each anonymous test calls clearConfig() first to wipe any token written by
 // the authenticated tests above (stubToken writes to the shared worker config;
 // resetMockFetch does not clear it).
+//
+// The anonymous trial builds BOTH platforms with no platform choice (mirrors the
+// dashboard /new): the create response carries an `android` and an `ios` block
+// plus one app-scoped `status_url`, which the CLI polls for both to ready.
 
-const ANON_BODY = {
+// Create response with both platforms offered (iOS pool guard open).
+const ANON_CREATE_BOTH = {
   id: 9,
   name: 'X',
   base_url: 'https://x.com',
-  build_id: 1,
-  status_url: 'https://x.test/s',
+  status_url: 'https://x.test/status',
   claim_token: 'a'.repeat(40),
+  android: { build_id: 1, status: 'stamping' },
+  ios: { available: true, registration_url: 'https://x.test/register-device', full: false },
+};
+
+// Status poll with both platforms ready — terminates the CLI poll loop on the
+// first iteration (no real setTimeout sleep is hit).
+const ANON_STATUS_BOTH_READY = {
+  android: { status: 'ready', install_url: 'https://x.test/android-install' },
+  ios: { status: 'ready', install_url: 'https://x.test/ios-install' },
 };
 
 // 8. No token → POSTs to /anonymous/create with no Authorization header and
-//    body {url, platform:'android'} (default). Regression: does NOT hit /api/v1/apps.
-test('new --url with no token posts to /anonymous/create with platform=android default', async () => {
+//    body {url} ONLY (no platform param). Regression: does NOT hit /api/v1/apps.
+test('new --url with no token posts to /anonymous/create with body {url} only', async () => {
   clearConfig(); // ensure no stale token from previous tests
-  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  installMockFetch([
+    { status: 201, body: ANON_CREATE_BOTH },
+    { status: 200, body: ANON_STATUS_BOTH_READY },
+  ]);
   const { result } = await captureLog(() =>
     run(['new', '--url', 'x.com', ...API]));
   expect(result).toBe(0);
-  const req = lastRequest();
+  const req = requests[0];
   expect(req.path).toMatch(/\/anonymous\/create$/);
   expect(req.method).toBe('POST');
-  expect(req.body).toEqual({ url: 'https://x.com', platform: 'android' });
+  expect(req.body).toEqual({ url: 'https://x.com' });
+  // No platform param — the contract dropped the platform choice.
+  expect(req.body.platform).toBeUndefined();
   // No Authorization header must be present on the anonymous request.
   expect(req.headers['Authorization']).toBeUndefined();
 });
 
-// 9. Anonymous happy path (android default): prints created app and claim link.
-test('new anonymous prints created app + claim link (android default)', async () => {
+// 9. Anonymous build-both happy path: prints created app, the iOS registration
+//    prompt, both platforms' ready lines, and the claim link.
+test('new anonymous builds both platforms and prints registration + install + claim', async () => {
   clearConfig();
-  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  installMockFetch([
+    { status: 201, body: ANON_CREATE_BOTH },
+    { status: 200, body: ANON_STATUS_BOTH_READY },
+  ]);
   const { result, lines } = await captureLog(() =>
     run(['new', '--url', 'x.com', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toMatch(/Created anonymous app #9/);
+  expect(out).toMatch(/register it/i);                 // iOS registration prompt
+  expect(out).toMatch(/Your Android app is ready/);
+  expect(out).toMatch(/Your iOS app is ready/);
   expect(out).toMatch(/register\?claim_token=/);
-  // ios_note is dead — must not be printed.
-  expect(out).not.toMatch(/ios_note|iOS requires/i);
 });
 
 // 10. Anonymous happy path: persists anonymous_claim_token to the CLI config.
 test('new anonymous persists the claim token to config', async () => {
   clearConfig();
-  installMockFetch([{ status: 200, body: ANON_BODY }]);
+  installMockFetch([
+    { status: 201, body: ANON_CREATE_BOTH },
+    { status: 200, body: ANON_STATUS_BOTH_READY },
+  ]);
   await captureLog(() => run(['new', '--url', 'x.com', ...API]));
   const cfg = readConfig();
   // The active profile (determined by env) should carry the claim token.
@@ -223,56 +249,51 @@ test('new --url with a stored token still hits /api/v1/apps (authenticated path 
   expect(lastRequest().path).toMatch(/\/api\/v1\/apps$/);
 });
 
-// ─── Platform flag (--platform) ───────────────────────────────────────────────
+// ─── Build-both contract (guard-full + dropped --platform) ────────────────────
 
-// 13. --platform ios sends platform=ios in the POST body.
-test('new --platform ios sends platform=ios in POST body', async () => {
+// 13. Guard-full: iOS pool closed (ios.available:false, ios.full:true). The CLI
+//     prints an honest slots-full note but STILL builds Android; exit 0.
+test('new anonymous guard-full prints slots-full note and still builds Android', async () => {
   clearConfig();
-  const iosCreateBody = {
-    id: 20,
+  const createGuardFull = {
+    id: 21,
     name: 'X',
     base_url: 'https://x.com',
     status_url: 'https://x.test/status',
-    claim_token: 'b'.repeat(40),
-    platform: 'ios',
-    registration_url: 'https://x.test/register-device',
+    claim_token: 'c'.repeat(40),
+    android: { build_id: 1, status: 'stamping' },
+    ios: { available: false, registration_url: null, full: true },
   };
-  // Provide status response so the poll exits immediately with 'ready'.
-  const iosStatusBody = { status: 'ready', install_url: 'https://x.test/install' };
+  const statusAndroidReady = {
+    android: { status: 'ready', install_url: 'https://x.test/android-install' },
+    ios: { status: 'unavailable', install_url: null },
+  };
   installMockFetch([
-    { status: 201, body: iosCreateBody },
-    { status: 200, body: iosStatusBody },
+    { status: 201, body: createGuardFull },
+    { status: 200, body: statusAndroidReady },
+  ]);
+  const { result, lines } = await captureLog(() =>
+    run(['new', '--url', 'x.com', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toMatch(/iOS trial slots are full/);
+  expect(out).toMatch(/Your Android app is ready/);
+  // No iOS registration prompt when the guard is closed.
+  expect(out).not.toMatch(/register it on your iPhone/i);
+});
+
+// 14. --platform is dropped from `new`: passing it is ignored — the body is still
+//     {url} only and the trial builds both platforms.
+test('new ignores --platform (dropped from new) and still posts body {url} only', async () => {
+  clearConfig();
+  installMockFetch([
+    { status: 201, body: ANON_CREATE_BOTH },
+    { status: 200, body: ANON_STATUS_BOTH_READY },
   ]);
   const { result } = await captureLog(() =>
     run(['new', '--url', 'x.com', '--platform', 'ios', ...API]));
   expect(result).toBe(0);
-  // First request must have platform=ios in body.
   const req = requests[0];
   expect(req.path).toMatch(/\/anonymous\/create$/);
-  expect(req.body).toEqual({ url: 'https://x.com', platform: 'ios' });
-});
-
-// 14. ios_full response (200 with ios_full:true): prints degradation message, exits 0.
-test('new anonymous ios_full response prints slots-full message and exits 0', async () => {
-  clearConfig();
-  installMockFetch([{
-    status: 200,
-    body: { ios_full: true, platform: 'ios', message: 'iOS trial slots are full right now. Try --platform android instead.' },
-  }]);
-  const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'x.com', '--platform', 'ios', ...API]));
-  expect(result).toBe(0);
-  const out = lines.join('\n');
-  expect(out).toMatch(/iOS trial slots are full/);
-});
-
-// 15. Invalid --platform value: usage error, exit 2, no HTTP.
-test('new --platform with invalid value exits 2 with usage line, no HTTP', async () => {
-  clearConfig();
-  installMockFetch([{ status: 200, body: ANON_BODY }]);
-  const { result, lines } = await captureAll(() =>
-    run(['new', '--url', 'x.com', '--platform', 'windows', ...API]));
-  expect(result).toBe(2);
-  expect(lines.join('\n')).toMatch(/ios\|android/);
-  expect(requests.length).toBe(0);
+  expect(req.body).toEqual({ url: 'https://x.com' });
 });
