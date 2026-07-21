@@ -230,12 +230,16 @@ function printPreview(preview) {
  *  preview-gated — they execute on receipt — so the CLI gates before issuing the
  *  write (D-04/D-05). Returns null to proceed with the POST, or exit code 3
  *  (confirm required, D-07) when gated. Pure decision/presentation — no fetch. */
-function confirmGate(flags, preview) {
+async function confirmGate(flags, preview) {
   if (flags.confirm) return null;
   if (flags.json) {
     console.log(JSON.stringify({ ...preview, confirm_required: true }));
-  } else {
-    printPreview(preview);
+    return 3;
+  }
+  printPreview(preview);
+  // Interactive sessions turn the gate into a question; scripts keep exit 3.
+  if (isInteractive(flags) && isYes(await askLine('Proceed? [y/N] '))) {
+    return null;
   }
   return 3;
 }
@@ -267,12 +271,43 @@ function previewId(id) {
   return Number.isInteger(n) && String(n) === String(id) ? n : id;
 }
 
-/** Resolve which app `appo preview` targets when no positional id is given.
+/** Interactive-session test shared by every prompt: never under --json and only
+ *  when both stdio ends are TTYs, so scripts and agents keep exit-code behavior. */
+function isInteractive(flags) {
+  return !flags.json && process.stdin.isTTY && process.stdout.isTTY;
+}
+
+/** One-line readline question; always closes the interface. EOF (Ctrl-D)
+ *  resolves to an empty answer so callers fall through to their usage error
+ *  or default instead of hanging on a settled stream. */
+async function askLine(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await new Promise((resolve) => {
+      rl.once('close', () => resolve(''));
+      rl.question(question).then(
+        (answer) => resolve(answer.trim()),
+        () => resolve(''),
+      );
+    });
+  } finally {
+    rl.close();
+  }
+}
+
+function isYes(answer) {
+  return /^y(es)?$/i.test(answer);
+}
+
+/** Resolve which app a verb targets when no positional id is given.
  *  One app -> use it. None -> actionable create hint (exit 1). Several -> a
  *  numbered picker on a TTY; otherwise the list plus a usage hint (exit 2),
  *  since scripts and --json runs cannot answer a prompt. Returns { id } on
  *  success or { exit } when the caller should stop with that code. */
-async function resolvePreviewApp(apiBase, env, flags) {
+async function resolveTargetApp(apiBase, env, flags, {
+  usageHint = 'appo preview <id>',
+  selectLabel = 'Select an app to preview:',
+} = {}) {
   const apps = await ops.listApps(apiBase, env);
   if (apps.length === 0) {
     console.error('No apps yet. Create one: appo new --url <u>');
@@ -286,13 +321,13 @@ async function resolvePreviewApp(apiBase, env, flags) {
   }
   const interactive = !flags.json && process.stdin.isTTY && process.stdout.isTTY;
   if (!interactive) {
-    console.error('Several apps found. Pass an id: appo preview <id>');
+    console.error(`Several apps found. Pass an id: ${usageHint}`);
     for (const a of apps) {
       console.error(`  ${String(a.id).padEnd(5)} ${a.name}  ${a.base_url}`);
     }
     return { exit: 2 };
   }
-  console.log('Select an app to preview:');
+  console.log(selectLabel);
   apps.forEach((a, i) => {
     console.log(`  ${i + 1}) ${a.name}  (id ${a.id})  ${a.base_url}`);
   });
@@ -393,7 +428,7 @@ export async function run(argv) {
   // can never silently act on the wrong profile.
   const env = activeProfileName(flags.env);
   const apiBase = resolveApiBase(flags.api, env);
-  const [command, sub, ...rest] = positional;
+  let [command, sub, ...rest] = positional;
 
   try {
     switch (command) {
@@ -512,7 +547,19 @@ export async function run(argv) {
           return 0;
         }
         if (sub === 'use') {
-          const name = rest[0];
+          let name = rest[0];
+          if (!name && isInteractive(flags)) {
+            const names = Object.keys(cfg.profiles);
+            if (names.length > 0) {
+              console.log('Environments:');
+              names.forEach((n, i) => {
+                console.log(`  ${i + 1}) ${n}${n === cfg.current ? ' (current)' : ''}`);
+              });
+              const answer = await askLine(`Choice [1-${names.length}]: `);
+              const n = Number(answer);
+              if (Number.isInteger(n) && n >= 1 && n <= names.length) { name = names[n - 1]; }
+            }
+          }
           if (!name) { console.error('Usage: appo env use <name>'); return 2; }
           if (!cfg.profiles[name]) {
             console.error(`No such env '${name}'. Run \`appo login --env ${name}\` first.`);
@@ -528,6 +575,10 @@ export async function run(argv) {
 
       case 'apps': {
         if (sub === 'create') {
+          if (isInteractive(flags)) {
+            if (!flags.url) { flags.url = await askLine('Site URL: '); }
+            if (!flags.name) { flags.name = await askLine('App name: '); }
+          }
           if (!flags.name || !flags.url) {
             console.error('Usage: appo apps create --name <n> --url <u>');
             return 2;
@@ -549,17 +600,28 @@ export async function run(argv) {
           return 0;
         }
         if (sub === 'show') {
-          if (!rest[0]) {
+          let id = rest[0];
+          if (!id && isInteractive(flags)) {
+            const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps show <id>', selectLabel: 'Select an app:' });
+            if (resolved.exit !== undefined) { return resolved.exit; }
+            id = String(resolved.id);
+          }
+          if (!id) {
             console.error('Usage: appo apps show <id>');
             return 2;
           }
-          const app = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${rest[0]}`, null, env));
+          const app = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}`, null, env));
           printApp(app);
           return 0;
         }
         if (sub === 'update') {
-          const id = rest[0];
+          let id = rest[0];
           const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]';
+          if (!id && isInteractive(flags)) {
+            const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps update <id>', selectLabel: 'Select an app to update:' });
+            if (resolved.exit !== undefined) { return resolved.exit; }
+            id = String(resolved.id);
+          }
           if (!id) { console.error(usage); return 2; }
 
           const body = {};
@@ -567,7 +629,16 @@ export async function run(argv) {
           if (flags.url)  body.base_url = flags.url;
           // Empty-value guard: a bare `--icon` parses to boolean true, failing the typeof
           // string test — falls through to the usage error when it is the only flag.
-          const wantIcon = typeof flags.icon === 'string' && flags.icon;
+          let wantIcon = typeof flags.icon === 'string' && flags.icon;
+
+          if (Object.keys(body).length === 0 && !wantIcon && isInteractive(flags)) {
+            const name = await askLine('New name (enter to skip): ');
+            if (name) { body.name = name; }
+            const url = await askLine('New URL (enter to skip): ');
+            if (url) { body.base_url = url; }
+            const icon = await askLine('Icon https URL (enter to skip): ');
+            if (icon) { flags.icon = icon; wantIcon = icon; }
+          }
 
           if (Object.keys(body).length === 0 && !wantIcon) { console.error(usage); return 2; }
 
@@ -597,6 +668,11 @@ export async function run(argv) {
       }
 
       case 'status': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo status <id>', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo status <id> [--build <buildId>]'); return 2; }
         const path = flags.build
           ? `/api/v1/apps/${sub}/builds/${flags.build}`
@@ -611,7 +687,7 @@ export async function run(argv) {
       case 'preview': {
         let id = sub;
         if (!id) {
-          const resolved = await resolvePreviewApp(apiBase, env, flags);
+          const resolved = await resolveTargetApp(apiBase, env, flags);
           if (resolved.exit !== undefined) { return resolved.exit; }
           id = resolved.id;
         }
@@ -628,6 +704,11 @@ export async function run(argv) {
       }
 
       case 'rejection': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo rejection <id>', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo rejection <id>'); return 2; }
         try {
           const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection`, null, env);
@@ -643,6 +724,11 @@ export async function run(argv) {
       }
 
       case 'fix-recipe': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo fix-recipe <id>', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo fix-recipe <id>'); return 2; }
         try {
           const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/rejection/recipe`, null, env);
@@ -659,6 +745,11 @@ export async function run(argv) {
       }
 
       case 'publish': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo publish <id>', selectLabel: 'Select an app to publish:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         // --stores is an OPTIONAL override; when ABSENT (undefined), parseStores
         // defaults to the app's canonical stores (both) so the user never has to know
@@ -668,7 +759,7 @@ export async function run(argv) {
         if (flags.stores === '') { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         const stores = parseStores(flags.stores);
         if (stores.length === 0) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
-        const gated = confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
+        const gated = await confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
         await ops.publishApp(apiBase, sub, stores, env);        // 204 -> null
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
@@ -677,10 +768,19 @@ export async function run(argv) {
       }
 
       case 'push': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo push <id> --title <t> --body <b> --confirm', selectLabel: 'Select an app for the push:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
+        if (isInteractive(flags)) {
+          if (!flags.title) { flags.title = await askLine('Title: '); }
+          if (!flags.body) { flags.body = await askLine('Body: '); }
+        }
         if (!sub || !flags.title || !flags.body) { console.error('Usage: appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm'); return 2; }
         // Preview OMITS the recipient count — v1 exposes it only post-send (Pitfall 2);
         // no pre-send audience-size leak.
-        const gated = confirmGate(flags, { will: 'send_push', app_id: previewId(sub), title: flags.title });
+        const gated = await confirmGate(flags, { will: 'send_push', app_id: previewId(sub), title: flags.title });
         if (gated !== null) return gated;                       // exit 3, NO write
         const body = { title: flags.title, body: flags.body };
         if (flags['target-url'])   body.target_url = flags['target-url'];
@@ -698,6 +798,11 @@ export async function run(argv) {
         // reversible and consumes no user-visible resource. The `publish` build
         // stays operator-internal; this verb cannot reach it (the request body
         // carries platform only — kind is server-fixed to test, SSB-02).
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo build <id>', selectLabel: 'Select an app to build:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo build <id> [--platform ios|android]'); return 2; }
         if (flags.platform !== undefined && !['ios', 'android'].includes(flags.platform)) {
           console.error('Usage: appo build <id> [--platform ios|android]');
@@ -729,6 +834,11 @@ export async function run(argv) {
         // Fetch the installable artifact (DL-01). Without --build, targets the
         // newest ready build; a not-yet-ready latest build reports its status
         // instead of failing opaquely.
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo download <id>', selectLabel: 'Select an app to download:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
         if (!sub) { console.error('Usage: appo download <id> [--build <n>] [--output <path>]'); return 2; }
         try {
           let buildId = flags.build;
@@ -802,6 +912,11 @@ export async function run(argv) {
         // on the stores. Single-step (no ledger): errors flow to the top-level
         // catch -> renderError like the other simple verbs.
         const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare] [--json]';
+        // Interactive sessions ask for the URL instead of failing on it.
+        if ((typeof flags.url !== 'string' || !flags.url) && isInteractive(flags)) {
+          const answer = await askLine('Site URL: ');
+          if (answer) { flags.url = answer; }
+        }
         // Empty-value guard: a bare `--url` parses as boolean true; both it and
         // a missing flag are usage errors — BEFORE any HTTP.
         if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
@@ -821,7 +936,16 @@ export async function run(argv) {
 
         // Auth-state branch — check BEFORE any apiFetch call (apiFetch throws
         // "Not authenticated" when no token; anonymous path bypasses it entirely).
-        const token = storedToken(env);
+        let token = storedToken(env);
+        if (!token && isInteractive(flags)) {
+          // The account is optional for the trial: offer the choice, default to
+          // continuing anonymously so Enter stays the fast path.
+          console.log('Not logged in. The trial works without an account (one per device).');
+          if (isYes(await askLine('Log in first to keep this app in your account? [y/N] '))) {
+            await login(apiBase, env);
+            token = storedToken(env);
+          }
+        }
         if (!token) {
           // Anonymous path — public endpoint, no Authorization header, no apiFetch.
           // The trial builds BOTH platforms with no platform choice (mirrors the
@@ -959,7 +1083,12 @@ export async function run(argv) {
         // Creation lives in `appo new`. No first-vs-Nth distinction is surfaced
         // — the user expresses the outcome, the platform decides build/publish
         // mechanics.
-        const appId = sub && !sub.startsWith('--') ? sub : null;
+        let appId = sub && !sub.startsWith('--') ? sub : null;
+        if (!appId && flags.url === undefined && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo ship <id>', selectLabel: 'Select an app to ship:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          appId = String(resolved.id);
+        }
         if (!appId || flags.url !== undefined) {
           // D-13 usage error — BEFORE any HTTP and BEFORE the ledger. Plain-text
           // stderr + exit 2 even under --json (the single-object ledger contract

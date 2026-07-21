@@ -8,13 +8,13 @@ import {
 } from '../helpers/mockFetch.mjs';
 import { stubToken } from '../helpers/mockFetch.mjs';
 
-// Capture console.log output around a synchronous call.
-function captureLog(fn) {
+// Capture console.log output around a (possibly async) call.
+async function captureLog(fn) {
   const original = console.log;
   const lines = [];
   console.log = (...args) => lines.push(args.join(' '));
   try {
-    const result = fn();
+    const result = await fn();
     return { result, lines };
   } finally {
     console.log = original;
@@ -34,20 +34,20 @@ async function captureError(fn) {
   }
 }
 
-test('confirmGate proceeds (null) when --confirm present', () => {
-  const { result } = captureLog(() =>
+test('confirmGate proceeds (null) when --confirm present', async () => {
+  const { result } = await captureLog(() =>
     confirmGate({ confirm: true }, { will: 'publish', app_id: 1 }),
   );
   expect(result).toBe(null);
 });
 
-test('confirmGate gates (exit 3) when --confirm absent, no write', () => {
-  const { result } = captureLog(() => confirmGate({}, { will: 'publish', app_id: 1 }));
+test('confirmGate gates (exit 3) when --confirm absent, no write', async () => {
+  const { result } = await captureLog(() => confirmGate({}, { will: 'publish', app_id: 1 }));
   expect(result).toBe(3);
 });
 
-test('confirmGate --json gated path emits confirm_required:true', () => {
-  const { result, lines } = captureLog(() =>
+test('confirmGate --json gated path emits confirm_required:true', async () => {
+  const { result, lines } = await captureLog(() =>
     confirmGate({ json: true }, { will: 'publish', app_id: 1, target_stores: ['apple_appstore'] }),
   );
   expect(result).toBe(3);
@@ -57,8 +57,8 @@ test('confirmGate --json gated path emits confirm_required:true', () => {
   expect(obj.target_stores).toEqual(['apple_appstore']);
 });
 
-test('confirmGate human gated path prints a readable preview + no-write notice', () => {
-  const { result, lines } = captureLog(() =>
+test('confirmGate human gated path prints a readable preview + no-write notice', async () => {
+  const { result, lines } = await captureLog(() =>
     confirmGate({}, { will: 'resubmit', app_id: 7, current_state: 'rejected', target_state: 'in_review' }),
   );
   expect(result).toBe(3);
@@ -120,7 +120,7 @@ test('confirmGate issues NO fetch when gated (T-01-03)', async () => {
   installMockFetch({ status: 204, body: null });
   try {
     const before = requests.length;
-    const gated = confirmGate({}, { will: 'publish', app_id: 1 });
+    const gated = await confirmGate({}, { will: 'publish', app_id: 1 });
     expect(gated).toBe(3);
     expect(requests.length).toBe(before);
     expect(lastRequest()).toBe(null);
