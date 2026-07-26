@@ -1,45 +1,48 @@
-import { test, expect, vi } from 'vitest';
-import { EventEmitter } from 'node:events';
+import { test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runMcpInstall } from '../../src/mcp.mjs';
 
-// No real `claude` is ever spawned: spawnImpl is injected and returns a fake
-// child (an EventEmitter) whose 'close'/'error' events drive the exit code.
+// No real agent CLI is ever spawned: spawnSyncImpl fakes PATH detection and
+// spawnImpl returns a fake child whose 'close' cb fires synchronously.
 
-test('runMcpInstall spawns the exact claude argv and resolves the close code', async () => {
-  const child = new EventEmitter();
-  const spawnImpl = vi.fn(() => child);
-  const original = console.log;
-  console.log = () => {};
-  try {
-    const p = runMcpInstall({ spawnImpl });
-    expect(spawnImpl).toHaveBeenCalledWith(
-      'claude',
-      ['mcp', 'add', 'appo', '--', 'npx', '-y', '@appolabs/appo-mcp'],
-      expect.any(Object),
-    );
-    child.emit('close', 0);
-    expect(await p).toBe(0);
-  } finally {
-    console.log = original;
-  }
+const ADD_ARGS = ['mcp', 'add', 'appo', '--', 'npx', '-y', '@appolabs/appo-mcp'];
+
+/** spawnSync fake: the bins in `present` resolve; everything else is ENOENT. */
+const detect = (present) => (bin) =>
+  present.includes(bin) ? {} : { error: new Error('ENOENT') };
+
+/** spawn fake: a child whose 'close' fires synchronously with `code`. */
+const spawnWith = (code) =>
+  vi.fn(() => ({ on: (ev, cb) => { if (ev === 'close') { cb(code); } } }));
+
+let log;
+beforeEach(() => { log = console.log; console.log = () => {}; });
+afterEach(() => { console.log = log; });
+
+test('installs into every present agent CLI with the exact argv, returns 0', async () => {
+  const spawnImpl = spawnWith(0);
+  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['claude', 'codex']) });
+  expect(spawnImpl).toHaveBeenCalledWith('claude', ADD_ARGS, expect.any(Object));
+  expect(spawnImpl).toHaveBeenCalledWith('codex', ADD_ARGS, expect.any(Object));
+  expect(code).toBe(0);
 });
 
-test('runMcpInstall resolves 1 on spawn error (claude not on PATH)', async () => {
-  const child = new EventEmitter();
-  const original = console.log;
-  console.log = () => {};
-  try {
-    const p = runMcpInstall({ spawnImpl: () => child });
-    child.emit('error', new Error('ENOENT'));
-    expect(await p).toBe(1);
-  } finally {
-    console.log = original;
-  }
+test('only wires the agents that are on PATH', async () => {
+  const spawnImpl = spawnWith(0);
+  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['codex']) });
+  expect(spawnImpl).toHaveBeenCalledTimes(1);
+  expect(spawnImpl).toHaveBeenCalledWith('codex', ADD_ARGS, expect.any(Object));
+  expect(code).toBe(0);
 });
 
-test('runMcpInstall resolves 1 when close fires with a null code', async () => {
-  const child = new EventEmitter();
-  const p = runMcpInstall({ spawnImpl: () => child });
-  child.emit('close', null);
-  expect(await p).toBe(1);
+test('no agent CLI present: prints manual, never spawns, returns 1', async () => {
+  const spawnImpl = spawnWith(0);
+  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect([]) });
+  expect(spawnImpl).not.toHaveBeenCalled();
+  expect(code).toBe(1);
+});
+
+test('present agent whose add fails (non-zero) does not count as installed', async () => {
+  const spawnImpl = spawnWith(1);
+  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['claude']) });
+  expect(code).toBe(1);
 });

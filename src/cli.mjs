@@ -56,7 +56,7 @@ Test builds (self-serve):
   appo devices register           Show the iOS device registration link + QR (one-time per device)
 
 AI editor:
-  appo mcp                        Install the Appo MCP server so your AI editor can drive Appo (Claude Code / Cursor)
+  appo mcp                        Install the Appo MCP server so your AI editor can drive Appo (Claude Code, Codex, Cursor)
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -309,7 +309,7 @@ function isYes(answer) {
 async function maybeOfferMcp(flags) {
   if (!isInteractive(flags)) { return; }
   console.log('');
-  if (isYes(await askLine('Let your AI editor drive Appo? Install the MCP for Claude Code [y/N] '))) {
+  if (isYes(await askLine('Let your AI editor drive Appo? Install the MCP (Claude Code, Codex) [y/N] '))) {
     await runMcpInstall();
   }
 }
