@@ -16,6 +16,7 @@ import { renderQr } from './qr.mjs';
 import { createRequire } from 'node:module';
 import * as readline from 'node:readline/promises';
 import { runUpgrade } from './upgrade.mjs';
+import { runMcpInstall } from './mcp.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
@@ -53,6 +54,9 @@ Test builds (self-serve):
   appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
   appo devices list               List your registered iOS test devices
   appo devices register           Show the iOS device registration link + QR (one-time per device)
+
+AI editor:
+  appo mcp                        Install the Appo MCP server so your AI editor can drive Appo (Claude Code / Cursor)
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -299,6 +303,17 @@ function isYes(answer) {
   return /^y(es)?$/i.test(answer);
 }
 
+/** After an interactive `new`, offer to wire the Appo MCP so the user's AI
+ *  editor can drive Appo. Opt-in ([y/N]) so it never touches editor config
+ *  unsolicited, and never runs under --json / non-TTY. */
+async function maybeOfferMcp(flags) {
+  if (!isInteractive(flags)) { return; }
+  console.log('');
+  if (isYes(await askLine('Let your AI editor drive Appo? Install the MCP for Claude Code [y/N] '))) {
+    await runMcpInstall();
+  }
+}
+
 /** Resolve which app a verb targets when no positional id is given.
  *  One app -> use it. None -> actionable create hint (exit 1). Several -> a
  *  numbered picker on a TTY; otherwise the list plus a usage hint (exit 2),
@@ -485,6 +500,12 @@ export async function run(argv) {
         line('api_base', apiBase);
         line('status', `ready — ${apps.length} app(s). Next: appo new --url <u>`);
         return 0;
+      }
+
+      case 'mcp': {
+        // The primary way to wire the Appo MCP into an AI editor. `new` also
+        // offers this after creating an app; this verb is the direct route.
+        return await runMcpInstall();
       }
 
       case 'upgrade': {
@@ -1053,6 +1074,8 @@ export async function run(argv) {
 
           console.log(`Claim this app: ${apiBase}/register?claim_token=${data.claim_token}`);
 
+          await maybeOfferMcp(flags);
+
           // iOS may still be awaiting registration at timeout — the app is created
           // and claimable, and the iOS build stamps once the iPhone registers.
           // Exit non-zero only when the Android build itself failed.
@@ -1074,6 +1097,7 @@ export async function run(argv) {
         console.log(`  url: ${app.base_url}`);
         console.log(`  preview on your phone: appo preview ${app.id}`);
         console.log(`  ship to the stores:    appo ship ${app.id}`);
+        await maybeOfferMcp(flags);
         return 0;
       }
 
