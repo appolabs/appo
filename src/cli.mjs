@@ -193,23 +193,54 @@ function printPreviewPayload(d) {
   if (!d) return;
   const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
   const r = d.preview_ready || {};
+  // D-02 (Pitfall 1): renderQr returns the BARE matrix (snapshot-stable). Hoisted to
+  // function scope so both the ad-hoc switch and the null-fallback branch can call printQr
+  // without a ReferenceError (CONTRAST/RESET were previously scoped to the old if-block).
+  const CONTRAST = '\x1b[30;47m'; // black fg on white bg
+  const RESET = '\x1b[0m';
+  const printQr = (url) => {
+    console.log('');
+    for (const row of renderQr(url).split('\n')) {
+      console.log(`${CONTRAST}${row}${RESET}`);
+    }
+  };
   // D-04: readiness lines FIRST, per-platform. preview_ready is {ios:bool, android:bool}.
   console.log(`  ios                ${r.ios ? 'preview-ready' : 'not preview-ready yet'}`);
   console.log(`  android            ${r.android ? 'preview-ready' : 'not preview-ready yet'}`);
   if (r.ios)     line('ios_testflight_url', d.ios_testflight_url);
   if (r.android) line('android_deeplink',   d.android_deeplink);
   line('preview_url', d.preview_url);   // always present
-  // D-03 (corrected): gate the QR on READINESS, not on preview_url nullness (it's never null).
-  if (r.ios || r.android) {
-    console.log('');
-    // D-02 (Pitfall 1): renderQr returns the BARE matrix (snapshot-stable). The printer
-    // applies forced theme-independent contrast — black-on-white per row — so the QR scans
-    // regardless of terminal theme (a light-on-dark render does not scan reliably).
-    const CONTRAST = '\x1b[30;47m'; // black fg on white bg
-    const RESET = '\x1b[0m';
-    for (const row of renderQr(d.preview_url).split('\n')) {
-      console.log(`${CONTRAST}${row}${RESET}`);
+  // D-10/D-09: when ios_ad_hoc is present its state drives the render; the ad-hoc QR
+  // (registration/install URL) replaces the preview_url QR to avoid two QRs on screen.
+  const adHoc = d.ios_ad_hoc;
+  if (adHoc && adHoc.state) {
+    switch (adHoc.state) {
+      case 'awaiting-registration':
+        console.log('  ios (ad-hoc)       register your iPhone to preview this app');
+        if (adHoc.registration_url) {
+          line('registration_url', adHoc.registration_url);
+          printQr(adHoc.registration_url);
+        }
+        return;
+      case 'stamping':
+        console.log('  ios (ad-hoc)       building your iOS preview — usually under 2 minutes');
+        return;
+      case 'ready':
+        console.log('  ios (ad-hoc)       ready to install');
+        if (adHoc.install_url) {
+          line('install_url', adHoc.install_url);
+          printQr(adHoc.install_url);
+        }
+        return;
+      case 'blocked':
+        // D-09: print message verbatim, no QR, no fallback.
+        console.log(`  ios (ad-hoc)       ${adHoc.message || 'iOS preview is not available — the device registration limit has been reached.'}`);
+        return;
     }
+  }
+  // No ad-hoc block (null) — D-03: gate the QR on READINESS, not on preview_url nullness.
+  if (r.ios || r.android) {
+    printQr(d.preview_url);
   } else {
     console.log('  (no preview target yet — build and publish to enable preview)');
   }
