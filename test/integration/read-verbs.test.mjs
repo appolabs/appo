@@ -178,6 +178,82 @@ test('preview 404 returns 1 (renderError)', async () => {
   }
 });
 
+// --- preview ios_ad_hoc states --------------------------------------------
+
+test('preview renders a registration QR when ios_ad_hoc is awaiting-registration', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: false, android: false },
+    ios_ad_hoc: { state: 'awaiting-registration', registration_url: 'https://app.appo.io/enroll?sig=abc' },
+  }});
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('https://app.appo.io/enroll?sig=abc');
+  expect(out).toMatch(/[▀▄█]/); // a QR was rendered
+});
+
+test('preview renders an install QR when ios_ad_hoc is ready', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: true, android: false },
+    ios_ad_hoc: { state: 'ready', install_url: 'https://app.appo.io/install?sig=xyz' },
+  }});
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('https://app.appo.io/install?sig=xyz');
+  expect(out).toMatch(/[▀▄█]/);
+});
+
+test('preview prints a stamping line and no QR when ios_ad_hoc is stamping', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: false, android: false },
+    ios_ad_hoc: { state: 'stamping' },
+  }});
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out.toLowerCase()).toContain('building');
+  expect(out).not.toMatch(/[▀▄█]/);
+});
+
+test('preview prints the blocked message verbatim and no QR', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: false, android: false },
+    ios_ad_hoc: { state: 'blocked', message: 'iOS preview is not available — the device registration limit has been reached.' },
+  }});
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('device registration limit has been reached');
+  expect(out).not.toMatch(/[▀▄█]/);
+});
+
+test('preview --json preserves ios_ad_hoc verbatim', async () => {
+  stubToken();
+  const body = {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: true, android: false },
+    ios_ad_hoc: { state: 'ready', install_url: 'https://app.appo.io/install?sig=xyz' },
+  };
+  installMockFetch({ status: 200, body });
+  const { result, lines } = await captureLog(() => run(['preview', '7', '--json', ...API]));
+  expect(result).toBe(0);
+  expect(JSON.parse(lines.join(''))).toEqual(body);
+});
+
 // --- preview without id: app resolution ------------------------------------
 
 const RESOLVED_PREVIEW_BODY = {
