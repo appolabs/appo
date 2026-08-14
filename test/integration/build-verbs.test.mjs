@@ -49,7 +49,7 @@ const API = ['--api', 'http://test.local'];
 
 test('build POSTs to /api/v1/apps/{id}/builds with an empty body (server defaults android)', async () => {
   stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', distribution: 'test' } } });
+  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } } });
   const { result } = await captureLog(() => run(['build', '7', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
@@ -60,14 +60,14 @@ test('build POSTs to /api/v1/apps/{id}/builds with an empty body (server default
 
 test('build --platform ios sends { platform: "ios" }', async () => {
   stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 43, platform: 'ios', status: 'queued', distribution: 'test' } } });
+  installMockFetch({ status: 202, body: { data: { id: 43, platform: 'ios', status: 'queued', kind: 'direct-install' } } });
   await captureLog(() => run(['build', '7', '--platform', 'ios', ...API]));
   expect(lastRequest().body).toEqual({ platform: 'ios' });
 });
 
 test('build prints the track/download next steps', async () => {
   stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', distribution: 'test' } } });
+  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } } });
   const { lines } = await captureLog(() => run(['build', '7', ...API]));
   const out = lines.join('\n');
   expect(out).toContain('appo status 7 --build 42');
@@ -76,7 +76,7 @@ test('build prints the track/download next steps', async () => {
 
 test('build --json prints the 202 envelope verbatim', async () => {
   stubToken();
-  const body = { data: { id: 42, platform: 'android', status: 'queued', distribution: 'test' } };
+  const body = { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } };
   installMockFetch({ status: 202, body });
   const { result, lines } = await captureLog(() => run(['build', '7', '--json', ...API]));
   expect(result).toBe(0);

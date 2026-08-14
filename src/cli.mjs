@@ -152,7 +152,7 @@ function printBuild(b) {
   line('id', b.id);
   line('platform', b.platform);
   line('status', b.status);
-  line('distribution', b.distribution);
+  line('kind', b.kind);
   line('created_at', b.created_at);
   line('started_at', b.started_at);
   line('finished_at', b.finished_at);
@@ -849,7 +849,7 @@ export async function run(argv) {
         // Self-serve `test` build trigger (SSB-01) — no confirm-gate: building is
         // reversible and consumes no user-visible resource. The `publish` build
         // stays operator-internal; this verb cannot reach it (the request body
-        // carries platform only — kind is server-fixed to test, SSB-02).
+        // carries platform only — kind is server-fixed to direct-install, SSB-02).
         if (!sub && isInteractive(flags)) {
           const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo build <id>', selectLabel: 'Select an app to build:' });
           if (resolved.exit !== undefined) { return resolved.exit; }
