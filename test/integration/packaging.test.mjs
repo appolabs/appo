@@ -6,7 +6,9 @@ import { readFileSync } from 'node:fs';
 // no .planning notes, no lockfile, no dev configs leak into the published tarball.
 test('npm pack ships only the whitelisted runtime files', () => {
   const out = JSON.parse(execSync('npm pack --dry-run --json', { encoding: 'utf-8' }));
-  const paths = out[0].files.map((f) => f.path);
+  // npm <=11 returns an array [{...}]; npm 12+ returns an object keyed by package spec.
+  const result = Array.isArray(out) ? out[0] : Object.values(out)[0];
+  const paths = result.files.map((f) => f.path);
   for (const p of [
     'bin/appo.mjs',
     'src/api.mjs',
