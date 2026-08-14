@@ -1123,7 +1123,9 @@ export async function run(argv) {
           console.log(JSON.stringify(res));
           return 0;
         }
-        const app = (await ops.createApp(apiBase, { name, base_url, prep_mode: prepMode }, env)) || {};
+        const attrs = { name, base_url };
+        if (prepMode) attrs.prep_mode = prepMode;
+        const app = (await ops.createApp(apiBase, attrs, env)) || {};
         console.log(`Created app #${app.id} — ${app.name}`);
         console.log(`  url: ${app.base_url}`);
         console.log(`  preview on your phone: appo preview ${app.id}`);
