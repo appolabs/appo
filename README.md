@@ -218,22 +218,6 @@ Sends a push notification. Destructive: without `--confirm` it prints a preview 
 exits with code `3` — no write. The preview omits the recipient count (exposed only
 after send). On success it reports the number of devices reached.
 
-## build
-
-```bash
-appo build <id>                     # trigger a test build (android, the default)
-appo build <id> --platform ios      # iOS test build (requires a registered device)
-```
-
-Triggers a self-serve **test** build — an installable you download and try on your
-own device, distinct from store publishing (`appo ship` / `appo publish`). The trigger
-returns immediately (the build takes minutes): track it with
-`appo status <id> --build <n>`, then fetch it with `appo download <id>`.
-
-iOS test builds install only on registered devices. If none is registered yet the
-command exits with the registration hint — run `appo devices register` first.
-`--json` emits the raw v1 response body verbatim (envelope on error too).
-
 ## download
 
 ```bash
@@ -246,7 +230,7 @@ Downloads the installable artifact (APK/AAB for Android, ad-hoc IPA for iOS) onc
 the build is `ready`. Without `--build` it picks the newest ready build; if the
 latest build is still running it reports that build's status instead. The filename
 derives from the artifact URL unless `--output` is given. `--json` reports
-`{ build_id, file, bytes }`.
+`{ build_id, file, bytes }`. Prepare a build with `appo preview <id>`.
 
 ## devices
 

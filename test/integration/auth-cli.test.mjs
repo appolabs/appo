@@ -239,7 +239,7 @@ test('--env staging overrides current for both token and api_base', async () => 
   expect(req.url).not.toMatch(/prod\.local/);
 });
 
-// WR-01: ops-routed verbs (apps create / build / ship) must also honor --env.
+// WR-01: ops-routed verbs (apps create / ship) must also honor --env.
 // The ops.* wrappers previously called apiFetch WITHOUT env, so storedToken()
 // re-resolved to `current` — sending the WRONG profile's token to the --env host.
 test('--env staging is honored by an ops-routed verb (apps create) — WR-01', async () => {

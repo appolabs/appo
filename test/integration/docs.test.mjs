@@ -13,7 +13,7 @@ const COMMANDS = [
   'apps create', 'apps list', 'apps show', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'preview',
-  'build', 'download', 'devices list', 'devices register',
+  'download', 'devices list', 'devices register',
 ];
 
 test.each(COMMANDS)('README documents "%s"', (cmd) => {
@@ -38,10 +38,12 @@ test('README drops removed flags/wording', () => {
   expect(README).not.toContain('--meta-name');
   expect(README).not.toContain('--meta-desc');
   expect(README).not.toContain('--timeout');
+  expect(README).not.toContain('appo build');
   expect(README).not.toMatch(/create\s*→\s*build\s*→\s*poll\s*→\s*publish/);
   expect(LLMS).not.toContain('--meta-name');
   expect(LLMS).not.toContain('--meta-desc');
   expect(LLMS).not.toContain('--timeout');
+  expect(LLMS).not.toContain('appo build');
 });
 
 // v5.0: ship lost its creation arm — `ship --url` must not resurface anywhere
@@ -58,5 +60,6 @@ test('src/ has no build-trigger code paths', () => {
   const cli = readFileSync('src/cli.mjs', 'utf-8');
   const ops = readFileSync('src/ops.mjs', 'utf-8');
   expect(cli + ops).not.toMatch(/triggerBuild|pollBuild/);
+  expect(cli).not.toContain("case 'build'");   // self-serve build verb removed (v7.0 D4)
 });
 

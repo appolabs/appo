@@ -45,93 +45,6 @@ afterEach(() => resetMockFetch());
 
 const API = ['--api', 'http://test.local'];
 
-// --- build ------------------------------------------------------------------
-
-test('build POSTs to /api/v1/apps/{id}/builds with an empty body (server defaults android)', async () => {
-  stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } } });
-  const { result } = await captureLog(() => run(['build', '7', ...API]));
-  expect(result).toBe(0);
-  const req = lastRequest();
-  expect(req.method).toBe('POST');
-  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/builds$/);
-  expect(req.body).toEqual({});
-});
-
-test('build --platform ios sends { platform: "ios" }', async () => {
-  stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 43, platform: 'ios', status: 'queued', kind: 'direct-install' } } });
-  await captureLog(() => run(['build', '7', '--platform', 'ios', ...API]));
-  expect(lastRequest().body).toEqual({ platform: 'ios' });
-});
-
-test('build prints the track/download next steps', async () => {
-  stubToken();
-  installMockFetch({ status: 202, body: { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } } });
-  const { lines } = await captureLog(() => run(['build', '7', ...API]));
-  const out = lines.join('\n');
-  expect(out).toContain('appo status 7 --build 42');
-  expect(out).toContain('appo download 7');
-});
-
-test('build --json prints the 202 envelope verbatim', async () => {
-  stubToken();
-  const body = { data: { id: 42, platform: 'android', status: 'queued', kind: 'direct-install' } };
-  installMockFetch({ status: 202, body });
-  const { result, lines } = await captureLog(() => run(['build', '7', '--json', ...API]));
-  expect(result).toBe(0);
-  expect(JSON.parse(lines.join(''))).toEqual(body);
-});
-
-test('build without id is a usage error (2), no fetch issued', async () => {
-  stubToken();
-  installMockFetch({ status: 202, body: {} });
-  const { result } = await captureAll(() => run(['build', ...API]));
-  expect(result).toBe(2);
-  expect(requests.length).toBe(0);
-});
-
-test('build rejects an unknown --platform value (2), no fetch issued', async () => {
-  stubToken();
-  installMockFetch({ status: 202, body: {} });
-  const { result } = await captureAll(() => run(['build', '7', '--platform', 'windows', ...API]));
-  expect(result).toBe(2);
-  expect(requests.length).toBe(0);
-});
-
-test('build iOS 409 (no registered device) exits 1 and points at devices register', async () => {
-  stubToken();
-  installMockFetch({
-    status: 409,
-    body: { error: 'conflict', code: 'resource_conflict', message: 'Register an iOS device before requesting a test build.' },
-  });
-  const { result, errs } = await captureAll(() => run(['build', '7', '--platform', 'ios', ...API]));
-  expect(result).toBe(1);
-  const out = errs.join('\n');
-  expect(out).toContain('Register an iOS device');
-  expect(out).toContain('appo devices register');
-});
-
-test('build 409 --json emits the error envelope verbatim and exits 1', async () => {
-  stubToken();
-  const body = { error: 'conflict', code: 'resource_conflict', message: 'Register an iOS device before requesting a test build.' };
-  installMockFetch({ status: 409, body });
-  const { result, lines } = await captureAll(() => run(['build', '7', '--platform', 'ios', '--json', ...API]));
-  expect(result).toBe(1);
-  expect(JSON.parse(lines.join(''))).toEqual(body);
-});
-
-test('build 403 capability_denied (appo_managed app) surfaces the server message, exit 1', async () => {
-  stubToken();
-  installMockFetch({
-    status: 403,
-    body: { error: 'forbidden', code: 'capability_denied', message: 'This app is not configured for self-serve builds.' },
-  });
-  const { result, errs } = await captureAll(() => run(['build', '7', ...API]));
-  expect(result).toBe(1);
-  expect(errs.join('\n')).toContain('not configured for self-serve builds');
-});
-
 // --- download -----------------------------------------------------------------
 
 test('download resolves the newest ready build from the list, then fetches its artifact', async () => {
@@ -182,12 +95,12 @@ test('download --json reports build_id, file and bytes', async () => {
   expect(JSON.parse(lines.join(''))).toEqual({ build_id: 42, file: out, bytes: 8 });
 });
 
-test('download with no builds yet exits 1 and suggests appo build', async () => {
+test('download with no builds yet exits 1 and suggests appo preview', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: [] } });
   const { result, lines } = await captureLog(() => run(['download', '7', ...API]));
   expect(result).toBe(1);
-  expect(lines.join('\n')).toContain('appo build 7');
+  expect(lines.join('\n')).toContain('appo preview 7');
 });
 
 test('download with latest build not ready reports its status, exit 1', async () => {

@@ -49,9 +49,8 @@ Lifecycle:
   appo publish <id> [--confirm]           Publish an already-built app to its stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
 
-Test builds (self-serve):
-  appo build <id> [--platform ios|android]   Trigger a test build (default: android)
-  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
+Test builds & devices:
+  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready (prepare one with \`appo preview\`)
   appo devices list               List your registered iOS test devices
   appo devices register           Show the iOS device registration link + QR (one-time per device)
 
@@ -66,7 +65,6 @@ Options:
   --confirm      Perform the write for a destructive verb (publish/push)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
   --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
-  --platform <p> Target platform for \`build\`: ios or android (default: android)
   --build <n>    Target a specific build id (\`status\`/\`download\`; default: latest)
   --output <p>   Write the downloaded artifact to this path (default: derived filename)
   -h, --help     Show this help
@@ -845,43 +843,6 @@ export async function run(argv) {
         return 0;
       }
 
-      case 'build': {
-        // Self-serve `test` build trigger (SSB-01) — no confirm-gate: building is
-        // reversible and consumes no user-visible resource. The `publish` build
-        // stays operator-internal; this verb cannot reach it (the request body
-        // carries platform only — kind is server-fixed to direct-install, SSB-02).
-        if (!sub && isInteractive(flags)) {
-          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo build <id>', selectLabel: 'Select an app to build:' });
-          if (resolved.exit !== undefined) { return resolved.exit; }
-          sub = String(resolved.id);
-        }
-        if (!sub) { console.error('Usage: appo build <id> [--platform ios|android]'); return 2; }
-        if (flags.platform !== undefined && !['ios', 'android'].includes(flags.platform)) {
-          console.error('Usage: appo build <id> [--platform ios|android]');
-          return 2;
-        }
-        try {
-          const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${sub}/builds`, flags.platform ? { platform: flags.platform } : {}, env);
-          if (flags.json) { console.log(JSON.stringify(res)); return 0; }
-          const b = unwrap(res);
-          console.log('Test build triggered:');
-          printBuild(b);
-          console.log(`  track:    appo status ${sub} --build ${b.id}`);
-          console.log(`  download: appo download ${sub}   (once status is 'ready')`);
-          return 0;
-        } catch (err) {
-          // D-08: --json always emits the raw envelope verbatim.
-          if (flags.json && err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
-          // 409 = iOS with no registered device (server message) — add the CLI-native next step.
-          if (err.status === 409) {
-            console.error(`\n  ${err.message}`);
-            console.error('  Register your iPhone first: appo devices register\n');
-            return 1;
-          }
-          throw err; // 403 capability_denied / 404 -> renderError
-        }
-      }
-
       case 'download': {
         // Fetch the installable artifact (DL-01). Without --build, targets the
         // newest ready build; a not-yet-ready latest build reports its status
@@ -897,7 +858,7 @@ export async function run(argv) {
           if (!buildId) {
             const builds = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/builds`, null, env)) || [];
             if (builds.length === 0) {
-              console.log(`No builds yet. Trigger one: appo build ${sub}`);
+              console.log(`No builds yet. Prepare one: appo preview ${sub}`);
               return 1;
             }
             const ready = builds.find((b) => b.status === 'ready' && b.artifact_url);
@@ -939,7 +900,7 @@ export async function run(argv) {
             console.log(`${CONTRAST}${row}${RESET}`);
           }
           console.log('');
-          console.log('Then trigger an iOS build: appo build <id> --platform ios');
+          console.log('Then run: appo preview <id>   (builds and opens your iOS preview)');
           return 0;
         }
         if (sub === 'list' || sub === undefined) {
@@ -972,9 +933,8 @@ export async function run(argv) {
         // Empty-value guard: a bare `--url` parses as boolean true; both it and
         // a missing flag are usage errors — BEFORE any HTTP.
         if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
-        // `new` no longer takes --platform: the trial builds BOTH platforms (the
-        // choice is gone). --platform stays on `build`. Any --platform passed to
-        // `new` is silently ignored.
+        // `new` takes no --platform: the trial builds BOTH platforms (the choice
+        // is gone). Any --platform passed to `new` is silently ignored.
         const base_url = ensureScheme(flags.url);
         let name = typeof flags.name === 'string' && flags.name ? flags.name : null;
         if (!name) {
