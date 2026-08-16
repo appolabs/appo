@@ -123,3 +123,67 @@ test('apps update missing id returns 2', async () => {
   const result = await silentRun(['apps', 'update', ...API]);
   expect(result).toBe(2);
 });
+
+// --- apps update --permission (native permission toggles) -----------------
+
+test('apps update --permission camera=on PATCHes /permissions with { camera: true }', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { permissions: { camera: { enabled: true } } } }]);
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--permission', 'camera=on', ...API]));
+  expect(result).toBe(0);
+  const req = lastRequest();
+  expect(req.method).toBe('PATCH');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/permissions$/);
+  expect(req.body).toEqual({ camera: true });
+  expect(lines.join('\n')).toMatch(/camera=on/);
+});
+
+test('apps update --permission is repeatable and merges into one body', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { permissions: {} } }]);
+  const { result } = await captureLog(() =>
+    run(['apps', 'update', '7', '--permission', 'camera=on', '--permission', 'nfc=off', ...API]));
+  expect(result).toBe(0);
+  expect(lastRequest().body).toEqual({ camera: true, nfc: false });
+});
+
+test('apps update --name --icon --permission runs PATCH, POST /icon, PATCH /permissions in order', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },                                          // PATCH name/url
+    { status: 200, body: { icon_url: 'https://cdn/x.png' } }, // POST /icon
+    { status: 200, body: { permissions: {} } },               // PATCH /permissions
+  ]);
+  await captureLog(() =>
+    run(['apps', 'update', '7', '--name', 'New', '--icon', 'https://src/x.png', '--permission', 'camera=on', ...API]));
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7$/);
+  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7\/icon$/);
+  expect(requests[2].path).toMatch(/\/api\/v1\/apps\/7\/permissions$/);
+  expect(requests[2].body).toEqual({ camera: true });
+});
+
+test('apps update --permission with an unknown name returns 2 (no write)', async () => {
+  stubToken();
+  installMockFetch({ status: 200 });
+  const result = await silentRun(['apps', 'update', '7', '--permission', 'flashlight=on', ...API]);
+  expect(result).toBe(2);
+  expect(requests.length).toBe(0);
+});
+
+test('apps update --permission with a non on|off value returns 2 (no write)', async () => {
+  stubToken();
+  installMockFetch({ status: 200 });
+  const result = await silentRun(['apps', 'update', '7', '--permission', 'camera=maybe', ...API]);
+  expect(result).toBe(2);
+  expect(requests.length).toBe(0);
+});
+
+test('apps update --permission --json prints the permissions envelope', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { permissions: { camera: { enabled: true } } } }]);
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--permission', 'camera=on', '--json', ...API]));
+  expect(result).toBe(0);
+  expect(JSON.parse(lines.join('').trim()).permissions).toEqual({ camera: { enabled: true } });
+});

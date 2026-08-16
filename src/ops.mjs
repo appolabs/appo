@@ -53,3 +53,12 @@ export async function getPreview(apiBase, id, env) {
 export async function setIcon(apiBase, id, icon_url, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/icon`, { icon_url }, env);
 }
+
+// PATCH /api/v1/apps/{id}/permissions -> 200 { permissions } (flat, NOT a {data:} envelope).
+// Partial merge: only the supplied keys change; every other toggle and all messages
+// are preserved server-side. `permissions` is a subset of
+// { tracking, camera, microphone, nfc } to booleans. An unknown key -> 422 (apiFetch throws).
+// Do NOT unwrap — the body is flat. Read res.permissions at the call site.
+export async function setPermissions(apiBase, id, permissions, env) {
+  return apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}/permissions`, permissions, env);
+}

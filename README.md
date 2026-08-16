@@ -128,17 +128,20 @@ profile with `*` and never prints tokens. Select an environment per-command with
 appo apps create --name <n> --url <u>
 appo apps list             # list your apps
 appo apps show <id>        # show one app
-appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   # edit name, base URL, icon
+appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   # edit name, base URL, icon, permissions
 ```
 
 `apps create` registers a new app from a name and a base URL. `apps list` prints id,
 name, publication state, and base URL per app. `apps show <id>` prints the full app
 overview. `apps update <id>` edits only the fields you supply — the app name, its base
-URL, and the app icon; at least one field is required. `--icon` takes an https image
-URL, which Appo fetches and sets via the icon endpoint. When `--name`/`--url` and
-`--icon` are given together the field update runs first, then the icon is set. `--json`
-prints `null` for a name/URL-only update (it returns no body) and `{ icon_url }` when
-an icon was set. Not confirm-gated (reversible).
+URL, the app icon, and its native permissions; at least one field is required. `--icon`
+takes an https image URL, which Appo fetches and sets via the icon endpoint.
+`--permission` takes `<name>=<on|off>` and is repeatable; `name` is one of `tracking`,
+`camera`, `microphone`, `nfc`. Only the toggles you pass change — the rest are left as
+they are. When `--name`/`--url`, `--icon`, and `--permission` are given together the
+field update runs first, then the icon, then the permissions. `--json` prints `null`
+for a name/URL-only update (it returns no body) and, for the parts that ran,
+`{ icon_url }` and/or `{ permissions }`. Not confirm-gated (reversible).
 
 > To republish an existing app (or resubmit after a rejection), use `appo ship <id>` —
 > Appo rebuilds and resubmits server-side. There is no separate `reship`/`build`/`resubmit`

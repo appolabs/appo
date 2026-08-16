@@ -46,6 +46,10 @@ test('README drops removed flags/wording', () => {
   expect(LLMS).not.toContain('appo build');
 });
 
+test('README documents the apps update --permission flag', () => {
+  expect(README).toContain('--permission');
+});
+
 // v5.0: ship lost its creation arm — `ship --url` must not resurface anywhere
 // (docs or source). Creation is `appo new --url <u>`.
 test('no ship --url references remain (creation moved to appo new)', () => {

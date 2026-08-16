@@ -37,7 +37,7 @@ Apps:
   appo apps create --name <n> --url <u>   Create a new app
   appo apps list                  List your apps
   appo apps show <id>             Show one app
-  appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]   Update name, URL and icon
+  appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   Update name, URL, icon, permissions
 
 Lifecycle:
   appo new --url <u> [--name <n>] [--prepare]   Create your app — name defaults from the URL
@@ -96,6 +96,17 @@ function parseArgs(argv) {
   const flags = {};
   const positional = [];
   let optionsEnded = false;
+  // Flags allowed to repeat collect their values into an array
+  // (e.g. `--permission camera=on --permission nfc=off`); all others take the last value.
+  const repeatable = new Set(['permission']);
+  const assign = (key, value) => {
+    if (repeatable.has(key)) {
+      if (!Array.isArray(flags[key])) { flags[key] = []; }
+      flags[key].push(value);
+    } else {
+      flags[key] = value;
+    }
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (optionsEnded) {
@@ -107,15 +118,15 @@ function parseArgs(argv) {
     } else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       if (eq !== -1) {
-        flags[a.slice(2, eq)] = a.slice(eq + 1);
+        assign(a.slice(2, eq), a.slice(eq + 1));
         continue;
       }
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith('--')) {
-        flags[key] = true;
+        assign(key, true);
       } else {
-        flags[key] = next;
+        assign(key, next);
         i++;
       }
     } else if (a === '-h') {
@@ -666,7 +677,7 @@ export async function run(argv) {
         }
         if (sub === 'update') {
           let id = rest[0];
-          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>]';
+          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]';
           if (!id && isInteractive(flags)) {
             const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps update <id>', selectLabel: 'Select an app to update:' });
             if (resolved.exit !== undefined) { return resolved.exit; }
@@ -681,7 +692,33 @@ export async function run(argv) {
           // string test — falls through to the usage error when it is the only flag.
           let wantIcon = typeof flags.icon === 'string' && flags.icon;
 
-          if (Object.keys(body).length === 0 && !wantIcon && isInteractive(flags)) {
+          // --permission <name>=<on|off>, repeatable. Parsed into a partial toggle map
+          // merged server-side (PATCH /permissions). Names and values are validated here
+          // so a malformed flag fails with exit 2 before any write is issued.
+          const ALLOWED_PERMISSIONS = ['tracking', 'camera', 'microphone', 'nfc'];
+          const permissionInputs = flags.permission === undefined
+            ? []
+            : (Array.isArray(flags.permission) ? flags.permission : [flags.permission]);
+          /** @type {Record<string, boolean>} */
+          const permissions = {};
+          for (const raw of permissionInputs) {
+            const spec = typeof raw === 'string' ? raw : '';
+            const eq = spec.indexOf('=');
+            const name = eq === -1 ? '' : spec.slice(0, eq).trim().toLowerCase();
+            const value = eq === -1 ? '' : spec.slice(eq + 1).trim().toLowerCase();
+            if (!ALLOWED_PERMISSIONS.includes(name)) {
+              console.error(`Invalid --permission ${JSON.stringify(spec)}. Use <name>=<on|off> where name is one of: ${ALLOWED_PERMISSIONS.join(', ')}.`);
+              return 2;
+            }
+            if (value !== 'on' && value !== 'off') {
+              console.error(`Invalid --permission ${JSON.stringify(spec)}. Value must be on or off.`);
+              return 2;
+            }
+            permissions[name] = value === 'on';
+          }
+          const wantPermissions = Object.keys(permissions).length > 0;
+
+          if (Object.keys(body).length === 0 && !wantIcon && !wantPermissions && isInteractive(flags)) {
             const name = await askLine('New name (enter to skip): ');
             if (name) { body.name = name; }
             const url = await askLine('New URL (enter to skip): ');
@@ -690,10 +727,10 @@ export async function run(argv) {
             if (icon) { flags.icon = icon; wantIcon = icon; }
           }
 
-          if (Object.keys(body).length === 0 && !wantIcon) { console.error(usage); return 2; }
+          if (Object.keys(body).length === 0 && !wantIcon && !wantPermissions) { console.error(usage); return 2; }
 
-          // Two-call dispatch (D-04): PATCH first (name/url), THEN POST /icon. No transaction —
-          // a PATCH throw skips the icon call and renders the error (the user re-runs).
+          // Multi-call dispatch (D-04): PATCH name/url, THEN POST /icon, THEN PATCH /permissions.
+          // No transaction — an earlier throw skips the rest and renders the error (the user re-runs).
           let iconUrl;
           if (Object.keys(body).length > 0) {
             await apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}`, body, env);   // 204 -> null
@@ -702,15 +739,27 @@ export async function run(argv) {
             const res = await ops.setIcon(apiBase, id, flags.icon, env);         // 200 { icon_url }
             iconUrl = res?.icon_url;
           }
+          let permissionsResult;
+          if (wantPermissions) {
+            const res = await ops.setPermissions(apiBase, id, permissions, env); // 200 { permissions }
+            permissionsResult = res?.permissions;
+          }
 
           if (flags.json) {
-            // Pitfall 5: keep `null` for a PATCH-only update (204, no body); emit { icon_url }
-            // only when the icon ran.
-            console.log(wantIcon ? JSON.stringify({ icon_url: iconUrl }) : 'null');
+            // Pitfall 5: keep `null` for a name/URL-only update (204, no body); emit only the
+            // sub-results that actually ran — { icon_url } and/or { permissions }.
+            const out = {};
+            if (wantIcon) { out.icon_url = iconUrl; }
+            if (wantPermissions) { out.permissions = permissionsResult; }
+            console.log(Object.keys(out).length > 0 ? JSON.stringify(out) : 'null');
             return 0;
           }
           console.log(`Updated app ${id}.`);
           if (wantIcon) console.log(`  icon set: ${iconUrl}`);
+          if (wantPermissions) {
+            const summary = Object.entries(permissions).map(([k, v]) => `${k}=${v ? 'on' : 'off'}`).join(', ');
+            console.log(`  permissions set: ${summary}`);
+          }
           return 0;
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);

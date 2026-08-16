@@ -39,3 +39,12 @@ export function setIcon(
   icon_url: string,
   env?: string,
 ): Promise<any>;
+
+/** Flat payload: { permissions }. Partial merge of a subset of
+ *  { tracking | camera | microphone | nfc } to booleans. */
+export function setPermissions(
+  apiBase: string,
+  id: string | number,
+  permissions: Record<string, boolean>,
+  env?: string,
+): Promise<any>;
