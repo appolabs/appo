@@ -214,9 +214,14 @@ function printPreviewPayload(d) {
     }
   };
   // D-04: readiness lines FIRST, per-platform. preview_ready is {ios:bool, android:bool}.
-  console.log(`  ios                ${r.ios ? 'preview-ready' : 'not preview-ready yet'}`);
+  // appo mode (preview_mode_ios=appo): iOS opens via the APPO container, so it is
+  // preview-ready even though preview_ready.ios (TestFlight-gated) stays false (GAP-AGENT-IOS).
+  const iosAppo = !!(d.ios && d.ios.mode && d.ios.mode !== 'native');
+  const iosReady = r.ios || iosAppo;
+  console.log(`  ios                ${iosReady ? 'preview-ready' : 'not preview-ready yet'}`);
   console.log(`  android            ${r.android ? 'preview-ready' : 'not preview-ready yet'}`);
   if (r.ios)     line('ios_testflight_url', d.ios_testflight_url);
+  if (iosAppo)   console.log('  ios                opens via the APPO container (scan preview_url below)');
   if (r.android) line('android_deeplink',   d.android_deeplink);
   line('preview_url', d.preview_url);   // always present
   // D-10/D-09: when ios_ad_hoc is present its state drives the render; the ad-hoc QR
@@ -248,7 +253,7 @@ function printPreviewPayload(d) {
     }
   }
   // No ad-hoc block (null) — D-03: gate the QR on READINESS, not on preview_url nullness.
-  if (r.ios || r.android) {
+  if (iosReady || r.android) {
     printQr(d.preview_url);
   } else {
     console.log('  (no preview target yet — build and publish to enable preview)');

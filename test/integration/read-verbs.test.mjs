@@ -210,6 +210,25 @@ test('preview renders an install QR when ios_ad_hoc is ready', async () => {
   expect(out).toMatch(/[▀▄█]/);
 });
 
+test('preview shows iOS via the container when preview_mode_ios=appo (GAP-AGENT-IOS)', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: {
+    ios_testflight_url: null, android_deeplink: null,
+    preview_url: 'https://app.appo.io/preview/tok',
+    preview_ready: { ios: false, android: false },
+    ios: { mode: 'appo', state: 'ready', deeplink: 'appo://preview?token=tok', preview_url: 'https://app.appo.io/preview/tok', ad_hoc: null },
+    ios_ad_hoc: null,
+  }});
+  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  // In appo mode iOS is openable via the container, not "not preview-ready yet".
+  expect(out).not.toMatch(/ios\s+not preview-ready yet/i);
+  expect(out.toLowerCase()).toContain('container');
+  // A scannable preview_url QR is rendered even though preview_ready.ios is false.
+  expect(out).toMatch(/[▀▄█]/);
+});
+
 test('preview prints a stamping line and no QR when ios_ad_hoc is stamping', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
