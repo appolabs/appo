@@ -38,6 +38,7 @@ Apps:
   appo apps list                  List your apps
   appo apps show <id>             Show one app
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   Update name, URL, icon, permissions
+  appo apps update <id> [--prepare on|off]   Hand preparation to Appo, or take it back
 
 Lifecycle:
   appo new --url <u> [--name <n>] [--prepare]   Create your app — name defaults from the URL
@@ -148,6 +149,7 @@ function printApp(app) {
   line('base_url', app.base_url);
   line('publication_state', app.publication_state);
   line('primary_action', app.primary_action);
+  if (app.preparation) line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
   if (app.stores) line('stores', `apple=${app.stores.apple} google=${app.stores.google}`);
   line('ios_bundle_id', app.ios_bundle_id);
   line('android_package', app.android_package_name);
@@ -682,7 +684,7 @@ export async function run(argv) {
         }
         if (sub === 'update') {
           let id = rest[0];
-          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]';
+          const usage = 'Usage: appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>] [--prepare <on|off>]';
           if (!id && isInteractive(flags)) {
             const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps update <id>', selectLabel: 'Select an app to update:' });
             if (resolved.exit !== undefined) { return resolved.exit; }
@@ -723,6 +725,20 @@ export async function run(argv) {
           }
           const wantPermissions = Object.keys(permissions).length > 0;
 
+          // --prepare on|off. Unlike `appo new --prepare` (a one-way opt-in), update is a
+          // switch, so the value is required and parsed like --permission <name>=<on|off>.
+          // A bare `--prepare` parses to boolean true, fails the typeof test and exits 2.
+          let wantPrepare;
+          if (flags.prepare !== undefined) {
+            const value = typeof flags.prepare === 'string' ? flags.prepare.trim().toLowerCase() : '';
+            if (value !== 'on' && value !== 'off') {
+              console.error(`Invalid --prepare ${JSON.stringify(flags.prepare)}. Value must be on or off.`);
+              return 2;
+            }
+            wantPrepare = value;
+            body.prep_mode = value === 'on' ? 'appo_managed' : 'self_managed';
+          }
+
           if (Object.keys(body).length === 0 && !wantIcon && !wantPermissions && isInteractive(flags)) {
             const name = await askLine('New name (enter to skip): ');
             if (name) { body.name = name; }
@@ -750,12 +766,20 @@ export async function run(argv) {
             permissionsResult = res?.permissions;
           }
 
+          // The PATCH answered 204 (no body), so re-read to echo the resulting preparation.
+          let preparation;
+          if (wantPrepare) {
+            const app = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}`, null, env));
+            preparation = app?.preparation;
+          }
+
           if (flags.json) {
             // Pitfall 5: keep `null` for a name/URL-only update (204, no body); emit only the
             // sub-results that actually ran — { icon_url } and/or { permissions }.
             const out = {};
             if (wantIcon) { out.icon_url = iconUrl; }
             if (wantPermissions) { out.permissions = permissionsResult; }
+            if (wantPrepare) { out.preparation = preparation; }
             console.log(Object.keys(out).length > 0 ? JSON.stringify(out) : 'null');
             return 0;
           }
@@ -764,6 +788,9 @@ export async function run(argv) {
           if (wantPermissions) {
             const summary = Object.entries(permissions).map(([k, v]) => `${k}=${v ? 'on' : 'off'}`).join(', ');
             console.log(`  permissions set: ${summary}`);
+          }
+          if (wantPrepare && preparation) {
+            console.log(`  preparation: ${preparation.mode} (${preparation.status})`);
           }
           return 0;
         }

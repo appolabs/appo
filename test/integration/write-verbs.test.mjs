@@ -187,3 +187,71 @@ test('apps update --permission --json prints the permissions envelope', async ()
   expect(result).toBe(0);
   expect(JSON.parse(lines.join('').trim()).permissions).toEqual({ camera: { enabled: true } });
 });
+
+// --- apps update --prepare (FLOW-02 cross-repo parity, D-10) ----------------
+
+test('apps update --prepare on PATCHes prep_mode appo_managed then re-reads and reports it', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },                                                                                            // PATCH prep_mode
+    { status: 200, body: { data: { id: 7, preparation: { mode: 'appo_managed', status: 'in_progress' } } } },   // GET echo
+  ]);
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--prepare', 'on', ...API]));
+  expect(result).toBe(0);
+  expect(requests[0].method).toBe('PATCH');
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7$/);
+  expect(requests[0].body).toEqual({ prep_mode: 'appo_managed' });
+  expect(requests[1].method).toBe('GET');
+  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7$/);
+  expect(lines.join('\n')).toMatch(/preparation: appo_managed \(in_progress\)/);
+});
+
+test('apps update --prepare off sends prep_mode self_managed', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },
+    { status: 200, body: { data: { id: 7, preparation: { mode: 'self_managed', status: 'completed' } } } },
+  ]);
+  const { result } = await captureLog(() =>
+    run(['apps', 'update', '7', '--prepare', 'off', ...API]));
+  expect(result).toBe(0);
+  expect(requests[0].body).toEqual({ prep_mode: 'self_managed' });
+});
+
+test('apps update --prepare maybe exits 2 without any HTTP call', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const result = await silentRun(['apps', 'update', '7', '--prepare', 'maybe', ...API]);
+  expect(result).toBe(2);
+  expect(requests.length).toBe(0);
+});
+
+test('apps update with a bare --prepare exits 2 without any HTTP call', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const result = await silentRun(['apps', 'update', '7', '--prepare', ...API]);
+  expect(result).toBe(2);
+  expect(requests.length).toBe(0);
+});
+
+test('apps update --prepare on --json includes the preparation object', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },
+    { status: 200, body: { data: { id: 7, preparation: { mode: 'appo_managed', status: 'in_progress' } } } },
+  ]);
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--prepare', 'on', '--json', ...API]));
+  expect(result).toBe(0);
+  expect(JSON.parse(lines.join('').trim())).toEqual({ preparation: { mode: 'appo_managed', status: 'in_progress' } });
+});
+
+test('apps update --name --json omits preparation when --prepare is absent', async () => {
+  stubToken();
+  installMockFetch({ status: 204 });
+  const { result, lines } = await captureLog(() =>
+    run(['apps', 'update', '7', '--name', 'New', '--json', ...API]));
+  expect(result).toBe(0);
+  expect(lines.join('').trim()).toBe('null');
+});
