@@ -7,7 +7,7 @@ import {
   requests,
   stubToken,
 } from '../helpers/mockFetch.mjs';
-import { readConfig, clearConfig } from '../../src/config.mjs';
+import { clearConfig } from '../../src/config.mjs';
 
 // Capture console.log output around an async call (verbs are async).
 async function captureLog(fn) {
@@ -141,103 +141,6 @@ test('new --url without --prepare does not send prep_mode', async () => {
   expect(lastRequest().body.prep_mode).toBeUndefined();
 });
 
-// ─── Anonymous path (no stored token) ────────────────────────────────────────
-// Each anonymous test calls clearConfig() first to wipe any token written by
-// the authenticated tests above (stubToken writes to the shared worker config;
-// resetMockFetch does not clear it).
-//
-// The anonymous trial builds BOTH platforms with no platform choice (mirrors the
-// dashboard /new): the create response carries an `android` and an `ios` block
-// plus one app-scoped `status_url`, which the CLI polls for both to ready.
-
-// Create response with both platforms offered (iOS pool guard open).
-const ANON_CREATE_BOTH = {
-  id: 9,
-  name: 'X',
-  base_url: 'https://x.com',
-  status_url: 'https://x.test/status',
-  claim_token: 'a'.repeat(40),
-  android: { build_id: 1, status: 'stamping' },
-  ios: { available: true, registration_url: 'https://x.test/register-device', full: false },
-};
-
-// Status poll with both platforms ready — terminates the CLI poll loop on the
-// first iteration (no real setTimeout sleep is hit).
-const ANON_STATUS_BOTH_READY = {
-  android: { status: 'ready', install_url: 'https://x.test/android-install' },
-  ios: { status: 'ready', install_url: 'https://x.test/ios-install' },
-};
-
-// 8. No token → POSTs to /anonymous/create with no Authorization header and
-//    body {url} ONLY (no platform param). Regression: does NOT hit /api/v1/apps.
-test('new --url with no token posts to /anonymous/create with body {url} only', async () => {
-  clearConfig(); // ensure no stale token from previous tests
-  installMockFetch([
-    { status: 201, body: ANON_CREATE_BOTH },
-    { status: 200, body: ANON_STATUS_BOTH_READY },
-  ]);
-  const { result } = await captureLog(() =>
-    run(['new', '--url', 'x.com', ...API]));
-  expect(result).toBe(0);
-  const req = requests[0];
-  expect(req.path).toMatch(/\/anonymous\/create$/);
-  expect(req.method).toBe('POST');
-  expect(req.body).toEqual({ url: 'https://x.com' });
-  // No platform param — the contract dropped the platform choice.
-  expect(req.body.platform).toBeUndefined();
-  // No Authorization header must be present on the anonymous request.
-  expect(req.headers['Authorization']).toBeUndefined();
-});
-
-// 9. Anonymous build-both happy path: prints created app, the iOS registration
-//    prompt, both platforms' ready lines, and the claim link.
-test('new anonymous builds both platforms and prints registration + install + claim', async () => {
-  clearConfig();
-  installMockFetch([
-    { status: 201, body: ANON_CREATE_BOTH },
-    { status: 200, body: ANON_STATUS_BOTH_READY },
-  ]);
-  const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'x.com', ...API]));
-  expect(result).toBe(0);
-  const out = lines.join('\n');
-  expect(out).toMatch(/Created anonymous app #9/);
-  expect(out).toMatch(/register it/i);                 // iOS registration prompt
-  expect(out).toMatch(/Your Android app is ready/);
-  expect(out).toMatch(/Your iOS app is ready/);
-  expect(out).toMatch(/register\?claim_token=/);
-});
-
-// 10. Anonymous happy path: persists anonymous_claim_token to the CLI config.
-test('new anonymous persists the claim token to config', async () => {
-  clearConfig();
-  installMockFetch([
-    { status: 201, body: ANON_CREATE_BOTH },
-    { status: 200, body: ANON_STATUS_BOTH_READY },
-  ]);
-  await captureLog(() => run(['new', '--url', 'x.com', ...API]));
-  const cfg = readConfig();
-  // The active profile (determined by env) should carry the claim token.
-  const profiles = cfg.profiles;
-  const hasToken = Object.values(profiles).some(
-    (p) => p && p.anonymous_claim_token === 'a'.repeat(40),
-  );
-  expect(hasToken).toBe(true);
-});
-
-// 11. Anonymous 409 (one-per-device limit): prints the limit message, exits 1.
-test('new anonymous 409 prints limit message and exits 1', async () => {
-  clearConfig();
-  installMockFetch([{
-    status: 409,
-    body: { message: 'limit', register_url: 'https://x.test/register' },
-  }]);
-  const { result, lines } = await captureAll(() =>
-    run(['new', '--url', 'x.com', ...API]));
-  expect(result).toBe(1);
-  const out = lines.join('\n');
-  expect(out).toMatch(/limit/);
-});
 
 // 12. Regression: with a stored token, new still hits /api/v1/apps (authenticated path unchanged).
 test('new --url with a stored token still hits /api/v1/apps (authenticated path unchanged)', async () => {
@@ -249,51 +152,15 @@ test('new --url with a stored token still hits /api/v1/apps (authenticated path 
   expect(lastRequest().path).toMatch(/\/api\/v1\/apps$/);
 });
 
-// ─── Build-both contract (guard-full + dropped --platform) ────────────────────
-
-// 13. Guard-full: iOS pool closed (ios.available:false, ios.full:true). The CLI
-//     prints an honest slots-full note but STILL builds Android; exit 0.
-test('new anonymous guard-full prints slots-full note and still builds Android', async () => {
+// No stored token: creation now requires an account. The anonymous
+// /anonymous/create trial was removed server-side (247), so `new` with no token
+// (non-interactive) errors before any HTTP and hits no create endpoint.
+test('new with no token errors out and makes no request', async () => {
   clearConfig();
-  const createGuardFull = {
-    id: 21,
-    name: 'X',
-    base_url: 'https://x.com',
-    status_url: 'https://x.test/status',
-    claim_token: 'c'.repeat(40),
-    android: { build_id: 1, status: 'stamping' },
-    ios: { available: false, registration_url: null, full: true },
-  };
-  const statusAndroidReady = {
-    android: { status: 'ready', install_url: 'https://x.test/android-install' },
-    ios: { status: 'unavailable', install_url: null },
-  };
-  installMockFetch([
-    { status: 201, body: createGuardFull },
-    { status: 200, body: statusAndroidReady },
-  ]);
-  const { result, lines } = await captureLog(() =>
+  installMockFetch([]);
+  const { result, lines } = await captureAll(() =>
     run(['new', '--url', 'x.com', ...API]));
-  expect(result).toBe(0);
-  const out = lines.join('\n');
-  expect(out).toMatch(/iOS trial slots are full/);
-  expect(out).toMatch(/Your Android app is ready/);
-  // No iOS registration prompt when the guard is closed.
-  expect(out).not.toMatch(/register it on your iPhone/i);
-});
-
-// 14. --platform is dropped from `new`: passing it is ignored — the body is still
-//     {url} only and the trial builds both platforms.
-test('new ignores --platform (dropped from new) and still posts body {url} only', async () => {
-  clearConfig();
-  installMockFetch([
-    { status: 201, body: ANON_CREATE_BOTH },
-    { status: 200, body: ANON_STATUS_BOTH_READY },
-  ]);
-  const { result } = await captureLog(() =>
-    run(['new', '--url', 'x.com', '--platform', 'ios', ...API]));
-  expect(result).toBe(0);
-  const req = requests[0];
-  expect(req.path).toMatch(/\/anonymous\/create$/);
-  expect(req.body).toEqual({ url: 'https://x.com' });
+  expect(result).toBe(1);
+  expect(lines.join('\n')).toMatch(/Not authenticated/i);
+  expect(requests.length).toBe(0);
 });
