@@ -126,9 +126,17 @@ test('rejection missing id returns 2', async () => {
   }
 });
 
-// --- preview --------------------------------------------------------------
+// --- run: trigger the TestFlight build, then show the on-device target ----
+// (D-05: `run` replaces the read-only `preview` verb — a clean rename, no
+// alias. The mock FIFO repeats its last queued item once exhausted (see
+// mockFetch.mjs), so a single canned preview-shaped body serves BOTH the
+// leading trigger POST (whose response is never read) and the following GET
+// /preview (whose body IS read and rendered) — every test below needs no
+// extra mock entry to account for the interposed trigger call. Dedicated
+// trigger/--json/409 coverage lives in run.test.mjs; this file keeps the
+// printPreviewPayload rendering-path coverage migrated verbatim.)
 
-test('preview hits GET /api/v1/apps/7/preview and returns 0', async () => {
+test('run hits POST .../builds/testflight then GET /api/v1/apps/7/preview, returns 0', async () => {
   stubToken();
   installMockFetch({
     status: 200,
@@ -139,30 +147,14 @@ test('preview hits GET /api/v1/apps/7/preview and returns 0', async () => {
       preview_ready: { ios: true, android: false },
     },
   });
-  const { result } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
   expect(req.method).toBe('GET');
   expect(req.path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
 });
 
-test('preview --json emits flat body verbatim and no block glyphs', async () => {
-  stubToken();
-  const body = {
-    ios_testflight_url: null,
-    android_deeplink: null,
-    preview_url: 'https://app.appo.io/preview/tok',
-    preview_ready: { ios: false, android: false },
-  };
-  installMockFetch({ status: 200, body });
-  const { result, lines } = await captureLog(() => run(['preview', '7', '--json', ...API]));
-  expect(result).toBe(0);
-  const out = lines.join('');
-  expect(JSON.parse(out)).toEqual(body);
-  expect(out).not.toMatch(/[▀▄█]/);
-});
-
-test('preview 404 returns 1 (renderError)', async () => {
+test('run 404 returns 1 (renderError)', async () => {
   stubToken();
   installMockFetch({
     status: 404,
@@ -171,16 +163,16 @@ test('preview 404 returns 1 (renderError)', async () => {
   const originalErr = console.error;
   console.error = () => {};
   try {
-    const result = await run(['preview', '7', ...API]);
+    const result = await run(['run', '7', ...API]);
     expect(result).toBe(1);
   } finally {
     console.error = originalErr;
   }
 });
 
-// --- preview ios_ad_hoc states --------------------------------------------
+// --- run: ios_ad_hoc states (rendered via printPreviewPayload, unchanged) --
 
-test('preview renders a registration QR when ios_ad_hoc is awaiting-registration', async () => {
+test('run renders a registration QR when ios_ad_hoc is awaiting-registration', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
     ios_testflight_url: null, android_deeplink: null,
@@ -188,14 +180,14 @@ test('preview renders a registration QR when ios_ad_hoc is awaiting-registration
     preview_ready: { ios: false, android: false },
     ios_ad_hoc: { state: 'awaiting-registration', registration_url: 'https://app.appo.io/enroll?sig=abc' },
   }});
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toContain('https://app.appo.io/enroll?sig=abc');
   expect(out).toMatch(/[▀▄█]/); // a QR was rendered
 });
 
-test('preview renders an install QR when ios_ad_hoc is ready', async () => {
+test('run renders an install QR when ios_ad_hoc is ready', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
     ios_testflight_url: null, android_deeplink: null,
@@ -203,14 +195,14 @@ test('preview renders an install QR when ios_ad_hoc is ready', async () => {
     preview_ready: { ios: true, android: false },
     ios_ad_hoc: { state: 'ready', install_url: 'https://app.appo.io/install?sig=xyz' },
   }});
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toContain('https://app.appo.io/install?sig=xyz');
   expect(out).toMatch(/[▀▄█]/);
 });
 
-test('preview shows iOS via the container when preview_mode_ios=appo (GAP-AGENT-IOS)', async () => {
+test('run shows iOS via the container when preview_mode_ios=appo (GAP-AGENT-IOS)', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
     ios_testflight_url: null, android_deeplink: null,
@@ -219,7 +211,7 @@ test('preview shows iOS via the container when preview_mode_ios=appo (GAP-AGENT-
     ios: { mode: 'appo', state: 'ready', deeplink: 'appo://preview?token=tok', preview_url: 'https://app.appo.io/preview/tok', ad_hoc: null },
     ios_ad_hoc: null,
   }});
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   // In appo mode iOS is openable via the container, not "not preview-ready yet".
@@ -229,7 +221,7 @@ test('preview shows iOS via the container when preview_mode_ios=appo (GAP-AGENT-
   expect(out).toMatch(/[▀▄█]/);
 });
 
-test('preview prints a stamping line and no QR when ios_ad_hoc is stamping', async () => {
+test('run prints a stamping line and no QR when ios_ad_hoc is stamping', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
     ios_testflight_url: null, android_deeplink: null,
@@ -237,14 +229,14 @@ test('preview prints a stamping line and no QR when ios_ad_hoc is stamping', asy
     preview_ready: { ios: false, android: false },
     ios_ad_hoc: { state: 'stamping' },
   }});
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out.toLowerCase()).toContain('building');
   expect(out).not.toMatch(/[▀▄█]/);
 });
 
-test('preview prints the blocked message verbatim and no QR', async () => {
+test('run prints the blocked message verbatim and no QR', async () => {
   stubToken();
   installMockFetch({ status: 200, body: {
     ios_testflight_url: null, android_deeplink: null,
@@ -252,28 +244,14 @@ test('preview prints the blocked message verbatim and no QR', async () => {
     preview_ready: { ios: false, android: false },
     ios_ad_hoc: { state: 'blocked', message: 'iOS preview is not available — the device registration limit has been reached.' },
   }});
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toContain('device registration limit has been reached');
   expect(out).not.toMatch(/[▀▄█]/);
 });
 
-test('preview --json preserves ios_ad_hoc verbatim', async () => {
-  stubToken();
-  const body = {
-    ios_testflight_url: null, android_deeplink: null,
-    preview_url: 'https://app.appo.io/preview/tok',
-    preview_ready: { ios: true, android: false },
-    ios_ad_hoc: { state: 'ready', install_url: 'https://app.appo.io/install?sig=xyz' },
-  };
-  installMockFetch({ status: 200, body });
-  const { result, lines } = await captureLog(() => run(['preview', '7', '--json', ...API]));
-  expect(result).toBe(0);
-  expect(JSON.parse(lines.join(''))).toEqual(body);
-});
-
-// --- preview without id: app resolution ------------------------------------
+// --- run without id: app resolution ----------------------------------------
 
 const RESOLVED_PREVIEW_BODY = {
   ios_testflight_url: null,
@@ -282,13 +260,13 @@ const RESOLVED_PREVIEW_BODY = {
   preview_ready: { ios: false, android: true },
 };
 
-test('preview with no id and a single app resolves it and hits its preview', async () => {
+test('run with no id and a single app resolves it and hits its preview', async () => {
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
     { status: 200, body: RESOLVED_PREVIEW_BODY },
   ]);
-  const { result, lines } = await captureLog(() => run(['preview', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
   expect(req.method).toBe('GET');
@@ -296,18 +274,7 @@ test('preview with no id and a single app resolves it and hits its preview', asy
   expect(lines.join('\n')).toContain('Using Shop (id 7)');
 });
 
-test('preview --json with no id and a single app emits the flat body verbatim', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
-    { status: 200, body: RESOLVED_PREVIEW_BODY },
-  ]);
-  const { result, lines } = await captureLog(() => run(['preview', '--json', ...API]));
-  expect(result).toBe(0);
-  expect(JSON.parse(lines.join(''))).toEqual(RESOLVED_PREVIEW_BODY);
-});
-
-test('preview with no id and no apps exits 1 with the create hint', async () => {
+test('run with no id and no apps exits 1 with the create hint', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: [] } });
   const errors = [];
@@ -315,7 +282,7 @@ test('preview with no id and no apps exits 1 with the create hint', async () => 
   console.error = (...args) => errors.push(args.join(' '));
   let result;
   try {
-    result = await run(['preview', ...API]);
+    result = await run(['run', ...API]);
   } finally {
     console.error = originalErr;
   }
@@ -323,7 +290,7 @@ test('preview with no id and no apps exits 1 with the create hint', async () => 
   expect(errors.join('\n')).toContain('appo new --url');
 });
 
-test('preview with no id and several apps (non-TTY) exits 2 listing them', async () => {
+test('run with no id and several apps (non-TTY) exits 2 listing them', async () => {
   stubToken();
   installMockFetch({
     status: 200,
@@ -339,18 +306,19 @@ test('preview with no id and several apps (non-TTY) exits 2 listing them', async
   console.error = (...args) => errors.push(args.join(' '));
   let result;
   try {
-    result = await run(['preview', ...API]);
+    result = await run(['run', ...API]);
   } finally {
     console.error = originalErr;
   }
   expect(result).toBe(2);
   const out = errors.join('\n');
-  expect(out).toContain('appo preview <id>');
+  expect(out).toContain('appo run <id>');
+  expect(out).not.toContain('appo preview');
   expect(out).toContain('Shop');
   expect(out).toContain('Blog');
 });
 
-test('preview readiness D-04: neither ready -> "not preview-ready yet" lines + no QR + no glyphs', async () => {
+test('run readiness D-04: neither ready -> "not preview-ready yet" lines + no QR + no glyphs', async () => {
   stubToken();
   installMockFetch({
     status: 200,
@@ -361,7 +329,7 @@ test('preview readiness D-04: neither ready -> "not preview-ready yet" lines + n
       preview_ready: { ios: false, android: false },
     },
   });
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toMatch(/not preview-ready yet/);
@@ -369,7 +337,7 @@ test('preview readiness D-04: neither ready -> "not preview-ready yet" lines + n
   expect(out).not.toMatch(/[▀▄█]/);
 });
 
-test('preview readiness D-04: ios ready -> block glyph present (QR rendered)', async () => {
+test('run readiness D-04: ios ready -> block glyph present (QR rendered)', async () => {
   stubToken();
   installMockFetch({
     status: 200,
@@ -380,7 +348,7 @@ test('preview readiness D-04: ios ready -> block glyph present (QR rendered)', a
       preview_ready: { ios: true, android: false },
     },
   });
-  const { result, lines } = await captureLog(() => run(['preview', '7', ...API]));
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toMatch(/[▀▄█]/);

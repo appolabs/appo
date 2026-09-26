@@ -43,14 +43,14 @@ Lifecycle:
   appo new --url <u> [--name <n>] [--prepare]   Create your app — name defaults from the URL
   appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
-  appo preview [id]                       Show preview target (TestFlight/deeplink + QR); no id: your only app, or a picker
+  appo run [id]                           Try it: trigger a TestFlight build if none is ready, then show/open the on-device target (join link + QR); no id: your only app, or a picker
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
   appo publish <id> [--confirm]           Publish an already-built app to its stores
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
 
 Test builds & devices:
-  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready (prepare one with \`appo preview\`)
+  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready (prepare one with \`appo run\`)
   appo devices list               List your registered iOS test devices
   appo devices register           Show the iOS device registration link + QR (one-time per device)
 
@@ -154,20 +154,23 @@ function printApp(app) {
   line('android_package', app.android_package_name);
 }
 
-/** Curated render of a build (AppBuildResource). Prints EXACT v1 field names —
- *  no renames (no-drift non-negotiable). Reuses the aligned line(k,v) idiom. */
+/** Curated render of a build — the 9-key `CuratedBuild::for()` projection
+ *  (D-04/D-11). `id`, `kind`, `artifact_url`, `error_message` no longer exist
+ *  on `AppBuildResource` (Phase 252) and are never printed — the pre-252
+ *  field list left them `undefined`, silently dropped by the line(k,v) guard.
+ *  Reuses the aligned line(k,v) idiom. */
 function printBuild(b) {
   if (!b) return;
   const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
-  line('id', b.id);
   line('platform', b.platform);
   line('status', b.status);
-  line('kind', b.kind);
+  line('failed', b.failed);
+  line('message_code', b.message_code);
+  line('message', b.message);
+  line('testflight_url', b.testflight_url);
   line('created_at', b.created_at);
   line('started_at', b.started_at);
   line('finished_at', b.finished_at);
-  line('artifact_url', b.artifact_url);
-  line('error_message', b.error_message);
 }
 
 /** Curated render of a rejection (AppRejectionResource — two-field allowlist). */
@@ -366,8 +369,8 @@ async function maybeOfferMcp(flags) {
  *  since scripts and --json runs cannot answer a prompt. Returns { id } on
  *  success or { exit } when the caller should stop with that code. */
 async function resolveTargetApp(apiBase, env, flags, {
-  usageHint = 'appo preview <id>',
-  selectLabel = 'Select an app to preview:',
+  usageHint = 'appo run <id>',
+  selectLabel = 'Select an app to run:',
 } = {}) {
   const apps = await ops.listApps(apiBase, env);
   if (apps.length === 0) {
@@ -814,20 +817,37 @@ export async function run(argv) {
         return 0;
       }
 
-      case 'preview': {
+      case 'run': {
         let id = sub;
         if (!id) {
           const resolved = await resolveTargetApp(apiBase, env, flags);
           if (resolved.exit !== undefined) { return resolved.exit; }
           id = resolved.id;
         }
-        // --json: verbatim flat body (D-05/D-08). Direct apiFetch — never reaches the printer/QR.
+        // Direct trigger — no confirm gate (D-02/D-05): the CLI invocation IS
+        // the intent, mirroring the REST endpoint it calls. A 409 (a build
+        // already in flight, or this app isn't ready yet) is NOT swallowed
+        // here — it flows to the existing error path, same as every other
+        // verb: under --json the envelope is emitted verbatim below; in human
+        // mode it propagates to the top-level catch -> renderError (exit 1),
+        // and no on-device target is shown.
+        //
+        // --json: the trigger response passed through verbatim (D-05/D-08) —
+        // a single request, never reaching the printer/QR. Unlike the human
+        // path below, --json does not also fetch/show the target: the
+        // machine-readable contract is exactly what the POST returned.
         if (flags.json) {
-          const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env);
-          console.log(JSON.stringify(res));
-          return 0;
+          try {
+            const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds/testflight`, null, env);
+            console.log(JSON.stringify(res));
+            return 0;
+          } catch (err) {
+            if (err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
+            throw err;
+          }
         }
-        // Human path: 404 throws -> top-level catch -> renderError (exit 1).
+        await ops.triggerTestflightBuild(apiBase, id, env);
+        console.log('TestFlight build triggered.');
         const d = await ops.getPreview(apiBase, id, env);
         printPreviewPayload(d);
         return 0;
@@ -927,6 +947,15 @@ export async function run(argv) {
         // Fetch the installable artifact (DL-01). Without --build, targets the
         // newest ready build; a not-yet-ready latest build reports its status
         // instead of failing opaquely.
+        //
+        // D-12 (253-05, KNOWN DEFERRED REGRESSION): the auto-select below
+        // (`b.status === 'ready' && b.artifact_url`) and `--build <n>`'s
+        // explicit targeting were broken by Phase 252's curated build shape —
+        // `status` is now a customer-lifecycle value (never the literal
+        // `'ready'`), `artifact_url` no longer exists, and no build carries any
+        // exposed identifier to target by. Fixing this needs a
+        // platform-addressed-download product decision; out of scope for
+        // Phase 253 (see 253-05-SUMMARY.md).
         if (!sub && isInteractive(flags)) {
           const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo download <id>', selectLabel: 'Select an app to download:' });
           if (resolved.exit !== undefined) { return resolved.exit; }
@@ -938,7 +967,7 @@ export async function run(argv) {
           if (!buildId) {
             const builds = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/builds`, null, env)) || [];
             if (builds.length === 0) {
-              console.log(`No builds yet. Prepare one: appo preview ${sub}`);
+              console.log(`No builds yet. Prepare one: appo run ${sub}`);
               return 1;
             }
             const ready = builds.find((b) => b.status === 'ready' && b.artifact_url);
@@ -972,7 +1001,7 @@ export async function run(argv) {
           console.log('Open this link on your iPhone to register it (valid 24h):');
           console.log(`  ${url}`);
           console.log('');
-          // Same forced-contrast QR printing as `preview` — black-on-white per
+          // Same forced-contrast QR printing as `run` — black-on-white per
           // row so the code scans regardless of terminal theme.
           const CONTRAST = '\x1b[30;47m';
           const RESET = '\x1b[0m';
@@ -980,7 +1009,7 @@ export async function run(argv) {
             console.log(`${CONTRAST}${row}${RESET}`);
           }
           console.log('');
-          console.log('Then run: appo preview <id>   (builds and opens your iOS preview)');
+          console.log('Then run: appo run <id>   (triggers a TestFlight build and opens your iOS preview)');
           return 0;
         }
         if (sub === 'list' || sub === undefined) {
@@ -1056,7 +1085,7 @@ export async function run(argv) {
         const app = (await ops.createApp(apiBase, attrs, env)) || {};
         console.log(`Created app #${app.id} — ${app.name}`);
         console.log(`  url: ${app.base_url}`);
-        console.log(`  preview on your phone: appo preview ${app.id}`);
+        console.log(`  run it on your device: appo run ${app.id}`);
         console.log(`  ship to the stores:    appo ship ${app.id}`);
         await maybeOfferMcp(flags);
         return 0;
@@ -1118,7 +1147,7 @@ export async function run(argv) {
         }
         record({ step: 'publish', status: 'ok', target_stores: stores });
         log(`ok submitted: ${stores.join(', ')} — Appo will build and submit it.`);
-        log(`  track: appo status ${appId}   preview: appo preview ${appId}`);
+        log(`  track: appo status ${appId}   run: appo run ${appId}`);
         return finish('shipped', EXIT.shipped);
       }
 

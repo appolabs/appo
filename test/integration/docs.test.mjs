@@ -12,7 +12,7 @@ const COMMANDS = [
   'appo new', 'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
   'apps create', 'apps list', 'apps show', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
-  'upgrade', 'version', 'preview',
+  'upgrade', 'version', 'run',
   'download', 'devices list', 'devices register',
 ];
 
@@ -58,6 +58,13 @@ test('no ship --url references remain (creation moved to appo new)', () => {
   const cli = readFileSync('src/cli.mjs', 'utf-8');
   const ops = readFileSync('src/ops.mjs', 'utf-8');
   expect(cli + ops).not.toContain('ship --url');
+});
+
+// D-05 (253-05): `appo preview` was cleanly renamed to `appo run` — no alias
+// period. The command must not resurface in either doc.
+test('no appo preview references remain (renamed to appo run)', () => {
+  expect(README).not.toContain('appo preview');
+  expect(LLMS).not.toContain('appo preview');
 });
 
 test('src/ has no build-trigger code paths', () => {

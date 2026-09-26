@@ -18,7 +18,7 @@ const LIFECYCLE_VERBS = [
   'new',
   'ship',
   'status',
-  'preview',
+  'run',
   'publish',
   'push',
   'rejection',

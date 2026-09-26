@@ -47,6 +47,14 @@ export async function getPreview(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env));
 }
 
+// POST /api/v1/apps/{id}/builds/testflight -> 202 { data: AppBuildResource + kind }
+// | 409 { error, code, message } (a build already in flight, or the app isn't
+// ready yet — apiFetch throws with err.status/err.envelope on either). Direct
+// trigger, no confirm param (D-02/D-05): the call itself is the intent.
+export async function triggerTestflightBuild(apiBase, id, env) {
+  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds/testflight`, null, env));
+}
+
 // POST /api/v1/apps/{id}/icon -> 200 { icon_url } (flat, NOT a {data:} envelope).
 // 422 { message, errors: { icon_url: [...] } } on SSRF/validation reject (apiFetch throws).
 // Do NOT unwrap — the body is flat. Read res.icon_url at the call site.

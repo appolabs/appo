@@ -46,8 +46,8 @@ const API = ['--api', 'http://test.local'];
 // the store verb. Single-step (no ledger): plain output, top-level renderError.
 
 // 1. Happy path with an explicit --name: one POST /api/v1/apps, human output
-//    points at the two canonical next steps (preview + ship).
-test('new --url --name creates the app and prints preview/ship next steps', async () => {
+//    points at the two canonical next steps (run + ship).
+test('new --url --name creates the app and prints run/ship next steps', async () => {
   stubToken();
   installMockFetch([
     { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } },
@@ -61,7 +61,8 @@ test('new --url --name creates the app and prints preview/ship next steps', asyn
   expect(req.body).toEqual({ name: 'X', base_url: 'https://x.com' });
   const out = lines.join('\n');
   expect(out).toMatch(/Created app #5 — X/);
-  expect(out).toMatch(/appo preview 5/);
+  expect(out).toMatch(/appo run 5/);
+  expect(out).not.toMatch(/appo preview/);
   expect(out).toMatch(/appo ship 5/);
 });
 

@@ -32,6 +32,11 @@ export function publishApp(
 /** Flat payload: { ios_testflight_url, android_deeplink, preview_url, preview_ready }. */
 export function getPreview(apiBase: string, id: string | number, env?: string): Promise<any>;
 
+/** 202 payload: the curated AppBuildResource plus a literal `kind: "testflight"`.
+ *  Throws (err.status/err.envelope) on a 409 — a build already in flight, or
+ *  the app not yet ready for a TestFlight build. */
+export function triggerTestflightBuild(apiBase: string, id: string | number, env?: string): Promise<any>;
+
 /** Flat payload: { icon_url }. */
 export function setIcon(
   apiBase: string,

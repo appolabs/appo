@@ -95,12 +95,12 @@ test('download --json reports build_id, file and bytes', async () => {
   expect(JSON.parse(lines.join(''))).toEqual({ build_id: 42, file: out, bytes: 8 });
 });
 
-test('download with no builds yet exits 1 and suggests appo preview', async () => {
+test('download with no builds yet exits 1 and suggests appo run', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: [] } });
   const { result, lines } = await captureLog(() => run(['download', '7', ...API]));
   expect(result).toBe(1);
-  expect(lines.join('\n')).toContain('appo preview 7');
+  expect(lines.join('\n')).toContain('appo run 7');
 });
 
 test('download with latest build not ready reports its status, exit 1', async () => {
