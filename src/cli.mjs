@@ -55,7 +55,7 @@ Test builds & devices:
   appo devices register           Show the iOS device registration link + QR (one-time per device)
 
 AI editor:
-  appo mcp                        Install the Appo MCP server so your AI editor can drive Appo (Claude Code, Codex, Cursor)
+  appo mcp                        Connect your AI agent to Appo (Claude Code, Codex, Cursor): registers the Appo MCP connector
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -352,14 +352,14 @@ function isYes(answer) {
   return /^y(es)?$/i.test(answer);
 }
 
-/** After an interactive `new`, offer to wire the Appo MCP so the user's AI
- *  editor can drive Appo. Opt-in ([y/N]) so it never touches editor config
- *  unsolicited, and never runs under --json / non-TTY. */
-async function maybeOfferMcp(flags) {
+/** After an interactive `new`, offer to register the Appo MCP connector so the
+ *  user's AI agent can drive Appo. Opt-in ([y/N]) so it never touches agent
+ *  config unsolicited, and never runs under --json / non-TTY. */
+async function maybeOfferMcp(flags, apiBase) {
   if (!isInteractive(flags)) { return; }
   console.log('');
-  if (isYes(await askLine('Let your AI editor drive Appo? Install the MCP (Claude Code, Codex) [y/N] '))) {
-    await runMcpInstall();
+  if (isYes(await askLine('Have an AI agent working for you? Connect it to Appo now (Claude Code, Codex) [y/N] '))) {
+    await runMcpInstall({ apiBase });
   }
 }
 
@@ -552,9 +552,10 @@ export async function run(argv) {
       }
 
       case 'mcp': {
-        // The primary way to wire the Appo MCP into an AI editor. `new` also
-        // offers this after creating an app; this verb is the direct route.
-        return await runMcpInstall();
+        // Registers the remote Appo MCP connector (the resolved API host +
+        // /mcp) with the agent CLIs on PATH. `new` also offers this after
+        // creating an app; this verb is the direct route.
+        return await runMcpInstall({ apiBase });
       }
 
       case 'upgrade': {
@@ -1087,7 +1088,7 @@ export async function run(argv) {
         console.log(`  url: ${app.base_url}`);
         console.log(`  run it on your device: appo run ${app.id}`);
         console.log(`  ship to the stores:    appo ship ${app.id}`);
-        await maybeOfferMcp(flags);
+        await maybeOfferMcp(flags, apiBase);
         return 0;
       }
 

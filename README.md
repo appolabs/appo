@@ -253,6 +253,32 @@ developer account and no Apple login needed. `devices register` prints a signed
 prompt to register the device's UDID, one time per device. `devices list` shows
 your pool (UDIDs are truncated server-side).
 
+## mcp
+
+```bash
+appo mcp                   # register the Appo MCP connector on your AI agent
+```
+
+`appo mcp` registers the remote Appo MCP connector, `https://apps.goappo.io/mcp`
+(or the active profile's API host plus `/mcp`, so `--env`/`--api` select another
+host), on every supported agent CLI found on your PATH. It runs the same command
+you would type by hand:
+
+```bash
+claude mcp add --transport http appo https://apps.goappo.io/mcp
+```
+
+```bash
+codex mcp add appo --url https://apps.goappo.io/mcp
+```
+
+For other clients (Cursor, Windsurf, VS Code) it prints the `.mcp.json` snippet
+`{ "mcpServers": { "appo": { "url": "https://apps.goappo.io/mcp" } } }`, and for
+clients that only accept stdio servers the `npx mcp-remote <url>` bridge. Sign-in
+is the browser consent that opens the first time the agent uses Appo; no token is
+configured. Exit code is `0` when at least one agent was registered, `1`
+otherwise.
+
 ## upgrade
 
 ```bash
@@ -335,9 +361,9 @@ assume the name is unclaimed.
 
 ## Library usage
 
-The API core ships as importable modules alongside the CLI — the first consumer
-is `@appolabs/appo-mcp`, which reuses the same lifecycle calls, auth resolution,
-and profiles instead of maintaining a parallel client:
+The API core ships as importable modules alongside the CLI, so other tools can
+reuse the same lifecycle calls, auth resolution and profiles instead of
+maintaining a parallel client:
 
 ```js
 import { getPreview, listApps } from "@appolabs/appo/ops";
