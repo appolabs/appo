@@ -140,6 +140,18 @@ function parseArgs(argv) {
   return { flags, positional };
 }
 
+/** What the customer can do while the app is not yet ready to try: one
+ *  description per line, aligned under the preparation value. The agent-facing
+ *  `tool`/`arguments` of each option are not printed. */
+function printPreparationOptions(options) {
+  if (!Array.isArray(options)) return;
+  for (const option of options) {
+    if (typeof option?.description === 'string' && option.description) {
+      console.log(`  ${''.padEnd(18)} - ${option.description}`);
+    }
+  }
+}
+
 function printApp(app) {
   if (!app) return;
   const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
@@ -148,7 +160,10 @@ function printApp(app) {
   line('base_url', app.base_url);
   line('publication_state', app.publication_state);
   line('primary_action', app.primary_action);
-  if (app.preparation) line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
+  if (app.preparation) {
+    line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
+    printPreparationOptions(app.preparation.options);
+  }
   if (app.stores) line('stores', `apple=${app.stores.apple} google=${app.stores.google}`);
   line('ios_bundle_id', app.ios_bundle_id);
   line('android_package', app.android_package_name);

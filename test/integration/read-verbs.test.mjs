@@ -42,6 +42,50 @@ test('status overview returns 0', async () => {
   expect(result).toBe(0);
 });
 
+test('status renders preparation options as plain lines, without tool names', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: {
+      data: {
+        id: 7,
+        preparation: {
+          mode: 'appo_managed',
+          status: 'in_progress',
+          options: [
+            { action: 'wait', description: 'Wait for Appo to finish preparing the app.', tool: 'preview_app' },
+            {
+              action: 'self_prepare',
+              description: 'Prepare the app yourself and try it now.',
+              tool: 'configure_app',
+              arguments: { prep_mode: 'self_managed' },
+            },
+            { action: 'malformed', tool: 'preview_app' },
+          ],
+        },
+      },
+    },
+  });
+  const { lines } = await captureLog(() => run(['status', '7', ...API]));
+  const prep = lines.findIndex((l) => /preparation\s+appo_managed \(in_progress\)/.test(l));
+  expect(prep).toBeGreaterThan(-1);
+  expect(lines[prep + 1]).toMatch(/^\s+- Wait for Appo to finish preparing the app\.$/);
+  expect(lines[prep + 2]).toMatch(/^\s+- Prepare the app yourself and try it now\.$/);
+  const out = lines.join('\n');
+  expect(out).not.toMatch(/preview_app|configure_app|undefined/);
+});
+
+test('status without preparation options prints only the preparation line', async () => {
+  stubToken();
+  installMockFetch({
+    status: 200,
+    body: { data: { id: 7, preparation: { mode: 'self_managed', status: 'completed' } } },
+  });
+  const { lines } = await captureLog(() => run(['status', '7', ...API]));
+  expect(lines.some((l) => /preparation\s+self_managed \(completed\)/.test(l))).toBe(true);
+  expect(lines.some((l) => /^\s+- /.test(l))).toBe(false);
+});
+
 test('status --build hits GET /api/v1/apps/{id}/builds/{buildId}', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: { id: 42, platform: 'ios', status: 'ready' } } });
