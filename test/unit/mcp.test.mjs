@@ -71,11 +71,12 @@ test('installs the remote connector into every present agent CLI, returns 0', as
   expect(lines.join('\n')).not.toMatch(/appo login/);
 });
 
-test('writes the agent instructions only for a registered agent that needs them', async () => {
-  writeInstructions.mockImplementation((agent) => (agent.bin === 'codex' ? '/h/.codex/AGENTS.md' : null));
+test('writes the agent instructions for every registered agent and reports each file', async () => {
+  writeInstructions.mockImplementation((agent) => `/h/${agent.bin}.md`);
   await run({ spawnImpl: spawnWith(0), spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' });
   expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
-  expect(lines.join('\n')).toContain('/h/.codex/AGENTS.md');
+  expect(lines.join('\n')).toContain('/h/claude.md');
+  expect(lines.join('\n')).toContain('/h/codex.md');
 });
 
 test('does not write agent instructions when the connector registration failed', async () => {

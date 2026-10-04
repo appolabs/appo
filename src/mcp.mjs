@@ -1,16 +1,15 @@
 import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process';
 import { resolveApiBase } from './config.mjs';
-import { installCodexInstructions } from './agent-instructions.mjs';
+import { installInstructions } from './agent-instructions.mjs';
 
 // The Appo MCP is the remote connector served by the Appo API host (OAuth 2.1,
 // dynamic client registration): every agent client registers it over HTTP.
 // Argv shapes: Claude Code (`--transport http <name> <url>`), Codex CLI
-// (`<name> --url <url>`). A new agent CLI only needs a row here. `instructions`
-// is set for a client that does not put the connector in the model's initial
-// context, and writes the note that routes app requests to it.
+// (`<name> --url <url>`). A new agent CLI needs a row here and its
+// instructions file in agent-instructions.mjs.
 const CLI_AGENTS = [
   { bin: 'claude', label: 'Claude Code', args: (url) => ['mcp', 'add', '--transport', 'http', 'appo', url] },
-  { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url], instructions: installCodexInstructions },
+  { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url] },
 ];
 
 const ON_WIN = process.platform === 'win32';
@@ -91,8 +90,8 @@ export function printManual(url) {
 
 /**
  * Register the Appo MCP connector with every supported agent CLI found on PATH
- * (Claude Code, Codex); for Codex it also writes the Appo section of the
- * user-level AGENTS.md. Editors without a CLI installer get the printed
+ * (Claude Code, Codex) and write the Appo section of each one's user-level
+ * instructions file (CLAUDE.md, AGENTS.md). Editors without a CLI installer get the printed
  * snippet. spawnImpl / spawnSyncImpl / writeInstructions / apiBase are
  * injectable so tests assert behavior without spawning anything, writing to
  * the home directory or reading a profile; apiBase defaults to the active
@@ -102,7 +101,7 @@ export function printManual(url) {
  * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string }} [opts]
  * @returns {Promise<number>} 0 if at least one agent was wired; 1 if none were
  */
-export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => agent.instructions?.() ?? null, apiBase } = {}) {
+export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => installInstructions(agent.bin), apiBase } = {}) {
   const url = connectorUrl(apiBase ?? resolveApiBase(undefined));
   const present = CLI_AGENTS.filter((a) => isPresent(a.bin, spawnSyncImpl));
 

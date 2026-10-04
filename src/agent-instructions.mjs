@@ -2,12 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-// Codex loads MCP tools on demand: at the start of a conversation the model
-// sees neither the connector's instructions nor its tool names, so "what is
-// the status of my app" is read as a question about the working directory.
-// Its user-level AGENTS.md is always in context. Measured on Codex CLI 0.159
-// over three cold prompts, three runs each: this section 9/9 routed to Appo,
-// a skill 3/9 at best, no hint 0/9.
+// Agent clients may load MCP tools on demand: at the start of a conversation
+// the model then sees neither the connector's instructions nor its tool names,
+// so "what is the status of my app" is read as a question about the working
+// directory. The agent's user-level instructions file is always in context.
+// Measured on Codex CLI 0.159 over three cold prompts, three runs each: this
+// section 9/9 routed to Appo, a skill 3/9 at best, no hint 0/9. Claude Code
+// receives the same section on the same grounds; it was not measured.
 
 const START = '<!-- appo-start -->';
 const END = '<!-- appo-end -->';
@@ -19,13 +20,17 @@ The user has an Appo account connected through the \`appo\` MCP server. Requests
 ${END}`;
 
 /**
- * Codex's user-level instructions file; honours CODEX_HOME.
+ * The user-level instructions file of a supported agent CLI: Codex reads
+ * AGENTS.md under CODEX_HOME, Claude Code CLAUDE.md under CLAUDE_CONFIG_DIR.
  *
+ * @param {'claude'|'codex'} bin
  * @param {{ home?: string, env?: Record<string, string|undefined> }} [opts]
  * @returns {string}
  */
-export function codexInstructionsPath({ home = homedir(), env = process.env } = {}) {
-  return join(env.CODEX_HOME || join(home, '.codex'), 'AGENTS.md');
+export function instructionsPathFor(bin, { home = homedir(), env = process.env } = {}) {
+  if (bin === 'codex') { return join(env.CODEX_HOME || join(home, '.codex'), 'AGENTS.md'); }
+  if (bin === 'claude') { return join(env.CLAUDE_CONFIG_DIR || join(home, '.claude'), 'CLAUDE.md'); }
+  throw new Error(`Unsupported agent CLI: ${bin}`);
 }
 
 /**
@@ -47,16 +52,17 @@ export function withAppoSection(content) {
 }
 
 /**
- * Write the Appo section into Codex's user-level AGENTS.md. Returns the path,
- * or null when the file cannot be written: the connector works without the
- * section, so a failure is not fatal.
+ * Write the Appo section into an agent's user-level instructions file. Returns
+ * the path, or null when the file cannot be written: the connector works
+ * without the section, so a failure is not fatal.
  *
+ * @param {'claude'|'codex'} bin
  * @param {{ home?: string, env?: Record<string, string|undefined> }} [opts]
  * @returns {string|null}
  */
-export function installCodexInstructions(opts) {
+export function installInstructions(bin, opts) {
   try {
-    const path = codexInstructionsPath(opts);
+    const path = instructionsPathFor(bin, opts);
     mkdirSync(dirname(path), { recursive: true });
     const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
     writeFileSync(path, withAppoSection(current));
