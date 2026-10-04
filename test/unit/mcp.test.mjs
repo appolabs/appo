@@ -110,6 +110,23 @@ test('no agent CLI present: prints manual with URL snippet and mcp-remote bridge
   expect(out).not.toContain('@appolabs/appo-mcp');
 });
 
+test('an add that fails because the connector is already registered still counts, and writes the instructions', async () => {
+  // `mcp add` exits 1 on a rerun ("already exists") and on an unfinished
+  // browser sign-in; `mcp get appo` exiting 0 shows the entry is in place.
+  const spawnSyncImpl = (bin, args) => (args[0] === 'mcp' ? { status: 0 } : {});
+  const code = await run({ spawnImpl: spawnWith(1), spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  expect(code).toBe(0);
+  expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
+  expect(lines.join('\n')).toMatch(/registered for Claude Code and Codex/);
+});
+
+test('an add that fails with the connector absent does not count', async () => {
+  const spawnSyncImpl = (bin, args) => (args[0] === 'mcp' ? { status: 1 } : {});
+  const code = await run({ spawnImpl: spawnWith(1), spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  expect(code).toBe(1);
+  expect(writeInstructions).not.toHaveBeenCalled();
+});
+
 test('present agent whose add fails (non-zero) does not count as installed', async () => {
   const spawnImpl = spawnWith(1);
   const code = await run({ spawnImpl, spawnSyncImpl: detect(['claude']), apiBase: 'https://apps.goappo.io' });

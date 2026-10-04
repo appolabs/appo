@@ -57,6 +57,17 @@ function isPresent(bin, spawnSyncImpl) {
   return !res.error;
 }
 
+/**
+ * Is the connector registered with the agent? `mcp add` exits non-zero when
+ * the entry already exists (a rerun) and when the browser sign-in it starts is
+ * not completed, although the entry is in place in both cases; `mcp get` is
+ * the reliable read.
+ */
+function isRegistered(agent, spawnSyncImpl) {
+  const res = spawnSyncImpl(agent.bin, ['mcp', 'get', 'appo'], { stdio: 'ignore', shell: ON_WIN });
+  return !res.error && res.status === 0;
+}
+
 /** Run the agent's `mcp add`; resolve the exit code. */
 function addTo(agent, url, spawnImpl) {
   return new Promise((resolve) => {
@@ -115,7 +126,7 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
   const installed = [];
   const notes = [];
   for (const agent of present) {
-    if ((await addTo(agent, url, spawnImpl)) === 0) {
+    if ((await addTo(agent, url, spawnImpl)) === 0 || isRegistered(agent, spawnSyncImpl)) {
       installed.push(agent.label);
       const path = writeInstructions(agent);
       if (path) { notes.push(`${agent.label}: ${path}`); }
