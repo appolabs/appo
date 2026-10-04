@@ -17,8 +17,12 @@ const detect = (present) => (bin) =>
 const spawnWith = (code) =>
   vi.fn(() => ({ on: (ev, cb) => { if (ev === 'close') { cb(code); } } }));
 
+// writeInstructions is always faked: the real one writes to the home directory.
+let writeInstructions;
+const run = (opts) => runMcpInstall({ writeInstructions, ...opts });
+
 let log; let lines;
-beforeEach(() => { log = console.log; lines = []; console.log = (...a) => lines.push(a.join(' ')); });
+beforeEach(() => { writeInstructions = vi.fn(() => null); log = console.log; lines = []; console.log = (...a) => lines.push(a.join(' ')); });
 afterEach(() => { console.log = log; });
 
 test('connectorUrl derives the connector URL from the profile API base', () => {
@@ -59,7 +63,7 @@ test('addArgsFor produces the HTTP-transport argv per client', () => {
 
 test('installs the remote connector into every present agent CLI, returns 0', async () => {
   const spawnImpl = spawnWith(0);
-  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl, spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' });
   expect(spawnImpl).toHaveBeenCalledWith('claude', CLAUDE_ARGS, expect.any(Object));
   expect(spawnImpl).toHaveBeenCalledWith('codex', CODEX_ARGS, expect.any(Object));
   expect(code).toBe(0);
@@ -67,22 +71,34 @@ test('installs the remote connector into every present agent CLI, returns 0', as
   expect(lines.join('\n')).not.toMatch(/appo login/);
 });
 
+test('writes the agent instructions only for a registered agent that needs them', async () => {
+  writeInstructions.mockImplementation((agent) => (agent.bin === 'codex' ? '/h/.codex/AGENTS.md' : null));
+  await run({ spawnImpl: spawnWith(0), spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' });
+  expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
+  expect(lines.join('\n')).toContain('/h/.codex/AGENTS.md');
+});
+
+test('does not write agent instructions when the connector registration failed', async () => {
+  await run({ spawnImpl: spawnWith(1), spawnSyncImpl: detect(['codex']), apiBase: 'https://apps.goappo.io' });
+  expect(writeInstructions).not.toHaveBeenCalled();
+});
+
 test('uses the profile API base for the connector (local dev registers localhost)', async () => {
   const spawnImpl = spawnWith(0);
-  await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['codex']), apiBase: 'http://localhost:8002' });
+  await run({ spawnImpl, spawnSyncImpl: detect(['codex']), apiBase: 'http://localhost:8002' });
   expect(spawnImpl).toHaveBeenCalledWith('codex', ['mcp', 'add', 'appo', '--url', 'http://localhost:8002/mcp'], expect.any(Object));
 });
 
 test('only wires the agents that are on PATH', async () => {
   const spawnImpl = spawnWith(0);
-  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['codex']), apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl, spawnSyncImpl: detect(['codex']), apiBase: 'https://apps.goappo.io' });
   expect(spawnImpl).toHaveBeenCalledTimes(1);
   expect(code).toBe(0);
 });
 
 test('no agent CLI present: prints manual with URL snippet and mcp-remote bridge, never spawns, returns 1', async () => {
   const spawnImpl = spawnWith(0);
-  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect([]), apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl, spawnSyncImpl: detect([]), apiBase: 'https://apps.goappo.io' });
   expect(spawnImpl).not.toHaveBeenCalled();
   expect(code).toBe(1);
   const out = lines.join('\n');
@@ -95,14 +111,14 @@ test('no agent CLI present: prints manual with URL snippet and mcp-remote bridge
 
 test('present agent whose add fails (non-zero) does not count as installed', async () => {
   const spawnImpl = spawnWith(1);
-  const code = await runMcpInstall({ spawnImpl, spawnSyncImpl: detect(['claude']), apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl, spawnSyncImpl: detect(['claude']), apiBase: 'https://apps.goappo.io' });
   expect(code).toBe(1);
 });
 
 test('unsafe API base aborts before any spawn', async () => {
   const spawnImpl = spawnWith(0);
   const spawnSyncImpl = vi.fn(detect(['claude']));
-  await expect(runMcpInstall({ spawnImpl, spawnSyncImpl, apiBase: 'https://x; rm -rf /' })).rejects.toThrow();
+  await expect(run({ spawnImpl, spawnSyncImpl, apiBase: 'https://x; rm -rf /' })).rejects.toThrow();
   expect(spawnImpl).not.toHaveBeenCalled();
   expect(spawnSyncImpl).not.toHaveBeenCalled();
 });

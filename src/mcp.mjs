@@ -1,13 +1,16 @@
 import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process';
 import { resolveApiBase } from './config.mjs';
+import { installCodexInstructions } from './agent-instructions.mjs';
 
 // The Appo MCP is the remote connector served by the Appo API host (OAuth 2.1,
 // dynamic client registration): every agent client registers it over HTTP.
 // Argv shapes: Claude Code (`--transport http <name> <url>`), Codex CLI
-// (`<name> --url <url>`). A new agent CLI only needs a row here.
+// (`<name> --url <url>`). A new agent CLI only needs a row here. `instructions`
+// is set for a client that does not put the connector in the model's initial
+// context, and writes the note that routes app requests to it.
 const CLI_AGENTS = [
   { bin: 'claude', label: 'Claude Code', args: (url) => ['mcp', 'add', '--transport', 'http', 'appo', url] },
-  { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url] },
+  { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url], instructions: installCodexInstructions },
 ];
 
 const ON_WIN = process.platform === 'win32';
@@ -88,15 +91,18 @@ export function printManual(url) {
 
 /**
  * Register the Appo MCP connector with every supported agent CLI found on PATH
- * (Claude Code, Codex). Editors without a CLI installer get the printed
- * snippet. spawnImpl / spawnSyncImpl / apiBase are injectable so tests assert
- * behavior without spawning anything or reading a profile; apiBase defaults to
- * the active profile's base.
+ * (Claude Code, Codex); for Codex it also writes the Appo section of the
+ * user-level AGENTS.md. Editors without a CLI installer get the printed
+ * snippet. spawnImpl / spawnSyncImpl / writeInstructions / apiBase are
+ * injectable so tests assert behavior without spawning anything, writing to
+ * the home directory or reading a profile; apiBase defaults to the active
+ * profile's base. writeInstructions receives the agent row and returns the
+ * path written, or null.
  *
- * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, apiBase?: string }} [opts]
+ * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string }} [opts]
  * @returns {Promise<number>} 0 if at least one agent was wired; 1 if none were
  */
-export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, apiBase } = {}) {
+export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => agent.instructions?.() ?? null, apiBase } = {}) {
   const url = connectorUrl(apiBase ?? resolveApiBase(undefined));
   const present = CLI_AGENTS.filter((a) => isPresent(a.bin, spawnSyncImpl));
 
@@ -108,14 +114,22 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
   }
 
   const installed = [];
+  const notes = [];
   for (const agent of present) {
-    if ((await addTo(agent, url, spawnImpl)) === 0) { installed.push(agent.label); }
+    if ((await addTo(agent, url, spawnImpl)) === 0) {
+      installed.push(agent.label);
+      const path = writeInstructions(agent);
+      if (path) { notes.push(`${agent.label}: ${path}`); }
+    }
   }
 
   console.log('');
   if (installed.length > 0) {
     console.log(`Appo MCP connector registered for ${installed.join(' and ')}.`);
     console.log('The first time the agent uses Appo, a browser window asks you to sign in and approve the connection; that is the only sign-in step.');
+    for (const note of notes) {
+      console.log(`A short Appo section was added to your agent instructions so it knows your app lives in Appo (${note}); edit or remove it freely.`);
+    }
     console.log('Restart your editor, then ask it to build an app.');
   }
   console.log(`Other editors (Cursor, Windsurf, VS Code), add to .mcp.json: { "mcpServers": { "appo": { "url": "${url}" } } }`);

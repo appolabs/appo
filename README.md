@@ -279,6 +279,14 @@ is the browser consent that opens the first time the agent uses Appo; no token i
 configured. Exit code is `0` when at least one agent was registered, `1`
 otherwise.
 
+For Codex, `appo mcp` also adds a short section, delimited by
+`<!-- appo-start -->` and `<!-- appo-end -->`, to the user-level `AGENTS.md`
+(`~/.codex/AGENTS.md`, or `$CODEX_HOME/AGENTS.md`). Codex loads MCP tools on
+demand, so without it a request such as "what is the status of my app" is read
+as a question about the working directory; the section tells the agent the app
+lives in Appo. Text outside the markers is left untouched, a rerun replaces the
+section in place, and it can be edited or removed freely.
+
 ## upgrade
 
 ```bash
