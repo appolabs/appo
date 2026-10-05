@@ -4,11 +4,12 @@ import { installInstructions } from './agent-instructions.mjs';
 
 // The Appo MCP is the remote connector served by the Appo API host (OAuth 2.1,
 // dynamic client registration): every agent client registers it over HTTP.
-// Argv shapes: Claude Code (`--transport http <name> <url>`), Codex CLI
+// Argv shapes: Claude Code (`--transport http --scope user <name> <url>`; user
+// scope, so the connector is available in every directory, as Codex's is), Codex CLI
 // (`<name> --url <url>`). A new agent CLI needs a row here and its
 // instructions file in agent-instructions.mjs.
 const CLI_AGENTS = [
-  { bin: 'claude', label: 'Claude Code', args: (url) => ['mcp', 'add', '--transport', 'http', 'appo', url] },
+  { bin: 'claude', label: 'Claude Code', args: (url) => ['mcp', 'add', '--transport', 'http', '--scope', 'user', 'appo', url] },
   { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url] },
 ];
 
@@ -89,7 +90,7 @@ function addTo(agent, url, spawnImpl) {
  */
 export function printManual(url) {
   console.log('Add the Appo MCP connector to your AI agent:');
-  console.log(`  Claude Code:  claude mcp add --transport http appo ${url}`);
+  console.log(`  Claude Code:  claude mcp add --transport http --scope user appo ${url}`);
   console.log(`  Codex:        codex mcp add appo --url ${url}`);
   console.log('  Cursor / Windsurf / VS Code (.mcp.json):');
   console.log(`    { "mcpServers": { "appo": { "url": "${url}" } } }`);

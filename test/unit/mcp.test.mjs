@@ -6,7 +6,7 @@ import { runMcpInstall, connectorUrl, addArgsFor, printManual } from '../../src/
 
 const URL_PROD = 'https://apps.goappo.io/mcp';
 
-const CLAUDE_ARGS = ['mcp', 'add', '--transport', 'http', 'appo', URL_PROD];
+const CLAUDE_ARGS = ['mcp', 'add', '--transport', 'http', '--scope', 'user', 'appo', URL_PROD];
 const CODEX_ARGS = ['mcp', 'add', 'appo', '--url', URL_PROD];
 
 /** spawnSync fake: the bins in `present` resolve; everything else is ENOENT. */
@@ -103,7 +103,7 @@ test('no agent CLI present: prints manual with URL snippet and mcp-remote bridge
   expect(spawnImpl).not.toHaveBeenCalled();
   expect(code).toBe(1);
   const out = lines.join('\n');
-  expect(out).toContain('claude mcp add --transport http appo https://apps.goappo.io/mcp');
+  expect(out).toContain('claude mcp add --transport http --scope user appo https://apps.goappo.io/mcp');
   expect(out).toContain('codex mcp add appo --url https://apps.goappo.io/mcp');
   expect(out).toContain('"url": "https://apps.goappo.io/mcp"');
   expect(out).toContain('npx mcp-remote https://apps.goappo.io/mcp');

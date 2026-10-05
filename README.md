@@ -265,7 +265,7 @@ host), on every supported agent CLI found on your PATH. It runs the same command
 you would type by hand:
 
 ```bash
-claude mcp add --transport http appo https://apps.goappo.io/mcp
+claude mcp add --transport http --scope user appo https://apps.goappo.io/mcp
 ```
 
 ```bash
