@@ -120,6 +120,28 @@ test('an add that fails because the connector is already registered still counts
   expect(lines.join('\n')).toMatch(/registered for Claude Code and Codex/);
 });
 
+test('a connector already registered for every directory is left alone, so no new sign-in starts', async () => {
+  const spawnImpl = spawnWith(0);
+  const spawnSyncImpl = (bin, args) => (args[0] === 'mcp'
+    ? { status: 0, stdout: bin === 'claude' ? 'appo:\n  Scope: User config (available in all your projects)\n' : 'appo\n  enabled: true\n' }
+    : {});
+  const code = await run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  expect(spawnImpl).not.toHaveBeenCalled();
+  expect(code).toBe(0);
+  expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
+  expect(lines.join('\n')).toMatch(/registered for Claude Code and Codex/);
+});
+
+test('a Claude Code connector registered for one directory only is added again at user scope', async () => {
+  const spawnImpl = spawnWith(0);
+  const spawnSyncImpl = (bin, args) => (args[0] === 'mcp'
+    ? { status: 0, stdout: 'appo:\n  Scope: Local config (private to you in this project)\n' }
+    : (bin === 'claude' ? {} : { error: new Error('ENOENT') }));
+  await run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  expect(spawnImpl).toHaveBeenCalledTimes(1);
+  expect(spawnImpl).toHaveBeenCalledWith('claude', CLAUDE_ARGS, expect.any(Object));
+});
+
 test('an add that fails with the connector absent does not count', async () => {
   const spawnSyncImpl = (bin, args) => (args[0] === 'mcp' ? { status: 1 } : {});
   const code = await run({ spawnImpl: spawnWith(1), spawnSyncImpl, apiBase: 'https://apps.goappo.io' });

@@ -9,8 +9,19 @@ import { installInstructions } from './agent-instructions.mjs';
 // (`<name> --url <url>`). A new agent CLI needs a row here and its
 // instructions file in agent-instructions.mjs.
 const CLI_AGENTS = [
-  { bin: 'claude', label: 'Claude Code', args: (url) => ['mcp', 'add', '--transport', 'http', '--scope', 'user', 'appo', url] },
-  { bin: 'codex', label: 'Codex', args: (url) => ['mcp', 'add', 'appo', '--url', url] },
+  {
+    bin: 'claude',
+    label: 'Claude Code',
+    args: (url) => ['mcp', 'add', '--transport', 'http', '--scope', 'user', 'appo', url],
+    // A local- or project-scope entry works in one directory only.
+    coversEveryDirectory: (description) => /Scope:\s*User/i.test(description),
+  },
+  {
+    bin: 'codex',
+    label: 'Codex',
+    args: (url) => ['mcp', 'add', 'appo', '--url', url],
+    coversEveryDirectory: () => true,
+  },
 ];
 
 const ON_WIN = process.platform === 'win32';
@@ -59,14 +70,19 @@ function isPresent(bin, spawnSyncImpl) {
 }
 
 /**
- * Is the connector registered with the agent? `mcp add` exits non-zero when
- * the entry already exists (a rerun) and when the browser sign-in it starts is
- * not completed, although the entry is in place in both cases; `mcp get` is
- * the reliable read.
+ * Read the agent's own record of the connector with `mcp get`: the reliable
+ * read, since `mcp add` exits non-zero when the entry already exists (a rerun)
+ * and when the browser sign-in it starts is not completed, although the entry
+ * is in place in both cases.
+ *
+ * @returns {{ registered: boolean, everywhere: boolean }} `everywhere` is true
+ *   when the entry is available from any directory, so adding it again would
+ *   only start a new sign-in.
  */
-function isRegistered(agent, spawnSyncImpl) {
-  const res = spawnSyncImpl(agent.bin, ['mcp', 'get', 'appo'], { stdio: 'ignore', shell: ON_WIN });
-  return !res.error && res.status === 0;
+function registrationOf(agent, spawnSyncImpl) {
+  const res = spawnSyncImpl(agent.bin, ['mcp', 'get', 'appo'], { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8', shell: ON_WIN });
+  const registered = !res.error && res.status === 0;
+  return { registered, everywhere: registered && agent.coversEveryDirectory(String(res.stdout ?? '')) };
 }
 
 /** Run the agent's `mcp add`; resolve the exit code. */
@@ -127,7 +143,10 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
   const installed = [];
   const notes = [];
   for (const agent of present) {
-    if ((await addTo(agent, url, spawnImpl)) === 0 || isRegistered(agent, spawnSyncImpl)) {
+    const wired = registrationOf(agent, spawnSyncImpl).everywhere
+      || (await addTo(agent, url, spawnImpl)) === 0
+      || registrationOf(agent, spawnSyncImpl).registered;
+    if (wired) {
       installed.push(agent.label);
       const path = writeInstructions(agent);
       if (path) { notes.push(`${agent.label}: ${path}`); }
