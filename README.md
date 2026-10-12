@@ -279,6 +279,10 @@ is the browser consent that opens the first time the agent uses Appo; no token i
 configured. Exit code is `0` when at least one agent was registered, `1`
 otherwise.
 
+Run without a terminal (from an agent's shell tool, or in CI), the command does
+not wait for the browser sign-in that Codex's `mcp add` opens: the connector is
+registered and the sign-in is completed later with `codex mcp login appo`.
+
 For each agent it registers, `appo mcp` also adds a short section, delimited by
 `<!-- appo-start -->` and `<!-- appo-end -->`, to that agent's user-level
 instructions file: `~/.claude/CLAUDE.md` for Claude Code (or

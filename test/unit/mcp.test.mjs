@@ -155,6 +155,61 @@ test('present agent whose add fails (non-zero) does not count as installed', asy
   expect(code).toBe(1);
 });
 
+/**
+ * Fakes for an `mcp add` that stays open for a browser sign-in: the child
+ * closes only when the test calls `close`, and `mcp get` reports the entry
+ * from the moment the add was spawned (when `registers` is true).
+ */
+function openSignIn({ registers }) {
+  const state = { spawned: false, kill: vi.fn(), close: null };
+  const spawnImpl = vi.fn(() => {
+    state.spawned = true;
+    return { on: (ev, cb) => { if (ev === 'close') { state.close = cb; } }, kill: state.kill };
+  });
+  const spawnSyncImpl = (bin, args) => {
+    if (args[0] !== 'mcp') { return bin === 'codex' ? {} : { error: new Error('ENOENT') }; }
+    return { status: registers && state.spawned ? 0 : 1 };
+  };
+  return { state, spawnImpl, spawnSyncImpl };
+}
+
+test('without a terminal, an add left open for a browser sign-in is ended once the connector is registered', async () => {
+  vi.useFakeTimers();
+  const { state, spawnImpl, spawnSyncImpl } = openSignIn({ registers: true });
+  writeInstructions.mockImplementation((agent) => `/h/${agent.bin}.md`);
+  const pending = run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', interactive: false });
+  const outcome = await Promise.race([pending, vi.advanceTimersByTimeAsync(120_000).then(() => 'still waiting')]);
+  vi.useRealTimers();
+  expect(outcome).toBe(0);
+  expect(state.kill).toHaveBeenCalledTimes(1);
+  expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['codex']);
+  expect(lines.join('\n')).toMatch(/codex mcp login appo/);
+});
+
+test('without a terminal, an add that never registers the connector is ended and does not count', async () => {
+  vi.useFakeTimers();
+  const { state, spawnImpl, spawnSyncImpl } = openSignIn({ registers: false });
+  const pending = run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', interactive: false });
+  const outcome = await Promise.race([pending, vi.advanceTimersByTimeAsync(120_000).then(() => 'still waiting')]);
+  vi.useRealTimers();
+  expect(outcome).toBe(1);
+  expect(state.kill).toHaveBeenCalledTimes(1);
+  expect(writeInstructions).not.toHaveBeenCalled();
+  expect(lines.join('\n')).toMatch(/codex mcp add appo --url https:\/\/apps\.goappo\.io\/mcp/);
+});
+
+test('in a terminal, an add left open for a browser sign-in is waited for', async () => {
+  vi.useFakeTimers();
+  const { state, spawnImpl, spawnSyncImpl } = openSignIn({ registers: true });
+  const pending = run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', interactive: true });
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(state.kill).not.toHaveBeenCalled();
+  state.close(0);
+  vi.useRealTimers();
+  expect(await pending).toBe(0);
+  expect(lines.join('\n')).not.toMatch(/codex mcp login appo/);
+});
+
 test('unsafe API base aborts before any spawn', async () => {
   const spawnImpl = spawnWith(0);
   const spawnSyncImpl = vi.fn(detect(['claude']));

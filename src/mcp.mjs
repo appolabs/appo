@@ -21,8 +21,15 @@ const CLI_AGENTS = [
     label: 'Codex',
     args: (url) => ['mcp', 'add', 'appo', '--url', url],
     coversEveryDirectory: () => true,
+    // Its `mcp add` stays open for a browser sign-in; this completes one later.
+    signIn: 'codex mcp login appo',
   },
 ];
+
+// Without a terminal nobody can complete a browser sign-in, so an `mcp add`
+// that stays open is given this long to record its entry, then ended.
+const REGISTRATION_POLL_MS = 500;
+const REGISTRATION_WAIT_MS = 15_000;
 
 const ON_WIN = process.platform === 'win32';
 
@@ -85,16 +92,35 @@ function registrationOf(agent, spawnSyncImpl) {
   return { registered, everywhere: registered && agent.coversEveryDirectory(String(res.stdout ?? '')) };
 }
 
-/** Run the agent's `mcp add`; resolve the exit code. */
-function addTo(agent, url, spawnImpl) {
+/**
+ * Run the agent's `mcp add`; resolve the exit code. An add may stay open for a
+ * browser sign-in (Codex). With a terminal the person completes it and the add
+ * is waited for. Without one it is ended as soon as the agent's own record
+ * shows the entry, or after REGISTRATION_WAIT_MS, and null is resolved; its
+ * output is not shown, since the sign-in link it prints dies with it.
+ *
+ * @returns {Promise<number|null>}
+ */
+function addTo(agent, url, { spawnImpl, spawnSyncImpl, interactive }) {
   return new Promise((resolve) => {
     // INVARIANT (IN-03): argv elements are compile-time literals plus `url`,
     // which connectorUrl() has validated as an http(s) origin restricted to a
     // safe charset. The win32 `shell:true` workaround is injection-safe only
     // while nothing else is interpolated.
-    const child = spawnImpl(agent.bin, agent.args(url), { stdio: 'inherit', shell: ON_WIN });
-    child.on('error', () => resolve(1));
-    child.on('close', (code) => resolve(code ?? 1));
+    const child = spawnImpl(agent.bin, agent.args(url), { stdio: interactive ? 'inherit' : 'ignore', shell: ON_WIN });
+    let settled = false;
+    let poll;
+    const settle = (code) => { settled = true; clearInterval(poll); resolve(code); };
+    child.on('error', () => settle(1));
+    child.on('close', (code) => settle(code ?? 1));
+    if (interactive || settled) { return; }
+
+    const deadline = Date.now() + REGISTRATION_WAIT_MS;
+    poll = setInterval(() => {
+      if (!registrationOf(agent, spawnSyncImpl).everywhere && Date.now() < deadline) { return; }
+      child.kill();
+      settle(null);
+    }, REGISTRATION_POLL_MS);
   });
 }
 
@@ -124,12 +150,13 @@ export function printManual(url) {
  * injectable so tests assert behavior without spawning anything, writing to
  * the home directory or reading a profile; apiBase defaults to the active
  * profile's base. writeInstructions receives the agent row and returns the
- * path written, or null.
+ * path written, or null. interactive (a person at a terminal) defaults to
+ * the process's own stdin and stdout.
  *
- * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string }} [opts]
+ * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string, interactive?: boolean }} [opts]
  * @returns {Promise<number>} 0 if at least one agent was wired; 1 if none were
  */
-export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => installInstructions(agent.bin), apiBase } = {}) {
+export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => installInstructions(agent.bin), apiBase, interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) } = {}) {
   const url = connectorUrl(apiBase ?? resolveApiBase(undefined));
   const present = CLI_AGENTS.filter((a) => isPresent(a.bin, spawnSyncImpl));
 
@@ -142,15 +169,19 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
 
   const installed = [];
   const notes = [];
+  const signInLeft = [];
+  const failed = [];
   for (const agent of present) {
-    const wired = registrationOf(agent, spawnSyncImpl).everywhere
-      || (await addTo(agent, url, spawnImpl)) === 0
-      || registrationOf(agent, spawnSyncImpl).registered;
-    if (wired) {
-      installed.push(agent.label);
-      const path = writeInstructions(agent);
-      if (path) { notes.push(`${agent.label}: ${path}`); }
+    let wired = registrationOf(agent, spawnSyncImpl).everywhere;
+    if (!wired) {
+      const code = await addTo(agent, url, { spawnImpl, spawnSyncImpl, interactive });
+      wired = code === 0 || registrationOf(agent, spawnSyncImpl).registered;
+      if (wired && code === null && agent.signIn) { signInLeft.push(agent); }
     }
+    if (!wired) { failed.push(agent); continue; }
+    installed.push(agent.label);
+    const path = writeInstructions(agent);
+    if (path) { notes.push(`${agent.label}: ${path}`); }
   }
 
   console.log('');
@@ -160,7 +191,13 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
     for (const note of notes) {
       console.log(`A short Appo section was added to your agent instructions so it knows your app lives in Appo (${note}); edit or remove it freely.`);
     }
+    for (const agent of signInLeft) {
+      console.log(`${agent.label}: the sign-in was left for later; complete it with: ${agent.signIn}`);
+    }
     console.log('Restart your editor, then ask it to build an app.');
+  }
+  for (const agent of failed) {
+    console.log(`${agent.label}: the connector was not registered. To see why, run: ${agent.bin} ${agent.args(url).join(' ')}`);
   }
   console.log(`Other editors (Cursor, Windsurf, VS Code), add to .mcp.json: { "mcpServers": { "appo": { "url": "${url}" } } }`);
   return installed.length > 0 ? 0 : 1;
