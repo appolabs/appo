@@ -1,7 +1,7 @@
 {
   "name": "@appolabs/appo",
   "version": "5.6.5",
-  "description": "Appo CLI — create and manage native apps from your terminal or an agent.",
+  "description": "Appo CLI: turn a website into native iOS and Android apps and publish them on the App Store and Google Play, from your terminal or an AI agent.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,12 +14,19 @@
   "keywords": [
     "appo",
     "cli",
+    "website-to-app",
     "mobile",
+    "mobile-app",
+    "ios",
+    "android",
     "app-store",
+    "google-play",
     "publishing",
     "ship",
-    "ios",
-    "android"
+    "mcp",
+    "claude-code",
+    "codex",
+    "ai-agent"
   ],
   "author": "Appolabs",
   "type": "module",

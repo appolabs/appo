@@ -14,6 +14,7 @@ const COMMANDS = [
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'run',
   'download', 'devices list', 'devices register',
+  'appo mcp',
 ];
 
 test.each(COMMANDS)('README documents "%s"', (cmd) => {
@@ -65,6 +66,13 @@ test('no ship --url references remain (creation moved to appo new)', () => {
 test('no appo preview references remain (renamed to appo run)', () => {
   expect(README).not.toContain('appo preview');
   expect(LLMS).not.toContain('appo preview');
+});
+
+// An agent that lands on either doc must find the connector: the command that
+// registers it and the address it registers.
+test('both docs give the MCP connector address', () => {
+  expect(README).toContain('https://apps.goappo.io/mcp');
+  expect(LLMS).toContain('https://apps.goappo.io/mcp');
 });
 
 test('src/ has no build-trigger code paths', () => {

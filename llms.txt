@@ -1,11 +1,13 @@
 # @appolabs/appo
 
-> The Appo CLI — create and manage native apps from the terminal or an agent.
+> The Appo CLI: turn a website into native iOS and Android apps and publish them on the App Store and Google Play, from the terminal or an agent.
 
 A thin, dependency-free Node client over the Appo public API (`/api/v1`) and the
 RFC 8628 device-authorization grant. Run the complete Appo app lifecycle —
 create, ship, publish, push — from a shell or an agent. Two canonical commands:
 `appo new` (the app on your phone) and `appo ship` (the app on the stores).
+An AI agent can run the CLI or use the remote MCP connector,
+`https://apps.goappo.io/mcp`, which `appo mcp` registers.
 
 ## Quick Start
 
@@ -30,6 +32,7 @@ create, ship, publish, push — from a shell or an agent. Two canonical commands
 - [appo push](README.md#push)
 - [appo download](README.md#download)
 - [appo devices list / devices register](README.md#devices)
+- [appo mcp](README.md#mcp)
 - [appo upgrade / --version](README.md#upgrade)
 
 ## Reference

@@ -1,8 +1,17 @@
 # @appolabs/appo
 
-Create and manage native Appo apps from the terminal or an agent — at parity with
-the dashboard. A thin, dependency-free Node client over the Appo public API
-(`/api/v1`) and the RFC 8628 device-authorization grant (`/api/oauth/device/*`).
+The command-line client of [Appo](https://goappo.io), which turns an existing
+website into native iOS and Android apps and operates their publication on the
+App Store and Google Play. Create and manage Appo apps from the terminal or an
+agent, at parity with the dashboard. A thin, dependency-free Node client over
+the Appo public API (`/api/v1`) and the RFC 8628 device-authorization grant
+(`/api/oauth/device/*`).
+
+- In a terminal or CI: `npx @appolabs/appo new --url <website URL>` creates the
+  app, [`run`](#run) puts it on a phone and [`ship`](#ship) publishes it.
+- With an AI agent (Claude Code, Codex, Cursor): `npx @appolabs/appo mcp`
+  registers the Appo MCP connector, `https://apps.goappo.io/mcp`, and the agent
+  drives the same lifecycle. See [mcp](#mcp).
 
 > Looking for the JavaScript bridge inside the app (push, biometrics, camera
 > from your web code)? That is
