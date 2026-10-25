@@ -26,6 +26,11 @@ export async function getApp(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}`, null, env));
 }
 
+// POST /api/v1/apps/{id}/site/check -> 200 { site: {...} | null, message? }
+export async function checkSite(apiBase, id, env) {
+  return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/site/check`, null, env);
+}
+
 // GET /api/v1/apps -> 200 { data: AppResource[] }
 export async function listApps(apiBase, env) {
   return unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];

@@ -37,6 +37,7 @@ Apps:
   appo apps list                  List your apps
   appo apps show <id>             Show one app
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   Update name, URL, icon, permissions
+  appo apps check <id>            Check the site of an app again
   appo apps update <id> [--prepare on|off]   Hand preparation to Appo, or take it back
 
 Lifecycle:
@@ -312,12 +313,43 @@ async function confirmGate(flags, preview) {
   return 3;
 }
 
+/** Strip ASCII control characters (except newline) from server-provided text. */
+function cleanText(value) {
+  // eslint-disable-next-line no-control-regex
+  return String(value ?? '').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '');
+}
+
+/** Print the findings of a site_not_ready refusal; every sentence comes from the server. */
+function printSiteRefusal(env) {
+  const d = env.details ?? {};
+  console.error(`\n  ${cleanText(env.message)}`);
+  for (const f of d.findings ?? []) {
+    console.error(`  - ${cleanText(f.finding)}`);
+    if (f.fix) { console.error(`    ${cleanText(f.fix)}`); }
+  }
+  if (d.platform_note) { console.error(`  ${cleanText(d.platform_note)}`); }
+  if (d.kept_address) { console.error(`  The app keeps ${cleanText(d.kept_address)}.`); }
+  if (d.next) { console.error(`  Next: ${cleanText(d.next)}`); }
+  console.error('');
+}
+
 /** Render a thrown error to stderr and return the process exit code (1).
  *  prerequisite_failed envelopes (D-06) render as an actionable blocked state
  *  with next_action + dashboard_url; everything else falls back to err.message
  *  (which already carries the 401 "run `appo login`" hint from apiFetch). */
 function renderError(err) {
   const env = err.envelope;
+  if (env?.error === 'site_not_ready') {
+    printSiteRefusal(env);
+    return 1;
+  }
+  if (env?.error === 'rate_limited' && env.code === 'site_check_limited') {
+    console.error(`\n  ${cleanText(env.message)}`);
+    if (env.details?.retry_after != null) {
+      console.error(`  Retry in ${Number(env.details.retry_after)} seconds.\n`);
+    }
+    return 1;
+  }
   if (env?.error === 'prerequisite_failed') {
     console.error(`\n  Blocked: ${env.message}`);
     if (env.details?.dashboard_url) {
@@ -812,6 +844,30 @@ export async function run(argv) {
           }
           return 0;
         }
+        if (sub === 'check') {
+          let id = rest[0];
+          if (!id && isInteractive(flags)) {
+            const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps check <id>', selectLabel: 'Select an app to check:' });
+            if (resolved.exit !== undefined) { return resolved.exit; }
+            id = String(resolved.id);
+          }
+          if (!id) {
+            console.error('Usage: appo apps check <id>');
+            return 2;
+          }
+          const res = await ops.checkSite(apiBase, id, env);
+          const site = res?.site ?? null;
+          if (!site) {
+            if (res?.message) { console.log(cleanText(res.message)); }
+            return 0;
+          }
+          if (site.recheck?.sentence) { console.log(cleanText(site.recheck.sentence)); }
+          for (const f of site.findings ?? []) {
+            console.log(`  - ${cleanText(f.finding)}`);
+            if (f.fix) { console.log(`    ${cleanText(f.fix)}`); }
+          }
+          return 0;
+        }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);
         return 2;
       }
@@ -1092,9 +1148,17 @@ export async function run(argv) {
         if (flags.json) {
           const body = { name, base_url };
           if (prepMode) body.prep_mode = prepMode;
-          const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env);
-          console.log(JSON.stringify(res));
-          return 0;
+          try {
+            const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env);
+            console.log(JSON.stringify(res));
+            return 0;
+          } catch (err) {
+            if (err.envelope?.error === 'site_not_ready') {
+              console.log(JSON.stringify(err.envelope));
+              return 1;
+            }
+            throw err;
+          }
         }
         const attrs = { name, base_url };
         if (prepMode) attrs.prep_mode = prepMode;

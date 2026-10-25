@@ -165,3 +165,98 @@ test('new with no token errors out and makes no request', async () => {
   expect(lines.join('\n')).toMatch(/Not authenticated/i);
   expect(requests.length).toBe(0);
 });
+
+// Site readiness refusal (268): findings, fix and next step come from the server.
+const REFUSAL = {
+  error: 'site_not_ready',
+  code: 'site_blocking_findings',
+  message: 'The site cannot be turned into an app yet.',
+  details: {
+    findings: [
+      { id: 'a', label: 'A', finding: 'The site blocks automated visits.', fix: 'Allow the Appo crawler.\u001b[31m' },
+      { id: 'b', label: 'B', finding: 'The site is not served over HTTPS.', fix: 'Serve it over HTTPS.' },
+    ],
+    platform_note: 'Hosted on a closed platform.',
+    next: 'Fix these and run the command again.',
+    recheck: null,
+    kept_address: 'https://old.example',
+  },
+};
+
+test('new prints refusal findings and exits 1', async () => {
+  stubToken();
+  installMockFetch([{ status: 422, body: REFUSAL }]);
+  const { result, lines } = await captureAll(() =>
+    run(['new', '--url', 'https://bad.example', ...API]));
+  expect(result).toBe(1);
+  const out = lines.join('\n');
+  expect(out).toContain('The site cannot be turned into an app yet.');
+  expect(out).toContain('- The site blocks automated visits.');
+  expect(out).toContain('    Allow the Appo crawler.');
+  expect(out).toContain('Hosted on a closed platform.');
+  expect(out).toContain('Next: Fix these and run the command again.');
+  expect(out).not.toContain('\u001b');
+});
+
+test('new --json prints the refusal envelope on stdout and exits 1', async () => {
+  stubToken();
+  installMockFetch([{ status: 422, body: REFUSAL }]);
+  const { result, lines } = await captureAll(() =>
+    run(['new', '--url', 'https://bad.example', '--json', ...API]));
+  expect(result).toBe(1);
+  expect(JSON.parse(lines.join('')).error).toBe('site_not_ready');
+});
+
+test('apps create prints refusal findings', async () => {
+  stubToken();
+  installMockFetch([{ status: 422, body: REFUSAL }]);
+  const { result, lines } = await captureAll(() =>
+    run(['apps', 'create', '--name', 'n', '--url', 'https://bad.example', ...API]));
+  expect(result).toBe(1);
+  expect(lines.join('\n')).toContain('- The site is not served over HTTPS.');
+});
+
+test('apps update prints refusal findings and the kept address', async () => {
+  stubToken();
+  installMockFetch([{ status: 422, body: REFUSAL }]);
+  const { result, lines } = await captureAll(() =>
+    run(['apps', 'update', '7', '--url', 'https://bad.example', ...API]));
+  expect(result).toBe(1);
+  expect(lines.join('\n')).toContain('The app keeps https://old.example.');
+});
+
+test('apps check prints the sentence and remaining findings', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { site: { status: 'blocked', recheck: { sentence: 'One problem remains.' }, findings: [{ finding: 'No HTTPS.', fix: 'Enable HTTPS.' }] } } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(0);
+  expect(lastRequest().path).toMatch(/\/api\/v1\/apps\/7\/site\/check$/);
+  const out = lines.join('\n');
+  expect(out).toContain('One problem remains.');
+  expect(out).toContain('- No HTTPS.');
+});
+
+test('apps check prints the message when no site is stored', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { site: null, message: 'No site check on record.' } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(0);
+  expect(lines.join('\n')).toContain('No site check on record.');
+});
+
+test('apps check on a rate limit prints the wait and exits 1', async () => {
+  stubToken();
+  installMockFetch([{ status: 429, body: { error: 'rate_limited', code: 'site_check_limited', message: 'Too many checks.', details: { retry_after: 42, window: 60 } } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(1);
+  const out = lines.join('\n');
+  expect(out).toContain('Too many checks.');
+  expect(out).toContain('Retry in 42 seconds.');
+});
+
+test('apps check without an id in a non-interactive run exits 2', async () => {
+  stubToken();
+  const { result, lines } = await captureAll(() => run(['apps', 'check', ...API]));
+  expect(result).toBe(2);
+  expect(lines.join('\n')).toContain('Usage: appo apps check <id>');
+});
