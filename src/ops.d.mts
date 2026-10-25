@@ -18,6 +18,9 @@ export function createApp(
 
 export function getApp(apiBase: string, id: string | number, env?: string): Promise<any>;
 
+/** Runs the site readiness check for the app; resolves to the server payload. */
+export function checkSite(apiBase: string, id: string | number, env?: string): Promise<any>;
+
 export function listApps(apiBase: string, env?: string): Promise<any[]>;
 
 export function getBuild(
