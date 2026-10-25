@@ -137,6 +137,7 @@ profile with `*` and never prints tokens. Select an environment per-command with
 appo apps create --name <n> --url <u>
 appo apps list             # list your apps
 appo apps show <id>        # show one app
+appo apps check <id>       # check the site of an app again
 appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   # edit name, base URL, icon, permissions
 ```
 

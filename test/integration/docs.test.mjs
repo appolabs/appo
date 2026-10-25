@@ -10,7 +10,7 @@ const LLMS = readFileSync('llms.txt', 'utf-8');
 
 const COMMANDS = [
   'appo new', 'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
-  'apps create', 'apps list', 'apps show', 'apps update',
+  'apps create', 'apps list', 'apps show', 'apps check', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'run',
   'download', 'devices list', 'devices register',
