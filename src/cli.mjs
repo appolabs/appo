@@ -45,7 +45,7 @@ Lifecycle:
   appo new --url <u> [--name <n>] [--prepare on|off [--owner-authorized --accept-tos]]   Create your app — name defaults from the URL
   appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
-  appo run [id]                           Try it: trigger a TestFlight build if none is ready, then show/open the on-device target (join link + QR); no id: your only app, or a picker
+  appo run [id]                           Try it: print the preview link and QR code for your phone, or what Appo is still doing; no id: your only app, or a picker
   appo rejection <id>                     Show the active App Store rejection
   appo fix-recipe <id>                    Show the fix recipe for a rejection
   appo publish <id> [--confirm]           Publish an already-built app to its stores
@@ -142,15 +142,37 @@ function parseArgs(argv) {
   return { flags, positional };
 }
 
-/** What the customer can do while the app is not yet ready to try: one
- *  description per line, aligned under the preparation value. The agent-facing
+/** Render the server's `try` block (the single readiness predicate). Nothing
+ *  is derived here; every server string goes through cleanText. The agent-facing
  *  `tool`/`arguments` of each option are not printed. */
-function printPreparationOptions(options) {
-  if (!Array.isArray(options)) return;
-  for (const option of options) {
-    if (typeof option?.description === 'string' && option.description) {
-      console.log(`  ${''.padEnd(18)} - ${option.description}`);
+function printTry(tryBlock, { withQr = false } = {}) {
+  if (!tryBlock || typeof tryBlock !== 'object') return;
+  const pad = ''.padEnd(18);
+  console.log(`  ${'try'.padEnd(18)} ${cleanText(tryBlock.message)}`);
+  if (tryBlock.state === 'ready') {
+    if (tryBlock.preview_url) console.log(`  ${'preview_url'.padEnd(18)} ${cleanText(tryBlock.preview_url)}`);
+    if (tryBlock.how_to_open) console.log(`  ${pad} ${cleanText(tryBlock.how_to_open)}`);
+    if (withQr && tryBlock.preview_url) {
+      const CONTRAST = '\x1b[30;47m'; // black fg on white bg
+      const RESET = '\x1b[0m';
+      console.log('');
+      for (const row of renderQr(tryBlock.preview_url).split('\n')) {
+        console.log(`${CONTRAST}${row}${RESET}`);
+      }
     }
+    return;
+  }
+  if (Array.isArray(tryBlock.options)) {
+    for (const option of tryBlock.options) {
+      if (typeof option?.description === 'string' && option.description) {
+        console.log(`  ${pad} - ${cleanText(option.description)}`);
+      }
+    }
+  }
+  const minutes = Number(tryBlock.recheck_after_minutes);
+  if (Number.isFinite(minutes) && minutes > 0) {
+    const when = minutes >= 120 ? `${Math.round(minutes / 60)} hours` : `${minutes} minutes`;
+    console.log(`  ${pad} check again in about ${when}`);
   }
 }
 
@@ -164,8 +186,8 @@ function printApp(app) {
   line('primary_action', app.primary_action);
   if (app.preparation) {
     line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
-    printPreparationOptions(app.preparation.options);
   }
+  printTry(app.try, { withQr: false });
   if (app.stores) line('stores', `apple=${app.stores.apple} google=${app.stores.google}`);
   line('ios_bundle_id', app.ios_bundle_id);
   line('android_package', app.android_package_name);
@@ -212,72 +234,6 @@ function printRecipe(r) {
   if (Array.isArray(r.limitations) && r.limitations.length) {
     console.log('  limitations:');
     for (const l of r.limitations) console.log(`    - ${l}`);
-  }
-}
-
-/** Curated render of a preview payload (flat, no {data:} envelope).
- *  Prints per-platform readiness FIRST, then the three URLs, then the QR (gated on
- *  readiness). preview_url is never null (backend guarantee); the QR is skipped when
- *  neither platform is ready — NOT when preview_url is absent (Pitfall 4). */
-function printPreviewPayload(d) {
-  if (!d) return;
-  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
-  const r = d.preview_ready || {};
-  // D-02 (Pitfall 1): renderQr returns the BARE matrix (snapshot-stable). Hoisted to
-  // function scope so both the ad-hoc switch and the null-fallback branch can call printQr
-  // without a ReferenceError (CONTRAST/RESET were previously scoped to the old if-block).
-  const CONTRAST = '\x1b[30;47m'; // black fg on white bg
-  const RESET = '\x1b[0m';
-  const printQr = (url) => {
-    console.log('');
-    for (const row of renderQr(url).split('\n')) {
-      console.log(`${CONTRAST}${row}${RESET}`);
-    }
-  };
-  // D-04: readiness lines FIRST, per-platform. preview_ready is {ios:bool, android:bool}.
-  // appo mode (preview_mode_ios=appo): iOS opens via the APPO container, so it is
-  // preview-ready even though preview_ready.ios (TestFlight-gated) stays false (GAP-AGENT-IOS).
-  const iosAppo = !!(d.ios && d.ios.mode && d.ios.mode !== 'native');
-  const iosReady = r.ios || iosAppo;
-  console.log(`  ios                ${iosReady ? 'preview-ready' : 'not preview-ready yet'}`);
-  console.log(`  android            ${r.android ? 'preview-ready' : 'not preview-ready yet'}`);
-  if (r.ios)     line('ios_testflight_url', d.ios_testflight_url);
-  if (iosAppo)   console.log('  ios                opens via the APPO container (scan preview_url below)');
-  if (r.android) line('android_deeplink',   d.android_deeplink);
-  line('preview_url', d.preview_url);   // always present
-  // D-10/D-09: when ios_ad_hoc is present its state drives the render; the ad-hoc QR
-  // (registration/install URL) replaces the preview_url QR to avoid two QRs on screen.
-  const adHoc = d.ios_ad_hoc;
-  if (adHoc && adHoc.state) {
-    switch (adHoc.state) {
-      case 'awaiting-registration':
-        console.log('  ios (ad-hoc)       register your iPhone to preview this app');
-        if (adHoc.registration_url) {
-          line('registration_url', adHoc.registration_url);
-          printQr(adHoc.registration_url);
-        }
-        return;
-      case 'stamping':
-        console.log('  ios (ad-hoc)       building your iOS preview — usually under 2 minutes');
-        return;
-      case 'ready':
-        console.log('  ios (ad-hoc)       ready to install');
-        if (adHoc.install_url) {
-          line('install_url', adHoc.install_url);
-          printQr(adHoc.install_url);
-        }
-        return;
-      case 'blocked':
-        // D-09: print message verbatim, no QR, no fallback.
-        console.log(`  ios (ad-hoc)       ${adHoc.message || 'iOS preview is not available — the device registration limit has been reached.'}`);
-        return;
-    }
-  }
-  // No ad-hoc block (null) — D-03: gate the QR on READINESS, not on preview_url nullness.
-  if (iosReady || r.android) {
-    printQr(d.preview_url);
-  } else {
-    console.log('  (no preview target yet — build and publish to enable preview)');
   }
 }
 
@@ -1026,7 +982,13 @@ export async function run(argv) {
         const res = await apiFetch(apiBase, 'GET', path, null, env);
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         const d = unwrap(res);
-        if (flags.build) printBuild(d); else printApp(d);
+        if (flags.build) { printBuild(d); return 0; }
+        printApp(d);
+        if (d?.try?.state === 'ready') {
+          const preview = await ops.getPreview(apiBase, sub, env);
+          const url = preview?.try?.preview_url;
+          if (url) console.log(`  ${'preview_url'.padEnd(18)} ${cleanText(url)}`);
+        }
         return 0;
       }
 
@@ -1037,21 +999,11 @@ export async function run(argv) {
           if (resolved.exit !== undefined) { return resolved.exit; }
           id = resolved.id;
         }
-        // Direct trigger — no confirm gate (D-02/D-05): the CLI invocation IS
-        // the intent, mirroring the REST endpoint it calls. A 409 (a build
-        // already in flight, or this app isn't ready yet) is NOT swallowed
-        // here — it flows to the existing error path, same as every other
-        // verb: under --json the envelope is emitted verbatim below; in human
-        // mode it propagates to the top-level catch -> renderError (exit 1),
-        // and no on-device target is shown.
-        //
-        // --json: the trigger response passed through verbatim (D-05/D-08) —
-        // a single request, never reaching the printer/QR. Unlike the human
-        // path below, --json does not also fetch/show the target: the
-        // machine-readable contract is exactly what the POST returned.
+        // Read-only: the server owns readiness and the one link (D-01, D-13).
+        // No build is triggered; iPhone builds start server-side.
         if (flags.json) {
           try {
-            const res = await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds/testflight`, null, env);
+            const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env);
             console.log(JSON.stringify(res));
             return 0;
           } catch (err) {
@@ -1059,10 +1011,8 @@ export async function run(argv) {
             throw err;
           }
         }
-        await ops.triggerTestflightBuild(apiBase, id, env);
-        console.log('TestFlight build triggered.');
         const d = await ops.getPreview(apiBase, id, env);
-        printPreviewPayload(d);
+        printTry(d?.try, { withQr: true });
         return 0;
       }
 
@@ -1222,7 +1172,7 @@ export async function run(argv) {
             console.log(`${CONTRAST}${row}${RESET}`);
           }
           console.log('');
-          console.log('Then run: appo run <id>   (triggers a TestFlight build and opens your iOS preview)');
+          console.log('Then run: appo run <id>   (shows the preview link for your phone)');
           return 0;
         }
         if (sub === 'list' || sub === undefined) {
@@ -1305,6 +1255,7 @@ export async function run(argv) {
         const app = (await ops.createApp(apiBase, attrs, env)) || {};
         console.log(`Created app #${app.id} — ${app.name}`);
         console.log(`  url: ${app.base_url}`);
+        printTry(app.try, { withQr: false });
         console.log(`  run it on your device: appo run ${app.id}`);
         console.log(`  ship to the stores:    appo ship ${app.id}`);
         await maybeOfferMcp(flags, apiBase);

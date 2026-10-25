@@ -45,6 +45,17 @@ const API = ['--api', 'http://test.local'];
 // `appo new` is the creation verb — the app on your phone; `appo ship <id>` is
 // the store verb. Single-step (no ledger): plain output, top-level renderError.
 
+test('new prints the try message of the creation response', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', try: { state: 'preparing', message_code: 'preparing', message: 'Appo is getting the app ready.', preview_url: null, how_to_open: null, options: [] } } } },
+  ]);
+  const { result, lines } = await captureLog(() =>
+    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', 'off', ...API]));
+  expect(result).toBe(0);
+  expect(lines.join('\n')).toContain('Appo is getting the app ready.');
+});
+
 // 1. Happy path with an explicit --name: one POST /api/v1/apps, human output
 //    points at the two canonical next steps (run + ship).
 test('new --url --name creates the app and prints run/ship next steps', async () => {

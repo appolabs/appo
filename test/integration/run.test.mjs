@@ -41,82 +41,113 @@ afterEach(() => resetMockFetch());
 
 const API = ['--api', 'http://test.local'];
 
-// --- run: trigger + show target --------------------------------------------
+// --- run: the one-link verb (D-13) -------------------------------------------
 
-// D-05: `run` triggers directly (no --confirm) then shows the on-device target.
-// The mock FIFO repeats its last queued item once exhausted (see mockFetch.mjs),
-// so a single canned preview-shaped body serves BOTH the trigger POST (whose
-// body is never read) and the following GET /preview (whose body IS read).
-test('run <id> triggers the TestFlight build (POST first), then shows the target when ready', async () => {
+const READY_PREVIEW = {
+  android: { state: 'ready' },
+  ios: { mode: 'appo', state: 'ready' },
+  ios_testflight_url: null,
+  android_deeplink: null,
+  preview_url: 'https://app.appo.io/preview/tok',
+  preview_ready: { ios: false, android: true },
+  try: {
+    state: 'ready',
+    message_code: 'ready_iphone_soon',
+    message: 'Ready on Android. iPhone testing is being set up.',
+    preview_url: 'https://app.appo.io/preview/tok',
+    how_to_open: 'Open the link on your phone.',
+    options: [],
+  },
+};
+
+const PREPARING_PREVIEW = {
+  preview_url: 'https://app.appo.io/preview/tok',
+  preview_ready: { ios: false, android: false },
+  try: {
+    state: 'preparing',
+    message_code: 'preparing',
+    message: 'Appo is adapting the site to the app.',
+    preview_url: null,
+    how_to_open: null,
+    options: [{ action: 'wait', description: 'Wait for the adaptation to finish.', tool: 'get_app_overview' }],
+    recheck_after_minutes: 360,
+  },
+};
+
+test('run <id> makes one GET to /preview, no POST, and prints message, link, how-to-open and QR', async () => {
   stubToken();
-  installMockFetch({
-    status: 200,
-    body: {
-      ios_testflight_url: 'https://testflight.apple.com/join/XXXX',
-      android_deeplink: null,
-      preview_url: 'https://app.appo.io/preview/tok',
-      preview_ready: { ios: true, android: false },
-    },
-  });
+  installMockFetch({ status: 200, body: READY_PREVIEW });
   const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
-  expect(requests.length).toBe(2);
-  expect(requests[0].method).toBe('POST');
-  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7\/builds\/testflight$/);
-  expect(requests[1].method).toBe('GET');
-  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+  expect(requests.length).toBe(1);
+  expect(requests[0].method).toBe('GET');
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
   const out = lines.join('\n');
-  expect(out).toContain('TestFlight build triggered.');
-  expect(out).toContain('https://testflight.apple.com/join/XXXX');
-  expect(out).toMatch(/[▀▄█]/); // a QR was rendered — the target is shown
+  expect(out).toContain('Ready on Android. iPhone testing is being set up.');
+  expect(out).toContain('https://app.appo.io/preview/tok');
+  expect(out).toContain('Open the link on your phone.');
+  expect(out).toMatch(/[▀▄█]/);
+  expect(out).not.toMatch(/^\s*(ios|android)\b/m);
 });
 
-test('run <id> --json emits the trigger response verbatim (single POST, no target fetch)', async () => {
+test('run <id> while preparing prints message, options and when to check again, no QR, exit 0', async () => {
   stubToken();
-  const body = { data: { platform: 'ios', status: 'preparing', kind: 'testflight' } };
-  installMockFetch({ status: 202, body });
+  installMockFetch({ status: 200, body: PREPARING_PREVIEW });
+  const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('Appo is adapting the site to the app.');
+  expect(out).toContain('Wait for the adaptation to finish.');
+  expect(out).toContain('check again in about 6 hours');
+  expect(out).not.toContain('get_app_overview');
+  expect(out).not.toMatch(/[▀▄█]/);
+});
+
+test('run <id> strips control characters from server text', async () => {
+  stubToken();
+  const body = structuredClone(PREPARING_PREVIEW);
+  body.try.message = 'Hello\x1b[31m red';
+  body.try.options[0].description = 'Do\x07 this';
+  installMockFetch({ status: 200, body });
+  const { lines } = await captureLog(() => run(['run', '7', ...API]));
+  const out = lines.join('\n');
+  expect(out).toContain('Hello[31m red');
+  expect(out).toContain('Do this');
+  // eslint-disable-next-line no-control-regex
+  expect(out).not.toMatch(/\x1b\[31m|\x07/);
+});
+
+test('run <id> --json emits the preview payload verbatim (single GET)', async () => {
+  stubToken();
+  installMockFetch({ status: 200, body: READY_PREVIEW });
   const { result, lines } = await captureLog(() => run(['run', '7', '--json', ...API]));
   expect(result).toBe(0);
   expect(requests.length).toBe(1);
-  expect(requests[0].method).toBe('POST');
-  expect(requests[0].path).toMatch(/\/api\/v1\/apps\/7\/builds\/testflight$/);
-  expect(JSON.parse(lines.join(''))).toEqual(body);
+  expect(requests[0].method).toBe('GET');
+  expect(JSON.parse(lines.join(''))).toEqual(READY_PREVIEW);
 });
 
-// D-06/D-08: a 409 (concurrency in-flight, or the app not yet ASC-ready) is not
-// swallowed — it renders via the EXISTING error path, never a bespoke one.
-test('run <id> --json on a 409 conflict emits the envelope verbatim and returns 1', async () => {
+test('run <id> --json on an error emits the envelope verbatim and returns 1', async () => {
   stubToken();
-  const env = { error: 'conflict', code: 'resource_conflict', message: 'A device build is already in progress for this app — wait for it to finish before starting another.' };
-  installMockFetch({ status: 409, body: env });
+  const env = { error: 'not_found', code: 'resource_not_found', message: 'The requested resource was not found.' };
+  installMockFetch({ status: 404, body: env });
   const { result, lines } = await captureLog(() => run(['run', '7', '--json', ...API]));
   expect(result).toBe(1);
   expect(JSON.parse(lines.join(''))).toEqual(env);
 });
 
-test('run <id> (human) on a 409 conflict renders the server message via renderError, returns 1, no target fetch', async () => {
-  stubToken();
-  const message = "We're still preparing this app for on-device testing. If it doesn't clear shortly, reach out to support.";
-  installMockFetch({ status: 409, body: { error: 'conflict', code: 'resource_conflict', message } });
-  const { result, errs } = await captureAll(() => run(['run', '7', ...API]));
-  expect(result).toBe(1);
-  expect(errs.join('\n')).toContain(message);
-  expect(requests.length).toBe(1); // the trigger POST only — no GET /preview follow-up on failure
-});
-
-test('run <id> propagates a non-conflict error (e.g. 404 app not found) to the existing error path', async () => {
+test('run <id> on a 404 goes through the existing error path, returns 1', async () => {
   stubToken();
   installMockFetch({ status: 404, body: { error: 'not_found', code: 'resource_not_found', message: 'The requested resource was not found.' } });
   const { result } = await captureAll(() => run(['run', '7', ...API]));
   expect(result).toBe(1);
 });
 
-// D-02/D-05: the run case never gates behind --confirm.
-test('run <id> never emits a confirm-required gate (exit 3)', async () => {
+test('run has no --platform branch', async () => {
   stubToken();
-  installMockFetch({ status: 202, body: { data: { platform: 'ios' } } });
-  const { result } = await captureLog(() => run(['run', '7', ...API]));
-  expect(result).not.toBe(3);
+  installMockFetch({ status: 200, body: READY_PREVIEW });
+  const { lines } = await captureLog(() => run(['run', '7', '--platform', 'ios', ...API]));
+  expect(lines.join('\n')).not.toMatch(/^\s*(ios|android)\b/m);
 });
 
 // --- printBuild: curated 9-key set only (D-04) -------------------------------
