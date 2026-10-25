@@ -9,6 +9,18 @@ create, ship, publish, push — from a shell or an agent. Two canonical commands
 An AI agent can run the CLI or use the remote MCP connector,
 `https://apps.goappo.io/mcp`, which `appo mcp` registers.
 
+## Preparation choice (agents)
+
+`appo new` and `appo apps create` need `--prepare off` (the user or their developer
+maintains the website's code) or `--prepare on --owner-authorized --accept-tos`
+(Appo's team adapts the site; the user confirms ownership and accepts the Terms of
+Service, https://goappo.io/en/terms). Under `--json` or without a terminal, when the
+flags are missing, the command creates nothing, issues no request, prints an
+`input_required` envelope with code `preparation_choice_required` or
+`attestation_required` and exits 2. An agent must ask the user these questions, as
+separate steps, and must not choose the flags itself; then re-run with the flags the
+envelope names. See [appo new](README.md#appo-new).
+
 ## Quick Start
 
 - [Install](README.md#install)

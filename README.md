@@ -51,13 +51,28 @@ stripped, first label, capitalized (`www.pizza-mario.it` -> `Pizza-mario`).
 
 ```bash
 appo new --url <u> --name <n>              # explicit name
-appo new --url <u> --prepare               # request Appo preparation
+appo new --url <u> --prepare off           # you or your developer maintain the site's code
+appo new --url <u> --prepare on --owner-authorized --accept-tos   # Appo's team adapts the site
 appo new --url <u> --json                  # raw creation response envelope
 ```
 
-`--prepare` — requests that Appo prepare the app content (icons, splash screen,
-store copy). Default: you prepare it yourself. Omit the flag when the app's
-source code is available locally and you can configure the content directly.
+`--prepare on|off` settles who adapts the website to the app. `off`: you, or a
+developer working for you, maintain the site's code; the app can be tried right
+away. `on`: Appo's team adapts the site, usually within 24-48 hours; the app can
+be tried once that is done. `on` requires `--owner-authorized` (the website is
+yours or you may publish it) and `--accept-tos` (acceptance of the Terms of
+Service, https://goappo.io/en/terms). A bare `--prepare` means `on`.
+
+In a terminal, `appo new` asks these questions in plain words when the flags are
+absent. Under `--json`, or without a terminal, nothing is created and no request
+is issued: the command prints an `input_required` envelope on stdout (stderr
+without `--json`) and exits `2`. Its `code` is `preparation_choice_required`
+(no `--prepare`) or `attestation_required` (`--prepare on` without both
+attestation flags); `details` carries the question, the matching flags and the
+Terms URL. An agent asks the user, then re-runs with the flags named in the
+envelope. `appo apps create` follows the same rule, and
+`appo apps update <id> --prepare on` accepts `--owner-authorized` and
+`--accept-tos`.
 
 On success it prints the new app id and the two next steps: `appo run <id>`
 (the app on your phone) and `appo ship <id>` (the app on the stores). A missing
@@ -134,7 +149,7 @@ profile with `*` and never prints tokens. Select an environment per-command with
 ## Apps
 
 ```bash
-appo apps create --name <n> --url <u>
+appo apps create --name <n> --url <u> --prepare on|off [--owner-authorized --accept-tos]
 appo apps list             # list your apps
 appo apps show <id>        # show one app
 appo apps check <id>       # check the site of an app again
