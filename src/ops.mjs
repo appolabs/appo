@@ -15,9 +15,11 @@ export function unwrap(payload) {
 }
 
 // POST /api/v1/apps -> 201 { data: AppResource }
-export async function createApp(apiBase, { name, base_url, prep_mode }, env) {
+export async function createApp(apiBase, { name, base_url, prep_mode, owner_authorized, accepted_tos }, env) {
   const body = { name, base_url };
   if (prep_mode) body.prep_mode = prep_mode;
+  if (owner_authorized) body.owner_authorized = true;
+  if (accepted_tos) body.accepted_tos = true;
   return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env));
 }
 

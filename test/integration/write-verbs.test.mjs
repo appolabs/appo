@@ -207,6 +207,18 @@ test('apps update --prepare on PATCHes prep_mode appo_managed then re-reads and 
   expect(lines.join('\n')).toMatch(/preparation: appo_managed \(in_progress\)/);
 });
 
+test('apps update --prepare on --owner-authorized --accept-tos sends both attestation fields', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 204 },
+    { status: 200, body: { data: { id: 7, preparation: { mode: 'appo_managed', status: 'in_progress' } } } },
+  ]);
+  const { result } = await captureLog(() =>
+    run(['apps', 'update', '7', '--prepare', 'on', '--owner-authorized', '--accept-tos', ...API]));
+  expect(result).toBe(0);
+  expect(requests[0].body).toEqual({ prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true });
+});
+
 test('apps update --prepare off sends prep_mode self_managed', async () => {
   stubToken();
   installMockFetch([

@@ -6,7 +6,13 @@ export function unwrap(payload: unknown): any;
 
 export function createApp(
   apiBase: string,
-  input: { name: string; base_url: string },
+  input: {
+    name: string;
+    base_url: string;
+    prep_mode?: string;
+    owner_authorized?: boolean;
+    accepted_tos?: boolean;
+  },
   env?: string,
 ): Promise<any>;
 

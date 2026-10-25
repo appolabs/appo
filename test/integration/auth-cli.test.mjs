@@ -248,7 +248,7 @@ test('--env staging is honored by an ops-routed verb (apps create) — WR-01', a
   writeConfig({ ...readConfig(), current: 'production' });
   installMockFetch({ status: 201, body: { data: { id: 9 } } });
 
-  await silentRun(['apps', 'create', '--env', 'staging', '--name', 'X', '--url', 'https://x']);
+  await silentRun(['apps', 'create', '--env', 'staging', '--name', 'X', '--url', 'https://x', '--prepare', 'off']);
 
   const req = lastRequest();
   expect(req.headers.Authorization).toBe('Bearer stg-tok');   // staging token, not production's

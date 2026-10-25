@@ -38,10 +38,10 @@ Apps:
   appo apps show <id>             Show one app
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   Update name, URL, icon, permissions
   appo apps check <id>            Check the site of an app again
-  appo apps update <id> [--prepare on|off]   Hand preparation to Appo, or take it back
+  appo apps update <id> [--prepare on|off [--owner-authorized --accept-tos]]   Hand preparation to Appo, or take it back
 
 Lifecycle:
-  appo new --url <u> [--name <n>] [--prepare]   Create your app — name defaults from the URL
+  appo new --url <u> [--name <n>] [--prepare on|off [--owner-authorized --accept-tos]]   Create your app — name defaults from the URL
   appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
   appo run [id]                           Try it: trigger a TestFlight build if none is ready, then show/open the on-device target (join link + QR); no id: your only app, or a picker
@@ -438,6 +438,101 @@ function isYes(answer) {
   return /^y(es)?$/i.test(answer);
 }
 
+const TERMS_URL = 'https://goappo.io/en/terms';
+
+/** Parses --prepare: absent -> null, bare flag or on -> 'on', off -> 'off', else 'invalid'. */
+function parsePrepareFlag(value) {
+  if (value === undefined) { return null; }
+  if (value === true) { return 'on'; }
+  const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return v === 'on' || v === 'off' ? v : 'invalid';
+}
+
+function preparationEnvelope(code, message, details) {
+  return { error: 'input_required', code, message, details: { ...details, terms_of_service_url: TERMS_URL } };
+}
+
+function printEnvelope(flags, envelope) {
+  if (flags.json) {
+    console.log(JSON.stringify(envelope));
+    return;
+  }
+  console.error(envelope.message);
+  const d = envelope.details;
+  if (d.answers) {
+    for (const a of d.answers) { console.error(`  ${a.answer}: ${a.flags.join(' ')}`); }
+  }
+  if (d.flags) { console.error(`  ${d.flags.join(' ')}`); }
+  console.error(`Terms of Service: ${d.terms_of_service_url}`);
+}
+
+/** Settles who adapts the website to the app, shared by `new` and `apps create`.
+ *  Returns { attrs } to merge into the creation body, or { exit, envelope? } when
+ *  nothing may be created. Never makes an HTTP request. A terminal gets plain-word
+ *  questions; --json or no terminal gets the structured envelope (exit 2). */
+async function settlePreparation(flags) {
+  const mode = parsePrepareFlag(flags.prepare);
+  if (mode === 'invalid') {
+    console.error(`Invalid --prepare ${JSON.stringify(flags.prepare)}. Value must be on or off.`);
+    return { exit: 2 };
+  }
+  if (mode === 'off') { return { attrs: { prep_mode: 'self_managed' } }; }
+  const interactive = isInteractive(flags);
+  const ownerFlag = flags['owner-authorized'] === true;
+  const tosFlag = flags['accept-tos'] === true;
+
+  if (mode === null) {
+    if (!interactive) {
+      const envelope = preparationEnvelope(
+        'preparation_choice_required',
+        'Ask the user whether they, or a developer working for them, maintain this website\'s code, then re-run with the matching flags.',
+        {
+          question: 'Do you, or a developer working for you, maintain this website\'s code?',
+          answers: [
+            { answer: 'yes', flags: ['--prepare', 'off'] },
+            {
+              answer: 'no',
+              flags: ['--prepare', 'on', '--owner-authorized', '--accept-tos'],
+              requires: 'the user\'s confirmation that they own the website or may publish it, and acceptance of the Terms of Service, asked as a separate step',
+            },
+          ],
+        },
+      );
+      printEnvelope(flags, envelope);
+      return { exit: 2, envelope };
+    }
+    if (isYes(await askLine('Do you, or a developer working for you, maintain this website\'s code? [y/n] '))) {
+      return { attrs: { prep_mode: 'self_managed' } };
+    }
+    console.log('Appo\'s team will adapt the website to the app, usually within 24-48 hours; the app can be tried once that is done.');
+  }
+
+  let owner = ownerFlag;
+  let tos = tosFlag;
+  if (!(owner && tos) && !interactive) {
+    const envelope = preparationEnvelope(
+      'attestation_required',
+      'Ask the user to confirm, as separate questions, that they own the website or may publish it and that they accept the Terms of Service, then re-run with both flags.',
+      {
+        questions: [
+          'Do you own this website, or are you authorized to publish it?',
+          'Do you accept Appo\'s Terms of Service?',
+        ],
+        flags: ['--prepare', 'on', '--owner-authorized', '--accept-tos'],
+      },
+    );
+    printEnvelope(flags, envelope);
+    return { exit: 2, envelope };
+  }
+  if (!owner) { owner = isYes(await askLine('Do you own this website, or are you authorized to publish it? [y/n] ')); }
+  if (owner && !tos) { tos = isYes(await askLine(`Do you accept Appo's Terms of Service (${TERMS_URL})? [y/n] `)); }
+  if (!owner || !tos) {
+    console.error('Nothing was created: Appo prepares a website only with the owner\'s confirmation and the Terms accepted.');
+    return { exit: 1 };
+  }
+  return { attrs: { prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true } };
+}
+
 /** After an interactive `new`, offer to register the Appo MCP connector so the
  *  user's AI agent can drive Appo. Opt-in ([y/N]) so it never touches agent
  *  config unsolicited, and never runs under --json / non-TTY. */
@@ -737,10 +832,12 @@ export async function run(argv) {
             if (!flags.name) { flags.name = await askLine('App name: '); }
           }
           if (!flags.name || !flags.url) {
-            console.error('Usage: appo apps create --name <n> --url <u>');
+            console.error('Usage: appo apps create --name <n> --url <u> --prepare on|off [--owner-authorized --accept-tos]');
             return 2;
           }
-          const app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url }, env);
+          const settled = await settlePreparation(flags);
+          if (settled.exit) { return settled.exit; }
+          const app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url, ...settled.attrs }, env);
           console.log('Created app:');
           printApp(app);
           return 0;
@@ -826,6 +923,10 @@ export async function run(argv) {
             }
             wantPrepare = value;
             body.prep_mode = value === 'on' ? 'appo_managed' : 'self_managed';
+            if (value === 'on') {
+              if (flags['owner-authorized'] === true) { body.owner_authorized = true; }
+              if (flags['accept-tos'] === true) { body.accepted_tos = true; }
+            }
           }
 
           if (Object.keys(body).length === 0 && !wantIcon && !wantPermissions && isInteractive(flags)) {
@@ -1140,7 +1241,7 @@ export async function run(argv) {
         // Creation verb — `new` puts the app on your phone, `ship <id>` puts it
         // on the stores. Single-step (no ledger): errors flow to the top-level
         // catch -> renderError like the other simple verbs.
-        const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare] [--json]';
+        const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare on|off [--owner-authorized --accept-tos]] [--json]';
         // Interactive sessions ask for the URL instead of failing on it.
         if ((typeof flags.url !== 'string' || !flags.url) && isInteractive(flags)) {
           const answer = await askLine('Site URL: ');
@@ -1177,12 +1278,12 @@ export async function run(argv) {
           return 1;
         }
 
-        const prepMode = flags.prepare === true ? 'appo_managed' : undefined;
+        const settled = await settlePreparation(flags);
+        if (settled.exit) { return settled.exit; }
         // --json: verbatim creation envelope (D-08). Direct apiFetch — never
         // reaches the human renderer.
         if (flags.json) {
-          const body = { name, base_url };
-          if (prepMode) body.prep_mode = prepMode;
+          const body = { name, base_url, ...settled.attrs };
           try {
             const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env);
             console.log(JSON.stringify(res));
@@ -1195,8 +1296,7 @@ export async function run(argv) {
             throw err;
           }
         }
-        const attrs = { name, base_url };
-        if (prepMode) attrs.prep_mode = prepMode;
+        const attrs = { name, base_url, ...settled.attrs };
         const app = (await ops.createApp(apiBase, attrs, env)) || {};
         console.log(`Created app #${app.id} — ${app.name}`);
         console.log(`  url: ${app.base_url}`);
