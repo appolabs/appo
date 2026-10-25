@@ -36,8 +36,8 @@ envelope names. See [appo new](README.md#appo-new).
 - [appo login / logout / whoami](README.md#auth)
 - [appo env list / env use](README.md#environments)
 - [appo apps create / apps list / apps show / apps check / apps update](README.md#apps)
-- [appo status](README.md#status)
-- [appo run](README.md#run)
+- [appo status](README.md#status): app overview; the try line is the readiness answer
+- [appo run](README.md#run): prints the one preview link and QR code, or what Appo is still doing; starts no build
 - [appo rejection](README.md#rejection)
 - [appo fix-recipe](README.md#fix-recipe)
 - [appo publish](README.md#publish)

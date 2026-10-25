@@ -179,7 +179,10 @@ appo status <id>                    # app overview
 appo status <id> --build <buildId>  # one build's status
 ```
 
-Prints the app overview, or a single build's status when `--build` is given. With
+Prints the app overview, or a single build's status when `--build` is given. The
+`try` line is the readiness answer, as given by the server (the same as
+`get_app_overview`); while the app is not ready it lists what can be done meanwhile
+and when to check again, and once it is ready it prints the preview link. With
 `--json` it prints the raw v1 response body verbatim.
 
 ## run
@@ -188,29 +191,23 @@ Prints the app overview, or a single build's status when `--build` is given. Wit
 appo run [id]
 ```
 
-Starts a TestFlight build for the app — direct, no `--confirm` prompt; running
-the command is the intent — then shows the on-device target: per-platform
-readiness, the iOS TestFlight URL, the Android deeplink, the canonical
-`preview_url`, and a scannable terminal QR code (when at least one platform is
-ready).
+Prints the one preview link for the app, its QR code and how to open it. The
+link opens a page that detects the phone and installs the right preview; the
+page also states when iPhone testing is still being set up. While Appo is still
+preparing or building the app, `appo run` prints what is happening, what can be
+done meanwhile and when to check again. It only reads: it starts no build
+(iPhone builds start automatically once the app is ready). Every sentence comes
+from the server, the same answer `appo status` and the MCP tool
+`get_app_overview` give.
 
 The id is optional. Without it, `appo run` targets your only app directly, or —
 when the account has several — shows a numbered picker on an interactive terminal.
 In scripts and with `--json`, several apps produce an error listing the ids instead
 of a prompt.
 
-The output prints readiness first (`ios: preview-ready` / `not preview-ready yet`,
-same for `android`), then the platform-specific URLs (TestFlight URL only when iOS
-is ready, Android deeplink only when Android is ready), then the `preview_url`
-(always present), then the QR encoding `preview_url`.
-
-When neither platform is ready the QR is skipped and a `(no preview target yet)`
-line is printed instead. A build already in flight, or an app not yet ready for a
-TestFlight build, answers with the server's curated message and exit code `1` —
-no on-device target is shown in that case. `--json` prints the trigger response
-verbatim — not the target payload — with the same curated conflict and exit code
-on failure. Exit 1 on any other API error (including app not found, or no apps to
-resolve); exit 2 when several apps exist and no id was given outside a TTY.
+`--json` prints the preview response verbatim, including its `try` block. Exit 1
+on any API error (including app not found, or no apps to resolve); exit 2 when
+several apps exist and no id was given outside a TTY.
 
 ## rejection
 
@@ -263,7 +260,7 @@ Downloads the installable artifact (APK/AAB for Android, ad-hoc IPA for iOS) onc
 the build is `ready`. Without `--build` it picks the newest ready build; if the
 latest build is still running it reports that build's status instead. The filename
 derives from the artifact URL unless `--output` is given. `--json` reports
-`{ build_id, file, bytes }`. Prepare a build with `appo run <id>`.
+`{ build_id, file, bytes }`. Builds start automatically once the app is ready; `appo run <id>` prints the preview link.
 
 ## devices
 
