@@ -333,6 +333,45 @@ function printSiteRefusal(env) {
   console.error('');
 }
 
+const SITE_STATUS_LINES = {
+  clear: 'Site checked: no findings.',
+  notes: 'Site checked: notes only.',
+  blocked: 'Site checked: findings to fix.',
+  pending: 'The site is still being read; the result is recorded when the reading ends.',
+  unverified: 'The site could not be read.',
+};
+
+/** Print the result of `appo apps check`: the comparison sentence or a status
+ *  line, the findings and notes, and whether the site keeps the app closed. */
+function printSiteCheck(site) {
+  const status = site.status === 'unverified' && site.unverified?.text
+    ? site.unverified.text
+    : SITE_STATUS_LINES[site.status];
+  console.log(cleanText(site.recheck?.sentence || status || `Site checked: ${site.status}.`));
+  for (const f of site.findings ?? []) {
+    console.log(`  - ${cleanText(f.finding)}`);
+    if (f.fix) { console.log(`    ${cleanText(f.fix)}`); }
+  }
+  if ((site.notes ?? []).length > 0) {
+    console.log('  Notes:');
+    for (const n of site.notes) { console.log(`  - ${cleanText(n.finding)}`); }
+  }
+  if (site.platform_note) { console.log(`  ${cleanText(site.platform_note)}`); }
+  if (!site.closed) {
+    console.log('The site does not close Try or Publish.');
+    return;
+  }
+  const closing = site.closed_by?.findings ?? [];
+  if (closing.length > 0) {
+    console.log('The app was closed because of:');
+    for (const f of closing) {
+      console.log(`  - ${cleanText(f.finding)}`);
+      if (f.fix) { console.log(`    ${cleanText(f.fix)}`); }
+    }
+  }
+  console.log('Try and Publish stay closed until the site is fixed.');
+}
+
 /** Render a thrown error to stderr and return the process exit code (1).
  *  prerequisite_failed envelopes (D-06) render as an actionable blocked state
  *  with next_action + dashboard_url; everything else falls back to err.message
@@ -861,11 +900,7 @@ export async function run(argv) {
             if (res?.message) { console.log(cleanText(res.message)); }
             return 0;
           }
-          if (site.recheck?.sentence) { console.log(cleanText(site.recheck.sentence)); }
-          for (const f of site.findings ?? []) {
-            console.log(`  - ${cleanText(f.finding)}`);
-            if (f.fix) { console.log(`    ${cleanText(f.fix)}`); }
-          }
+          printSiteCheck(site);
           return 0;
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);

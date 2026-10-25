@@ -236,6 +236,49 @@ test('apps check prints the sentence and remaining findings', async () => {
   expect(out).toContain('- No HTTPS.');
 });
 
+test('apps check on a first decided check prints a status line and that the app is closed', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { site: { status: 'blocked', closed: true, closed_by: null, recheck: null, findings: [{ finding: 'No HTTPS.', fix: 'Enable HTTPS.' }], notes: [{ finding: 'No privacy page.' }] } } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('Site checked: findings to fix.');
+  expect(out).toContain('- No HTTPS.');
+  expect(out).toContain('Notes:');
+  expect(out).toContain('- No privacy page.');
+  expect(out).toContain('Try and Publish stay closed until the site is fixed.');
+});
+
+test('apps check on a pending check says the site is still being read', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { site: { status: 'pending', closed: false, recheck: null, findings: [], notes: [] } } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('The site is still being read');
+  expect(out).toContain('The site does not close Try or Publish.');
+});
+
+test('apps check on an unverified check of a closed app prints the cause and the closing findings', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { site: {
+    status: 'unverified',
+    closed: true,
+    recheck: null,
+    findings: [],
+    notes: [],
+    unverified: { cause: 'unreachable', text: 'The site could not be reached.' },
+    closed_by: { checked_at: null, findings: [{ finding: 'The certificate expired.', fix: 'Renew it.' }], platform_note: null },
+  } } }]);
+  const { result, lines } = await captureAll(() => run(['apps', 'check', '7', ...API]));
+  expect(result).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('The site could not be reached.');
+  expect(out).toContain('The app was closed because of:');
+  expect(out).toContain('- The certificate expired.');
+  expect(out).toContain('Try and Publish stay closed until the site is fixed.');
+});
+
 test('apps check prints the message when no site is stored', async () => {
   stubToken();
   installMockFetch([{ status: 200, body: { site: null, message: 'No site check on record.' } }]);
