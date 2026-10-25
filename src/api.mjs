@@ -1,4 +1,5 @@
 import { storedToken } from './config.mjs';
+import { fromFetchFailure } from './environment-errors.mjs';
 
 /**
  * Authenticated call to the Appo v1 API. Returns parsed JSON (or null for 204).
@@ -26,15 +27,20 @@ export async function apiFetchWithToken(apiBase, method, path, body, pat, env) {
 }
 
 async function requestWithToken(apiBase, method, path, body, token, env) {
-  const res = await fetch(`${apiBase}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`${apiBase}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    throw fromFetchFailure(err);
+  }
 
   if (res.status === 204) {
     return null;

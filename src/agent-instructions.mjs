@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { EnvironmentError, fromWriteFailure } from './environment-errors.mjs';
 
 // Agent clients may load MCP tools on demand: at the start of a conversation
 // the model then sees neither the connector's instructions nor its tool names,
@@ -67,7 +68,9 @@ export function installInstructions(bin, opts) {
     const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
     writeFileSync(path, withAppoSection(current));
     return path;
-  } catch {
+  } catch (err) {
+    const classified = fromWriteFailure(err);
+    if (classified instanceof EnvironmentError) { throw classified; }
     return null;
   }
 }

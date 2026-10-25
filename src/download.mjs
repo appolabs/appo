@@ -8,6 +8,7 @@
 // carrying status + the v1 envelope (409 not-ready, 403 capability_denied,
 // 404 not_found).
 import { storedToken } from './config.mjs';
+import { fromFetchFailure } from './environment-errors.mjs';
 import { writeFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
@@ -25,7 +26,7 @@ export async function downloadArtifact(apiBase, appId, buildId, env, output) {
   const res = await fetch(`${apiBase}/api/v1/apps/${appId}/builds/${buildId}/download`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     redirect: 'follow',
-  });
+  }).catch((err) => { throw fromFetchFailure(err); });
 
   if (!res.ok) {
     const payload = await res.json().catch(() => null);

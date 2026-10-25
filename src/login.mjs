@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process';
 import { writeProfile } from './config.mjs';
 import { apiFetchWithToken } from './api.mjs';
+import { fromFetchFailure } from './environment-errors.mjs';
 
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 
@@ -27,7 +28,7 @@ export async function login(apiBase, env) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ client_name: 'Appo CLI' }),
-  });
+  }).catch((err) => { throw fromFetchFailure(err); });
 
   if (!codeRes.ok) {
     throw new Error(`Could not start login (${codeRes.status}) against ${apiBase}. Is the service reachable?`);
@@ -58,7 +59,7 @@ export async function login(apiBase, env) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ grant_type: DEVICE_GRANT, device_code }),
-    });
+    }).catch((err) => { throw fromFetchFailure(err); });
     const payload = await tokenRes.json().catch(() => ({}));
 
     if (tokenRes.ok && payload.access_token) {

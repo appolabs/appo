@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, chmodSync } from 'node:fs';
+import { fromWriteFailure } from './environment-errors.mjs';
 
 const DEFAULT_API_BASE = 'https://apps.goappo.io';
 
@@ -96,9 +97,13 @@ export function writeUpdateCache(update_check) {
 /** Persist config, creating the config dir with owner-only perms (tokens live here). */
 export function writeConfig(config) {
   const { dir, file } = configPath();
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(file, JSON.stringify(config, null, 2));
-  chmodSync(file, 0o600);
+  try {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writeFileSync(file, JSON.stringify(config, null, 2));
+    chmodSync(file, 0o600);
+  } catch (err) {
+    throw fromWriteFailure(err);
+  }
 }
 
 export function clearConfig() {

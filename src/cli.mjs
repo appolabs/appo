@@ -16,6 +16,7 @@ import { createRequire } from 'node:module';
 import * as readline from 'node:readline/promises';
 import { runUpgrade } from './upgrade.mjs';
 import { runMcpInstall } from './mcp.mjs';
+import { EnvironmentError } from './environment-errors.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
@@ -377,6 +378,10 @@ function printSiteCheck(site) {
  *  with next_action + dashboard_url; everything else falls back to err.message
  *  (which already carries the 401 "run `appo login`" hint from apiFetch). */
 function renderError(err) {
+  if (err instanceof EnvironmentError) {
+    console.error(`\n  ${err.message}\n`);
+    return 1;
+  }
   const env = err.envelope;
   if (env?.error === 'site_not_ready') {
     printSiteRefusal(env);
@@ -1372,6 +1377,10 @@ export async function run(argv) {
         return 2;
     }
   } catch (err) {
+    if (flags.json && err instanceof EnvironmentError) {
+      console.log(JSON.stringify(err.envelope));
+      return 1;
+    }
     return renderError(err);
   }
 }
