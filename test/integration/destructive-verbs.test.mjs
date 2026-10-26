@@ -90,6 +90,17 @@ test('publish --json on a 204 prints "null" and returns 0', async () => {
   expect(lines.join('').trim()).toBe('null');
 });
 
+test('publish against a 200 body with demo_account succeeds like the 204 did', async () => {
+  stubToken();
+  const body = { data: { demo_account: { needed: true, provided: false, url: 'u' } } };
+  installMockFetch({ status: 200, body });
+  const { result, lines } = await captureLog(() =>
+    run(['publish', '7', '--stores', 'apple_appstore', '--confirm', '--json', ...API]),
+  );
+  expect(result).toBe(0);
+  expect(lines.join('').trim()).toBe('null');
+});
+
 // IN-01: an explicit empty --stores must not forward [''] — reject as usage err.
 test('publish empty --stores returns 2 and issues NO write (IN-01)', async () => {
   stubToken();

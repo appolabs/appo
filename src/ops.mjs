@@ -43,7 +43,7 @@ export async function getBuild(apiBase, id, buildId, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/builds/${buildId}`, null, env));
 }
 
-// POST /api/v1/apps/{id}/publish -> 204 (apiFetch returns null). Resolving == success. Do NOT unwrap.
+// POST /api/v1/apps/{id}/publish -> 200 {data: {demo_account}}. Resolving == success. Do NOT unwrap.
 export async function publishApp(apiBase, id, app_stores, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/publish`, { app_stores }, env);
 }

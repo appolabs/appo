@@ -92,6 +92,40 @@ test('status without preparation options prints only the preparation line', asyn
   expect(lines.some((l) => /^\s+- /.test(l))).toBe(false);
 });
 
+const demoStatus = async (demo_account) => {
+  stubToken();
+  installMockFetch({ status: 200, body: { data: { id: 7, demo_account } } });
+  return (await captureLog(() => run(['status', '7', ...API]))).lines.join('\n');
+};
+
+test('status prints the demo_account line when needed and not provided', async () => {
+  const out = await demoStatus({ needed: true, provided: false, url: 'http://x.test/apps/7' });
+  expect(out).toMatch(/demo_account\s+needed, not provided: http:\/\/x\.test\/apps\/7/);
+});
+
+test('status prints provided when provided, needed or not', async () => {
+  for (const needed of [false, true]) {
+    const out = await demoStatus({ needed, provided: true, url: 'http://x.test/apps/7' });
+    expect(out).toMatch(/demo_account\s+provided: http:\/\/x\.test\/apps\/7/);
+    expect(out).not.toMatch(/not provided/);
+    resetMockFetch();
+  }
+});
+
+test('status prints no demo_account line when neither or absent', async () => {
+  expect(await demoStatus({ needed: false, provided: false, url: null })).not.toMatch(/demo_account/);
+  resetMockFetch();
+  expect(await demoStatus(undefined)).not.toMatch(/demo_account/);
+});
+
+test('status --json keeps the demo_account envelope verbatim', async () => {
+  stubToken();
+  const body = { data: { id: 7, demo_account: { needed: true, provided: false, url: 'u' } } };
+  installMockFetch({ status: 200, body });
+  const { lines } = await captureLog(() => run(['status', '7', '--json', ...API]));
+  expect(JSON.parse(lines.join(''))).toEqual(body);
+});
+
 test('status --build hits GET /api/v1/apps/{id}/builds/{buildId}', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: { id: 42, platform: 'ios', status: 'ready' } } });

@@ -184,6 +184,11 @@ function printApp(app) {
   line('base_url', app.base_url);
   line('publication_state', app.publication_state);
   line('primary_action', app.primary_action);
+  if (app.demo_account?.provided) {
+    line('demo_account', `provided: ${app.demo_account.url}`);
+  } else if (app.demo_account?.needed) {
+    line('demo_account', `needed, not provided: ${app.demo_account.url}`);
+  }
   if (app.preparation) {
     line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
   }
@@ -1074,8 +1079,8 @@ export async function run(argv) {
         if (stores.length === 0) { console.error('Usage: appo publish <id> [--stores <list>] [--confirm]'); return 2; }
         const gated = await confirmGate(flags, { will: 'publish', app_id: previewId(sub), target_stores: stores });
         if (gated !== null) return gated;                       // exit 3, NO write (D-04/D-05/D-07)
-        await ops.publishApp(apiBase, sub, stores, env);        // 204 -> null
-        if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: no body to passthrough
+        await ops.publishApp(apiBase, sub, stores, env);        // 200 {data: {demo_account}}
+        if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: body not passed through; prints null as before the 200 answer
         console.log(`Publication started for: ${stores.join(', ')}`);
         return 0;
       }
@@ -1312,7 +1317,7 @@ export async function run(argv) {
         }
         log(`> publish ...`);
         try {
-          await ops.publishApp(apiBase, appId, stores, env);   // 204 == success; 409/422 throw
+          await ops.publishApp(apiBase, appId, stores, env);   // 200 {data: {demo_account}} == success; 409/422 throw
         } catch (err) {
           return handleBlock(err, 'publish', { app_id: appId });
         }
