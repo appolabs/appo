@@ -305,9 +305,14 @@ Run without a terminal (from an agent's shell tool, or in CI), the command does
 not wait for the browser sign-in that Codex's `mcp add` opens: the connector is
 registered and the sign-in is completed later with `codex mcp login appo`.
 
-For each agent it registers, `appo mcp` also adds a short section, delimited by
+In a terminal, `appo mcp` asks, for each agent it registers, whether to add a short
+section, delimited by
 `<!-- appo-start -->` and `<!-- appo-end -->`, to that agent's user-level
-instructions file: `~/.claude/CLAUDE.md` for Claude Code (or
+instructions file; an empty answer means yes, `n` skips it. Without a
+terminal, or with `--json`, nothing is written unless `--agent-instructions` is
+given, and the command prints one line naming that flag; the connector
+registration and the exit code are the same in both cases. The files are
+`~/.claude/CLAUDE.md` for Claude Code (or
 `$CLAUDE_CONFIG_DIR/CLAUDE.md`), `~/.codex/AGENTS.md` for Codex (or
 `$CODEX_HOME/AGENTS.md`). An agent may load MCP tools on demand, in which case a
 request such as "what is the status of my app" is read as a question about the
