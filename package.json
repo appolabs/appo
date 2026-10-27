@@ -1,6 +1,6 @@
 {
   "name": "@appolabs/appo",
-  "version": "6.0.1",
+  "version": "6.0.2",
   "description": "Appo CLI: turn a website into native iOS and Android apps and publish them on the App Store and Google Play, from your terminal or an AI agent.",
   "license": "MIT",
   "repository": {
