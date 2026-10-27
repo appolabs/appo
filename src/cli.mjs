@@ -422,6 +422,13 @@ function parsePrepareFlag(value) {
   return v === 'on' || v === 'off' ? v : 'invalid';
 }
 
+/** Parses a consent flag: true only for the bare flag or true/yes/1; any other value declines. */
+function parseConsentFlag(value) {
+  if (value === true) { return true; }
+  const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return v === 'true' || v === 'yes' || v === '1';
+}
+
 function preparationEnvelope(code, message, details) {
   return { error: 'input_required', code, message, details: { ...details, terms_of_service_url: TERMS_URL } };
 }
@@ -713,7 +720,7 @@ export async function run(argv) {
         return await runMcpInstall({
           apiBase,
           interactive: Boolean(isInteractive(flags)),
-          agentInstructions: Boolean(flags['agent-instructions']),
+          agentInstructions: parseConsentFlag(flags['agent-instructions']),
           confirmInstructions,
         });
       }
