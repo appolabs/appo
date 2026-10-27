@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process';
 import { resolveApiBase } from './config.mjs';
-import { installInstructions } from './agent-instructions.mjs';
+import { installInstructions, instructionsPathFor } from './agent-instructions.mjs';
 
 // The Appo MCP is the remote connector served by the Appo API host (OAuth 2.1,
 // dynamic client registration): every agent client registers it over HTTP.
@@ -10,14 +10,14 @@ import { installInstructions } from './agent-instructions.mjs';
 // instructions file in agent-instructions.mjs.
 const CLI_AGENTS = [
   {
-    bin: 'claude',
+    bin: /** @type {const} */ ('claude'),
     label: 'Claude Code',
     args: (url) => ['mcp', 'add', '--transport', 'http', '--scope', 'user', 'appo', url],
     // A local- or project-scope entry works in one directory only.
     coversEveryDirectory: (description) => /Scope:\s*User/i.test(description),
   },
   {
-    bin: 'codex',
+    bin: /** @type {const} */ ('codex'),
     label: 'Codex',
     args: (url) => ['mcp', 'add', 'appo', '--url', url],
     coversEveryDirectory: () => true,
@@ -153,10 +153,15 @@ export function printManual(url) {
  * path written, or null. interactive (a person at a terminal) defaults to
  * the process's own stdin and stdout.
  *
- * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string, interactive?: boolean }} [opts]
+ * The instructions files are written only with consent: interactive runs ask
+ * through confirmInstructions(agent, path), which resolves false by default;
+ * non-interactive runs write only when agentInstructions is true and
+ * otherwise print one line naming the flag. Registration is unaffected.
+ *
+ * @param {{ spawnImpl?: Function, spawnSyncImpl?: Function, writeInstructions?: Function, apiBase?: string, interactive?: boolean, confirmInstructions?: (agent: any, path: string) => Promise<boolean>, agentInstructions?: boolean }} [opts]
  * @returns {Promise<number>} 0 if at least one agent was wired; 1 if none were
  */
-export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => installInstructions(agent.bin), apiBase, interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) } = {}) {
+export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nodeSpawnSync, writeInstructions = (agent) => installInstructions(agent.bin), apiBase, interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY), confirmInstructions = async () => false, agentInstructions = false } = {}) {
   const url = connectorUrl(apiBase ?? resolveApiBase(undefined));
   const present = CLI_AGENTS.filter((a) => isPresent(a.bin, spawnSyncImpl));
 
@@ -171,6 +176,7 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
   const notes = [];
   const signInLeft = [];
   const failed = [];
+  const skipped = [];
   for (const agent of present) {
     let wired = registrationOf(agent, spawnSyncImpl).everywhere;
     if (!wired) {
@@ -180,6 +186,9 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
     }
     if (!wired) { failed.push(agent); continue; }
     installed.push(agent.label);
+    const target = instructionsPathFor(agent.bin);
+    const consent = interactive ? await confirmInstructions(agent, target) : agentInstructions;
+    if (!consent) { skipped.push(target); continue; }
     const path = writeInstructions(agent);
     if (path) { notes.push(`${agent.label}: ${path}`); }
   }
@@ -195,6 +204,11 @@ export async function runMcpInstall({ spawnImpl = nodeSpawn, spawnSyncImpl = nod
       console.log(`${agent.label}: the sign-in was left for later; complete it with: ${agent.signIn}`);
     }
     console.log('Restart your editor, then ask it to build an app.');
+  }
+  if (skipped.length > 0) {
+    console.log(interactive
+      ? `Agent instructions not written (${skipped.join(', ')}).`
+      : `Agent instructions not written; run appo mcp --agent-instructions to add the Appo section to ${skipped.join(', ')}.`);
   }
   for (const agent of failed) {
     console.log(`${agent.label}: the connector was not registered. To see why, run: ${agent.bin} ${agent.args(url).join(' ')}`);

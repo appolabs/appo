@@ -222,7 +222,7 @@ test('without a terminal, an add left open for a browser sign-in is ended once t
   vi.useFakeTimers();
   const { state, spawnImpl, spawnSyncImpl } = openSignIn({ registers: true });
   writeInstructions.mockImplementation((agent) => `/h/${agent.bin}.md`);
-  const pending = run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', interactive: false });
+  const pending = run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', interactive: false, agentInstructions: true });
   const outcome = await Promise.race([pending, vi.advanceTimersByTimeAsync(120_000).then(() => 'still waiting')]);
   vi.useRealTimers();
   expect(outcome).toBe(0);

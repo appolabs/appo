@@ -57,7 +57,7 @@ Test builds & devices:
   appo devices register           Show the iOS device registration link + QR (one-time per device)
 
 AI editor:
-  appo mcp                        Connect your AI agent to Appo (Claude Code, Codex, Cursor): registers the Appo MCP connector
+  appo mcp [--agent-instructions]  Connect your AI agent to Appo (Claude Code, Codex, Cursor): registers the Appo MCP connector; asks before adding a section to CLAUDE.md / AGENTS.md (without a terminal, only with --agent-instructions)
 
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
@@ -404,6 +404,14 @@ function isYes(answer) {
   return /^y(es)?$/i.test(answer);
 }
 
+/** Yes-default confirmation: an empty answer (or EOF) means yes. */
+async function askYesDefault(question) {
+  const answer = await askLine(question);
+  return answer === '' || isYes(answer);
+}
+
+const confirmInstructions = (agent, path) => askYesDefault(`Add a short Appo section to ${path}? [Y/n] `);
+
 const TERMS_URL = 'https://goappo.io/en/terms';
 
 /** Parses --prepare: absent -> null, bare flag or on -> 'on', off -> 'off', else 'invalid'. */
@@ -506,7 +514,7 @@ async function maybeOfferMcp(flags, apiBase) {
   if (!isInteractive(flags)) { return; }
   console.log('');
   if (isYes(await askLine('Have an AI agent working for you? Connect it to Appo now (Claude Code, Codex) [y/N] '))) {
-    await runMcpInstall({ apiBase });
+    await runMcpInstall({ apiBase, interactive: true, confirmInstructions });
   }
 }
 
@@ -702,7 +710,12 @@ export async function run(argv) {
         // Registers the remote Appo MCP connector (the resolved API host +
         // /mcp) with the agent CLIs on PATH. `new` also offers this after
         // creating an app; this verb is the direct route.
-        return await runMcpInstall({ apiBase });
+        return await runMcpInstall({
+          apiBase,
+          interactive: Boolean(isInteractive(flags)),
+          agentInstructions: Boolean(flags['agent-instructions']),
+          confirmInstructions,
+        });
       }
 
       case 'upgrade': {
