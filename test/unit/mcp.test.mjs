@@ -73,7 +73,7 @@ test('installs the remote connector into every present agent CLI, returns 0', as
 
 test('writes the agent instructions for every registered agent and reports each file', async () => {
   writeInstructions.mockImplementation((agent) => `/h/${agent.bin}.md`);
-  await run({ spawnImpl: spawnWith(0), spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' });
+  await run({ spawnImpl: spawnWith(0), spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io', interactive: true, confirmInstructions: async () => true });
   expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
   expect(lines.join('\n')).toContain('/h/claude.md');
   expect(lines.join('\n')).toContain('/h/codex.md');
@@ -81,6 +81,51 @@ test('writes the agent instructions for every registered agent and reports each 
 
 test('does not write agent instructions when the connector registration failed', async () => {
   await run({ spawnImpl: spawnWith(1), spawnSyncImpl: detect(['codex']), apiBase: 'https://apps.goappo.io' });
+  expect(writeInstructions).not.toHaveBeenCalled();
+});
+
+const BOTH = { spawnSyncImpl: detect(['claude', 'codex']), apiBase: 'https://apps.goappo.io' };
+
+test('interactive, consent given: the instructions are written once per registered agent', async () => {
+  const confirmInstructions = vi.fn(async () => true);
+  await run({ spawnImpl: spawnWith(0), ...BOTH, interactive: true, confirmInstructions });
+  expect(confirmInstructions).toHaveBeenCalledTimes(2);
+  expect(writeInstructions).toHaveBeenCalledTimes(2);
+});
+
+test('interactive, consent refused: nothing is written and the file is named', async () => {
+  const confirmInstructions = vi.fn(async () => false);
+  const code = await run({ spawnImpl: spawnWith(0), ...BOTH, interactive: true, confirmInstructions });
+  expect(writeInstructions).not.toHaveBeenCalled();
+  expect(code).toBe(0);
+  expect(lines.join('\n')).toMatch(/CLAUDE\.md/);
+});
+
+test('without a prompt wired, nothing is written even when interactive', async () => {
+  await run({ spawnImpl: spawnWith(0), ...BOTH, interactive: true });
+  expect(writeInstructions).not.toHaveBeenCalled();
+});
+
+test('non-interactive without the flag: no prompt, no write, one line naming --agent-instructions, same exit code', async () => {
+  const confirmInstructions = vi.fn(async () => true);
+  const code = await run({ spawnImpl: spawnWith(0), ...BOTH, interactive: false, confirmInstructions });
+  expect(confirmInstructions).not.toHaveBeenCalled();
+  expect(writeInstructions).not.toHaveBeenCalled();
+  expect(code).toBe(0);
+  expect(lines.filter((l) => l.includes('--agent-instructions'))).toHaveLength(1);
+});
+
+test('non-interactive with --agent-instructions: written without asking', async () => {
+  const confirmInstructions = vi.fn(async () => false);
+  await run({ spawnImpl: spawnWith(0), ...BOTH, interactive: false, agentInstructions: true, confirmInstructions });
+  expect(confirmInstructions).not.toHaveBeenCalled();
+  expect(writeInstructions).toHaveBeenCalledTimes(2);
+});
+
+test('failed registration: neither confirm nor write is called', async () => {
+  const confirmInstructions = vi.fn(async () => true);
+  await run({ spawnImpl: spawnWith(1), spawnSyncImpl: detect(['codex']), apiBase: 'https://apps.goappo.io', interactive: true, confirmInstructions });
+  expect(confirmInstructions).not.toHaveBeenCalled();
   expect(writeInstructions).not.toHaveBeenCalled();
 });
 
@@ -114,7 +159,7 @@ test('an add that fails because the connector is already registered still counts
   // `mcp add` exits 1 on a rerun ("already exists") and on an unfinished
   // browser sign-in; `mcp get appo` exiting 0 shows the entry is in place.
   const spawnSyncImpl = (bin, args) => (args[0] === 'mcp' ? { status: 0 } : {});
-  const code = await run({ spawnImpl: spawnWith(1), spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl: spawnWith(1), spawnSyncImpl, apiBase: 'https://apps.goappo.io', agentInstructions: true });
   expect(code).toBe(0);
   expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
   expect(lines.join('\n')).toMatch(/registered for Claude Code and Codex/);
@@ -125,7 +170,7 @@ test('a connector already registered for every directory is left alone, so no ne
   const spawnSyncImpl = (bin, args) => (args[0] === 'mcp'
     ? { status: 0, stdout: bin === 'claude' ? 'appo:\n  Scope: User config (available in all your projects)\n' : 'appo\n  enabled: true\n' }
     : {});
-  const code = await run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io' });
+  const code = await run({ spawnImpl, spawnSyncImpl, apiBase: 'https://apps.goappo.io', agentInstructions: true });
   expect(spawnImpl).not.toHaveBeenCalled();
   expect(code).toBe(0);
   expect(writeInstructions.mock.calls.map((c) => c[0].bin)).toEqual(['claude', 'codex']);
