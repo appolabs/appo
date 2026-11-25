@@ -15,6 +15,7 @@ const COMMANDS = [
   'upgrade', 'version', 'run',
   'download', 'devices list', 'devices register',
   'appo mcp',
+  'appo customize', 'appo suggest', 'appo apps remove', 'appo testflight',
 ];
 
 test.each(COMMANDS)('README documents "%s"', (cmd) => {

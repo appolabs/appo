@@ -1,0 +1,96 @@
+{
+  "configure_app": [
+    {
+      "route": "apps.update",
+      "method": "PATCH"
+    },
+    {
+      "route": "apps.site.check.store",
+      "method": "POST"
+    }
+  ],
+  "create_app": [
+    {
+      "route": "apps.store",
+      "method": "POST"
+    }
+  ],
+  "customize_appearance": [
+    {
+      "route": "apps.appearance.update",
+      "method": "PATCH"
+    }
+  ],
+  "get_adaptation_brief": [
+    {
+      "route": "apps.adaptation-brief.show",
+      "method": "GET"
+    }
+  ],
+  "get_app_overview": [
+    {
+      "route": "apps.show",
+      "method": "GET"
+    }
+  ],
+  "get_fix_recipe": [
+    {
+      "route": "apps.rejection.recipe.show",
+      "method": "GET"
+    }
+  ],
+  "get_rejection": [
+    {
+      "route": "apps.rejection.show",
+      "method": "GET"
+    }
+  ],
+  "preview_app": [
+    {
+      "route": "apps.install.show",
+      "method": "GET"
+    }
+  ],
+  "publish_app": [
+    {
+      "route": "apps.publish.store",
+      "method": "POST"
+    }
+  ],
+  "remove_app": [
+    {
+      "route": "apps.destroy",
+      "method": "DELETE"
+    }
+  ],
+  "request_testflight_build": [
+    {
+      "route": "apps.builds.testflight.store",
+      "method": "POST"
+    }
+  ],
+  "send_push": [
+    {
+      "route": "apps.push-notifications.store",
+      "method": "POST"
+    }
+  ],
+  "set_icon": [
+    {
+      "route": "apps.icon.store",
+      "method": "POST"
+    }
+  ],
+  "set_permissions": [
+    {
+      "route": "apps.permissions.update",
+      "method": "PATCH"
+    }
+  ],
+  "trigger_resubmission": [
+    {
+      "route": "apps.resubmit.store",
+      "method": "POST"
+    }
+  ]
+}

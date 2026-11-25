@@ -265,6 +265,62 @@ Sends a push notification. Destructive: without `--confirm` it prints a dry run 
 exits with code `3` — nothing is written. The dry run omits the recipient count (exposed only
 after send). On success it reports the number of devices reached.
 
+## suggest
+
+```bash
+appo suggest <id>
+```
+
+Prints what Appo found on the site and how the app's web view behaves: the stored
+findings with the fix for each, followed by the web view contract (device safe
+areas, injected code, policy). Run it before `appo customize` to see what to adjust.
+`--json` prints the raw body. Exit codes: `0` printed, `1` API error, `2` missing id.
+
+## customize
+
+```bash
+appo customize <id> [--css <c>|--css-file <p|->] [--js <j>|--js-file <p|->] [--preset <name>] [--out <dir>] [--confirm]
+```
+
+Reads or writes the owner's block of the app's injected CSS and JavaScript. Without
+code flags it prints the current block; with `--out <dir>` it writes the block to
+`appo-assistant.css` and `appo-assistant.js` in that directory (an existing file with
+different content is not overwritten). With code flags it prints a dry run (what
+changes, size against the limit) and exits `3`; `--confirm` writes it. `--css-file -`
+and `--js-file -` read from standard input. An empty value removes that part of the
+block. `customize` writes only your block: Appo's part of the field stays as it is.
+
+The edit loop:
+
+```bash
+appo customize 7 --out ./appo
+appo customize 7 --css-file ./appo/appo-assistant.css
+appo customize 7 --css-file ./appo/appo-assistant.css --confirm
+```
+
+Exit codes: `0` read or written, `1` refused by Appo, `2` bad arguments, `3` dry run.
+
+## apps remove
+
+```bash
+appo apps remove <id> [--confirm]
+```
+
+Removes an app that was never published. Without `--confirm` it prints a dry run and
+exits `3`; nothing is removed. An app that has been published is refused by Appo.
+Exit codes: `0` removed, `1` refused by Appo, `2` bad arguments, `3` dry run.
+
+## testflight
+
+```bash
+appo testflight <id> --confirm
+```
+
+Sends a new build of the app to TestFlight. Without `--confirm` it prints a dry run
+and exits `3`; nothing is started. The output names the build; `appo status <id>`
+shows when it is ready. Exit codes: `0` build started, `1` API
+error or refused, `2` bad arguments, `3` dry run.
+
 ## download
 
 ```bash

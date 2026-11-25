@@ -33,6 +33,10 @@ const LIFECYCLE_VERBS = [
   'env list',
   'init',
   'upgrade',
+  'customize',
+  'suggest',
+  'apps remove',
+  'testflight',
 ];
 
 afterEach(() => resetMockFetch());

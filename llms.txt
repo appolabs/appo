@@ -48,6 +48,10 @@ the flags itself; then it re-runs with the flags the envelope names. See
 - [appo fix-recipe](README.md#fix-recipe)
 - [appo publish](README.md#publish): the publish step `ship` wraps
 - [appo push](README.md#push)
+- [appo suggest](README.md#suggest): what Appo found on the site and how the web view behaves
+- [appo customize](README.md#customize): read or write your block of injected CSS and JavaScript (dry run without --confirm)
+- [appo apps remove](README.md#apps-remove): remove an app that was never published (dry run without --confirm)
+- [appo testflight](README.md#testflight): send a new build to TestFlight (needs --confirm)
 - [appo download](README.md#download)
 - [appo devices list / devices register](README.md#devices)
 - [appo mcp](README.md#mcp)
