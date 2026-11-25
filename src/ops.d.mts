@@ -73,3 +73,81 @@ export function setPermissions(
   permissions: Record<string, boolean>,
   env?: string,
 ): Promise<any>;
+
+export interface AdaptationFinding {
+  id: string;
+  label: string;
+  finding: string;
+  fix: string;
+}
+
+export interface AdaptationStatement {
+  id: string;
+  statement: string;
+}
+
+/** Flat body of GET /api/v1/apps/{id}/adaptation-brief. */
+export interface AdaptationBrief {
+  app: number;
+  base_url: string;
+  prep_mode: string;
+  preparation: { mode: string; status: string };
+  reviewed_at: string | null;
+  wrapper: AdaptationStatement[];
+  policy: AdaptationStatement[];
+  cookie_check: { state: string };
+  site: null | {
+    reading_fetched_at: string;
+    consent_managers: unknown;
+    age_gate: unknown;
+    findings: AdaptationFinding[];
+  };
+  site_note: string | null;
+}
+
+export function getAdaptationBrief(
+  apiBase: string,
+  id: string | number,
+  env?: string,
+): Promise<AdaptationBrief>;
+
+/** Dry run body (confirm_required) or removal body (deleted). */
+export interface RemoveAppResult {
+  will?: 'delete';
+  deleted?: boolean;
+  app: number;
+  name: string;
+  confirm_required?: boolean;
+  note?: string;
+  message?: string;
+}
+
+/** Without `confirm` the server answers a dry run; with it, removes. */
+export function removeApp(
+  apiBase: string,
+  id: string | number,
+  options: { confirm?: boolean },
+  env?: string,
+): Promise<RemoveAppResult>;
+
+export interface AppearanceBody {
+  injected_css?: string;
+  injected_javascript?: string;
+  preset?: string;
+  confirm?: boolean;
+}
+
+/** Flat body of PATCH /api/v1/apps/{id}/appearance. */
+export function customizeAppearance(
+  apiBase: string,
+  id: string | number,
+  body: AppearanceBody,
+  env?: string,
+): Promise<any>;
+
+/** Unwrapped AppBuildResource of the requested TestFlight build. */
+export function requestTestFlightBuild(
+  apiBase: string,
+  id: string | number,
+  env?: string,
+): Promise<any>;

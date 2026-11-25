@@ -91,3 +91,28 @@ export async function setIcon(apiBase, id, icon_url, env) {
 export async function setPermissions(apiBase, id, permissions, env) {
   return apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}/permissions`, permissions, env);
 }
+
+// GET /api/v1/apps/{id}/adaptation-brief -> 200 flat body (site findings, web view contract, policy).
+// Do NOT unwrap — the body is flat.
+export async function getAdaptationBrief(apiBase, id, env) {
+  return apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/adaptation-brief`, null, env);
+}
+
+// DELETE /api/v1/apps/{id}[?confirm=1] -> 200 flat body: dry run { will, confirm_required, note }
+// or { deleted, message }; 422 prerequisite_failed when published or subscribed (apiFetch throws).
+// Do NOT unwrap — the body is flat. Without confirm no query string is sent.
+export async function removeApp(apiBase, id, { confirm }, env) {
+  const query = confirm ? '?confirm=1' : '';
+  return apiFetch(apiBase, 'DELETE', `/api/v1/apps/${id}${query}`, null, env);
+}
+
+// PATCH /api/v1/apps/{id}/appearance -> 200 flat body. Body: { injected_css?, injected_javascript?, preset?, confirm? }.
+// Do NOT unwrap — the body is flat.
+export async function customizeAppearance(apiBase, id, body, env) {
+  return apiFetch(apiBase, 'PATCH', `/api/v1/apps/${id}/appearance`, body, env);
+}
+
+// POST /api/v1/apps/{id}/builds/testflight -> 202 { data: AppBuildResource }; 409 conflict (apiFetch throws).
+export async function requestTestFlightBuild(apiBase, id, env) {
+  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/builds/testflight`, null, env));
+}
