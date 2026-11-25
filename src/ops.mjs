@@ -44,9 +44,20 @@ export async function checkSite(apiBase, id, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/site/check`, null, env);
 }
 
-// GET /api/v1/apps -> 200 { data: AppResource[] }
+// GET /api/v1/apps -> 200 { data: AppResource[], links, meta } (paginated, 15 per page).
+// Follows the paginator until the last page so callers see every app.
 export async function listApps(apiBase, env) {
-  return unwrap(await apiFetch(apiBase, 'GET', '/api/v1/apps', null, env)) || [];
+  const apps = [];
+  for (let page = 1; ; page++) {
+    const path = page === 1 ? '/api/v1/apps' : `/api/v1/apps?page=${page}`;
+    const payload = await apiFetch(apiBase, 'GET', path, null, env);
+    const items = unwrap(payload);
+    if (Array.isArray(items)) apps.push(...items);
+    const lastPage = payload?.meta?.last_page;
+    const hasNext = typeof lastPage === 'number' ? page < lastPage : Boolean(payload?.links?.next);
+    if (!hasNext || !Array.isArray(items) || items.length === 0) break;
+  }
+  return apps;
 }
 
 // GET /api/v1/apps/{id}/builds/{buildId} -> 200 { data: AppBuildResource }

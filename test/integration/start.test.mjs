@@ -420,3 +420,41 @@ test('without a terminal and without a token the CLI exits 1 with the login hint
   expect(errs.join('\n')).toContain('Not authenticated. Run: appo login');
   expect(agents.login).not.toHaveBeenCalled();
 });
+
+test('listApps follows the paginator and returns the apps of every page', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 200, body: { data: [{ id: 1 }], links: { next: 'http://test.local/api/v1/apps?page=2' }, meta: { current_page: 1, last_page: 2 } } },
+    { status: 200, body: { data: [{ id: 2 }], links: { next: null }, meta: { current_page: 2, last_page: 2 } } },
+  ]);
+  const apps = await ops.listApps('http://test.local');
+  expect(apps.map((a) => a.id)).toEqual([1, 2]);
+  expect(requests.map((r) => r.path)).toEqual(['/api/v1/apps', '/api/v1/apps?page=2']);
+});
+
+test('start finds an app that sits on page 2 of the list', async () => {
+  stubToken();
+  installMockFetch([
+    { status: 200, body: { data: [{ id: 1, base_url: 'https://other.com/' }], meta: { current_page: 1, last_page: 2 } } },
+    { status: 200, body: { data: [{ id: 9, name: 'X', base_url: 'https://www.x.com/' }], meta: { current_page: 2, last_page: 2 } } },
+    started({ install: readyTry }),
+  ]);
+  const { result } = await capture(() => run(['start', 'https://x.com', '--fix', 'self', '--phone', 'android', ...API]));
+  expect(result).toBe(0);
+  expect(requests.map((r) => r.method + ' ' + r.path)).toEqual(['GET /api/v1/apps', 'GET /api/v1/apps?page=2', 'POST /api/v1/apps/9/start']);
+});
+
+test('a value-less boolean flag does not swallow the address that follows it', async () => {
+  stubToken();
+  installMockFetch([{ status: 200, body: { data: [{ id: 5, name: 'X', base_url: 'https://www.x.com/' }] } }, started({ install: readyTry })]);
+  const { result } = await capture(() => run(['start', '--json', 'https://x.com', '--fix', 'self', '--phone', 'android', ...API]));
+  expect(result).toBe(0);
+  expect(requests.map((r) => r.method + ' ' + r.path)).toEqual(['GET /api/v1/apps', 'POST /api/v1/apps/5/start']);
+});
+
+test('new keeps the address after consent flags written without a value', async () => {
+  stubToken();
+  installMockFetch([created, started({ decision: fixDecision })]);
+  await capture(() => run(['new', '--owner-authorized', '--accept-tos', 'https://x.com', ...API]));
+  expect(requests[0].body).toMatchObject({ base_url: 'https://x.com', owner_authorized: true, accepted_tos: true });
+});

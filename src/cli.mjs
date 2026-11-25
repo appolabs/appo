@@ -118,6 +118,11 @@ function parseArgs(argv) {
   // Flags allowed to repeat collect their values into an array
   // (e.g. `--permission camera=on --permission nfc=off`); all others take the last value.
   const repeatable = new Set(['permission']);
+  // Flags documented without a value never consume the next token. The consent
+  // flags still accept an explicit yes/no/true/false/1/0 (parseConsentFlag).
+  const boolean = new Set(['json', 'yes', 'confirm', 'help', 'version', 'owner-authorized', 'accept-tos']);
+  const consent = new Set(['owner-authorized', 'accept-tos']);
+  const consentValue = /^(yes|no|true|false|1|0)$/i;
   const assign = (key, value) => {
     if (repeatable.has(key)) {
       if (!Array.isArray(flags[key])) { flags[key] = []; }
@@ -142,7 +147,8 @@ function parseArgs(argv) {
       }
       const key = a.slice(2);
       const next = argv[i + 1];
-      if (next === undefined || next.startsWith('--')) {
+      if (next === undefined || next.startsWith('--')
+        || (boolean.has(key) && !(consent.has(key) && consentValue.test(next)))) {
         assign(key, true);
       } else {
         assign(key, next);
