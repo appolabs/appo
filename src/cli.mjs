@@ -15,7 +15,7 @@ import { renderQr } from './qr.mjs';
 import { createRequire } from 'node:module';
 import * as readline from 'node:readline/promises';
 import { runUpgrade } from './upgrade.mjs';
-import { runMcpInstall } from './mcp.mjs';
+import { runMcpInstall, detectAgents } from './mcp.mjs';
 import { EnvironmentError } from './environment-errors.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
@@ -565,13 +565,14 @@ async function settleConsent(flags) {
   return { attrs: { owner_authorized: true, accepted_tos: true } };
 }
 
-/** After an interactive `new`, offer to register the Appo MCP connector so the
- *  user's AI agent can drive Appo. Opt-in ([y/N]) so it never touches agent
- *  config unsolicited, and never runs under --json / non-TTY. */
-async function maybeOfferMcp(flags, apiBase) {
+/** After the user says they fix the site themselves, offer to let an agent CLI found
+ *  on PATH make the fixes: registers the Appo connector for it. Asked only on a
+ *  terminal, once, naming the agent; nothing runs without an explicit yes. */
+async function offerAgentFixes(flags, apiBase) {
   if (!isInteractive(flags)) { return; }
-  console.log('');
-  if (isYes(await askLine('Have an AI agent working for you? Connect it to Appo now (Claude Code, Codex) [y/N] '))) {
+  const agent = detectAgents()[0];
+  if (!agent) { return; }
+  if (isYes(await askLine(`Do you want ${agent.name} to make the fixes? [y/N] `))) {
     await runMcpInstall({ apiBase, interactive: true, confirmInstructions });
   }
 }
@@ -752,6 +753,7 @@ async function runStart(apiBase, env, flags, id, { installOnly = false, url = nu
       answers[decision.key] = option.value;
       given[decision.key] = option.cli?.flags ?? [FLAG_OF_KEY[decision.key], option.value];
       if (decision.key === 'appo_help') { helpAnswered = true; }
+      if (decision.key === 'fix' && option.value === 'self') { await offerAgentFixes(flags, apiBase); }
       continue;
     }
 
@@ -786,15 +788,15 @@ async function runStart(apiBase, env, flags, id, { installOnly = false, url = nu
 }
 
 /** Creation requires an account (the anonymous trial was removed, 247). A terminal
- *  offers to log in; otherwise a plain message before any request. */
+ *  asks whether one exists and opens the sign-up page or the login page in the
+ *  browser; otherwise a plain message before any request. */
 async function ensureLoggedIn(flags, apiBase, env) {
   let token = storedToken(env);
   if (!token && isInteractive(flags)) {
-    console.log('Creating an app requires an account.');
-    if (isYes(await askLine('Log in now? [y/N] '))) {
-      await login(apiBase, env);
-      token = storedToken(env);
-    }
+    console.log('Creating an app needs an Appo account.');
+    const hasAccount = isYes(await askLine('Do you already have one? [y/N] '));
+    await login(apiBase, env, hasAccount ? {} : { signup: true });
+    token = storedToken(env);
   }
   if (!token) { console.error('Not authenticated. Run: appo login'); return false; }
   return true;
@@ -828,7 +830,6 @@ async function createAndStart(apiBase, env, flags, rawUrl, usage, { installOnly 
   }
   if (!flags.json) { console.log(`Created ${cleanText(app.name ?? name)}.`); }
   const code = await runStart(apiBase, env, flags, app.id, { installOnly, url: base_url });
-  if (code === 0) { await maybeOfferMcp(flags, apiBase); }
   return code;
 }
 

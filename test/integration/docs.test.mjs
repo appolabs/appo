@@ -9,7 +9,7 @@ const README = readFileSync('README.md', 'utf-8');
 const LLMS = readFileSync('llms.txt', 'utf-8');
 
 const COMMANDS = [
-  'appo new', 'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
+  'appo new', 'appo start', 'appo install', 'ship', 'init', 'login', 'logout', 'whoami', 'env list', 'env use',
   'apps create', 'apps list', 'apps show', 'apps check', 'apps update',
   'status', 'rejection', 'fix-recipe', 'publish', 'push',
   'upgrade', 'version', 'run',
@@ -45,6 +45,34 @@ test('README drops removed flags/wording', () => {
   expect(LLMS).not.toContain('--meta-desc');
   expect(LLMS).not.toContain('--timeout');
   expect(LLMS).not.toContain('appo build');
+});
+
+// The hidden aliases (apps create, publish, run) stay documented in one
+// "Kept for scripts" section on purpose: they are absent from --help only.
+const ANSWER_FLAGS = ['--fix', '--phone', '--iphone', '--appo-help'];
+
+test.each(ANSWER_FLAGS)('README and llms.txt document the answer flag %s', (flag) => {
+  expect(README).toContain(flag);
+  expect(LLMS).toContain(flag);
+});
+
+test('README and llms.txt document the input_required envelope and decision_required', () => {
+  for (const doc of [README, LLMS]) {
+    expect(doc).toContain('input_required');
+    expect(doc).toContain('decision_required');
+  }
+});
+
+test('--prepare appears only in the apps update documentation', () => {
+  for (const doc of [README, LLMS]) {
+    for (const line of doc.split('\n').filter((l) => l.includes('--prepare'))) {
+      expect(line).toMatch(/apps update|`--prepare on\|off`/);
+    }
+  }
+  const newSection = README.slice(README.indexOf('## appo new'), README.indexOf('## Ship'));
+  expect(newSection).not.toContain('--prepare');
+  expect(LLMS).not.toContain('--prepare');
+  expect(README).toContain('## Kept for scripts');
 });
 
 test('README documents the apps update --permission flag', () => {

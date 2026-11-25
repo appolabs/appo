@@ -20,10 +20,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /**
  * RFC 8628 device-authorization grant against the Appo backend.
  *   1. POST /api/oauth/device/code      → device_code + user_code + verification URL
- *   2. user opens the link, registers/logs in, approves
+ *   2. user opens the link, registers/logs in, approves (with `signup`, the link
+ *      carries the signup marker so the server lands on the sign-up page first)
  *   3. poll POST /api/oauth/device/token → access_token once approved
  */
-export async function login(apiBase, env) {
+export async function login(apiBase, env, { signup = false, open = openBrowser } = {}) {
   const codeRes = await fetch(`${apiBase}/api/oauth/device/code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -37,17 +38,20 @@ export async function login(apiBase, env) {
   const { device_code, user_code, verification_uri, verification_uri_complete, interval, expires_in } =
     await codeRes.json();
 
+  const link = signup ? `${verification_uri_complete}&signup=1` : verification_uri_complete;
   console.log('');
   console.log('  To authenticate, open this link and confirm the code:');
   console.log('');
-  console.log(`    ${verification_uri_complete}`);
+  console.log(`    ${link}`);
   console.log('');
   console.log(`  Your code:  ${user_code}`);
   console.log(`  (link: ${verification_uri} — expires in ${Math.round(expires_in / 60)} min)`);
   console.log('');
-  console.log('  Opening your browser… register or sign in, then approve the connection.');
+  console.log(signup
+    ? '  Opening your browser to create your Appo account, then approve the connection.'
+    : '  Opening your browser… register or sign in, then approve the connection.');
   console.log('  Waiting for approval…');
-  openBrowser(verification_uri_complete);
+  open(link);
 
   let pollMs = (interval || 5) * 1000;
   const deadline = Date.now() + (expires_in || 600) * 1000;

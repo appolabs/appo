@@ -14,8 +14,26 @@ vi.mock('node:readline/promises', () => ({
   }),
 }));
 
+// No real agent CLI is looked up, no real browser login is started.
+const agents = vi.hoisted(() => ({ found: [], install: null, login: null }));
+
+vi.mock('../../src/mcp.mjs', async (importOriginal) => {
+  const original = /** @type {Record<string, any>} */ (await importOriginal());
+  return {
+    ...original,
+    detectAgents: () => agents.found,
+    runMcpInstall: (...a) => agents.install(...a),
+  };
+});
+
+vi.mock('../../src/login.mjs', async (importOriginal) => {
+  const original = /** @type {Record<string, any>} */ (await importOriginal());
+  return { ...original, login: (...a) => agents.login(...a) };
+});
+
 const { run } = await import('../../src/cli.mjs');
 const ops = await import('../../src/ops.mjs');
+const { writeConfig } = await import('../../src/config.mjs');
 const { installMockFetch, resetMockFetch, lastRequest, requests, stubToken } = await import('../helpers/mockFetch.mjs');
 
 const API = ['--api', 'http://test.local'];
@@ -42,6 +60,9 @@ function setTty(on) {
 }
 
 beforeEach(() => {
+  agents.found = [];
+  agents.install = vi.fn(async () => 0);
+  agents.login = vi.fn(async () => ({ apiBase: 'http://test.local' }));
   state.answers = [];
   state.prompts = [];
   setTty(false);
@@ -322,4 +343,80 @@ test('on a terminal the QR rows carry the contrast escape, except under NO_COLOR
   } finally {
     delete process.env.NO_COLOR;
   }
+});
+
+// --- agent offer (D-14) -------------------------------------------------------
+
+async function startWithFixAnswer(answer, answers) {
+  stubToken();
+  setTty(true);
+  installMockFetch([
+    started({ decision: fixDecision }),
+    started({ try: readyTry }),
+  ]);
+  state.answers = answers;
+  return capture(() => run(['install', '7', ...API]));
+}
+
+test('after fix=self with claude on PATH the CLI names the agent and installs on yes', async () => {
+  agents.found = [{ bin: 'claude', name: 'Claude Code' }];
+  await startWithFixAnswer('self', ['1', 'y']);
+  expect(state.prompts).toContain('Do you want Claude Code to make the fixes? [y/N] ');
+  expect(agents.install).toHaveBeenCalledTimes(1);
+});
+
+test('the agent offer stays silent with no agent, after fix=appo and without a terminal', async () => {
+  await startWithFixAnswer('self', ['1']);
+  expect(state.prompts.some((p) => p.includes('make the fixes'))).toBe(false);
+
+  resetMockFetch();
+  state.prompts = [];
+  agents.found = [{ bin: 'claude', name: 'Claude Code' }];
+  await startWithFixAnswer('appo', ['2']);
+  expect(state.prompts.some((p) => p.includes('make the fixes'))).toBe(false);
+
+  resetMockFetch();
+  state.prompts = [];
+  setTty(false);
+  installMockFetch([started({ decision: fixDecision })]);
+  await capture(() => run(['install', '7', ...API]));
+  expect(state.prompts).toEqual([]);
+  expect(agents.install).not.toHaveBeenCalled();
+});
+
+test('a declined agent offer installs nothing', async () => {
+  agents.found = [{ bin: 'codex', name: 'Codex' }];
+  await startWithFixAnswer('self', ['1', 'n']);
+  expect(state.prompts).toContain('Do you want Codex to make the fixes? [y/N] ');
+  expect(agents.install).not.toHaveBeenCalled();
+});
+
+// --- sign-up handoff (phase 280 D-09/D-10) -----------------------------------
+
+test('start without a token on a terminal asks whether an account exists and signs up on no', async () => {
+  writeConfig({});
+  setTty(true);
+  installMockFetch([]);
+  state.answers = ['n'];
+  await capture(() => run(['start', 'https://x.com', ...API]));
+  expect(state.prompts[0]).toBe('Do you already have one? [y/N] ');
+  expect(agents.login).toHaveBeenCalledWith('http://test.local', expect.anything(), { signup: true });
+});
+
+test('answering yes logs in without the sign-up option', async () => {
+  writeConfig({});
+  setTty(true);
+  installMockFetch([]);
+  state.answers = ['y'];
+  await capture(() => run(['new', 'https://x.com', ...API]));
+  expect(agents.login).toHaveBeenCalledWith('http://test.local', expect.anything(), {});
+});
+
+test('without a terminal and without a token the CLI exits 1 with the login hint', async () => {
+  writeConfig({});
+  installMockFetch([]);
+  const { result, errs } = await capture(() => run(['start', 'https://x.com', ...API]));
+  expect(result).toBe(1);
+  expect(errs.join('\n')).toContain('Not authenticated. Run: appo login');
+  expect(agents.login).not.toHaveBeenCalled();
 });

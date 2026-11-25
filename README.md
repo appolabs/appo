@@ -7,8 +7,9 @@ agent, at parity with the dashboard. A thin, dependency-free Node client over
 the Appo public API (`/api/v1`) and the RFC 8628 device-authorization grant
 (`/api/oauth/device/*`).
 
-- In a terminal or CI: `npx @appolabs/appo new --url <website URL>` creates the
-  app, [`run`](#run) puts it on a phone and [`ship`](#ship) publishes it.
+- In a terminal or CI: `npx @appolabs/appo new <website URL>` creates the
+  app and walks it to a phone, [`start`](#appo-start) resumes that session and
+  [`ship`](#ship) publishes it.
 - With an AI agent (Claude Code, Codex, Cursor): `npx @appolabs/appo mcp`
   registers the Appo MCP connector, `https://apps.goappo.io/mcp`, and the agent
   drives the same lifecycle. See [mcp](#mcp).
@@ -34,49 +35,82 @@ appo --version   # prints: appo/<version> node/<version>
 
 ## appo new
 
-The two canonical commands: `appo new` — the app on your phone; `appo ship` —
-the app on the stores.
-
-`appo new` creates your app from a URL:
+The canonical commands: `appo new <url>` creates an app and walks it to your
+phone; `appo start` resumes that session; `appo install` shows the link to open
+the app on a phone; `appo ship` puts the app on the stores.
 
 ```bash
 npm install -g @appolabs/appo
-appo init                                  # bootstrap config + first login
-appo new --url tuosito.com                 # create the app (name: Tuosito)
+appo new tuosito.com                       # create the app (name: Tuosito) and start the session
 ```
 
-`--url` is required; a bare domain gets `https://` prepended. `--name` is
-optional — without it the name derives from the URL hostname: leading `www.`
-stripped, first label, capitalized (`www.pizza-mario.it` -> `Pizza-mario`).
+A bare domain gets `https://` prepended. `--name` is optional: without it the
+name derives from the URL hostname (leading `www.` stripped, first label,
+capitalized: `www.pizza-mario.it` -> `Pizza-mario`). Creating an app needs an
+Appo account: on a terminal without a login, the command asks whether you
+already have one and opens the sign-up page (no) or the login page (yes) in the
+browser; without a terminal it prints `Not authenticated. Run: appo login` and
+exits `1`.
+
+The session asks, in the order the server decides: consent, then who adapts the
+website, which phone to try on, how an iPhone installs the app, and whether
+Appo's team should help with the next step. Consent is two answers: the website
+is yours or you may publish it (`--owner-authorized`) and you accept the Terms
+of Service, https://goappo.io/en/terms (`--accept-tos`). Every other question
+has a flag, so a script or an agent can answer up front:
 
 ```bash
-appo new --url <u> --name <n>              # explicit name
-appo new --url <u> --prepare off           # you or your developer maintain the site's code
-appo new --url <u> --prepare on --owner-authorized --accept-tos   # Appo's team adapts the site
-appo new --url <u> --json                  # raw creation response envelope
+appo new <url> --owner-authorized --accept-tos --fix self --phone android
+appo start <url> --fix appo --phone iphone --iphone direct --appo-help no
 ```
 
-`--prepare on|off` settles who adapts the website to the app. `off`: you, or a
-developer working for you, maintain the site's code; the app can be tried right
-away. `on`: Appo's team adapts the site, usually within 24-48 hours; the app can
-be tried once that is done. `on` requires `--owner-authorized` (the website is
-yours or you may publish it) and `--accept-tos` (acceptance of the Terms of
-Service, https://goappo.io/en/terms). A bare `--prepare` means `on`.
+| Flag | Values | Question |
+| --- | --- | --- |
+| `--fix` | `self`, `appo` | Who adapts the website to the app |
+| `--phone` | `iphone`, `android` | Which phone you try it on |
+| `--iphone` | `direct`, `testflight` | How an iPhone installs the app |
+| `--appo-help` | `yes`, `no` | Whether Appo's team helps with the next step |
 
-In a terminal, `appo new` asks these questions in plain words when the flags are
-absent. Under `--json`, or without a terminal, nothing is created and no request
-is issued: the command prints an `input_required` envelope on stdout (stderr
-without `--json`) and exits `2`. Its `code` is `preparation_choice_required`
-(no `--prepare`) or `attestation_required` (`--prepare on` without both
-attestation flags); `details` carries the question, the matching flags and the
-Terms URL. An agent asks the user, then re-runs with the flags named in the
-envelope. `appo apps create` follows the same rule, and
-`appo apps update <id> --prepare on` accepts `--owner-authorized` and
-`--accept-tos`.
+On a terminal the session ends with the app on your phone: the link, a QR code
+(only on a terminal; `NO_COLOR` turns the colour off) and a wait for Enter.
+After a `--fix self` answer, if `claude` or `codex` is on your `PATH`, it asks
+whether that agent should make the fixes and, on yes, registers the Appo
+connector for it (see [mcp](#mcp)).
 
-On success it prints the new app id and the two next steps: `appo run <id>`
-(the app on your phone) and `appo ship <id>` (the app on the stores). A missing
-`--url` is a usage error (exit `2`, no request issued); API errors exit `1`.
+Without a terminal, or under `--json`, a question that still needs an answer is
+not asked: the command prints an `input_required` envelope on stdout (stderr
+without `--json`) and exits `2`. The envelope has `error: "input_required"` and
+a `code`: `decision_required` (one pending question; `details.answers` lists
+each answer with the flags that give it) or `attestation_required` (the two
+consent flags are missing; nothing is created and no request is issued). An
+agent asks the user, then re-runs with the flags named in the envelope; it does
+not choose them itself.
+
+Exit codes: `0` the session reached its end or a state that only time changes,
+`1` runtime or API error or a refused consent, `2` an answer is still needed or
+the arguments are invalid.
+
+## appo start
+
+```bash
+appo start [url|id]
+```
+
+Resumes the guided session of an existing app (by address or id) and creates it
+when the address is new. Without an argument it uses your only app, or a picker
+on a terminal. `appo` alone does the same for your only app; with none or
+several it prints a short help. The flags are those of `appo new`; `--json`
+prints the last server response. On a terminal it ends with the line to repeat
+the same answers next time.
+
+## appo install
+
+```bash
+appo install [url|id]
+```
+
+The same session as `appo start`, stopped at the link: it prints how to open the
+app on a phone and does not wait.
 
 ## Ship
 
@@ -92,7 +126,7 @@ appo ship <id> --yes                       # confirm and ship
 ```
 
 Appo builds and submits server-side; track progress with `appo status <id>` or
-`appo run <id>`. Flags: `--stores <list>` (override the target stores;
+`appo install <id>`. Flags: `--stores <list>` (override the target stores;
 defaults to the app's stores), `--yes` (confirm the publish step; `--confirm`
 is an alias), `--json` (emit one `{steps, final_state}` object — `final_state`
 in `{shipped, gated, blocked}` — instead of the live stream). The build platform
@@ -149,14 +183,13 @@ profile with `*` and never prints tokens. Select an environment per-command with
 ## Apps
 
 ```bash
-appo apps create --name <n> --url <u> --prepare on|off [--owner-authorized --accept-tos]
 appo apps list             # list your apps
 appo apps show <id>        # show one app
 appo apps check <id>       # check the site of an app again
-appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   # edit name, base URL, icon, permissions
+appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>] [--prepare on|off [--owner-authorized --accept-tos]]   # edit name, base URL, icon, permissions; hand preparation to Appo or take it back
 ```
 
-`apps create` registers a new app from a name and a base URL. `apps list` prints id,
+`apps list` prints id,
 name, publication state, and base URL per app. `apps show <id>` prints the full app
 overview. `apps update <id>` edits only the fields you supply — the app name, its base
 URL, the app icon, and its native permissions; at least one field is required. `--icon`
@@ -166,7 +199,7 @@ takes an https image URL, which Appo fetches and sets via the icon endpoint.
 they are. When `--name`/`--url`, `--icon`, and `--permission` are given together the
 field update runs first, then the icon, then the permissions. `--json` prints `null`
 for a name/URL-only update (it returns no body) and, for the parts that ran,
-`{ icon_url }` and/or `{ permissions }`. Not confirm-gated (reversible).
+`{ icon_url }` and/or `{ permissions }`. `--prepare on|off` hands the website adaptation to Appo's team (`on`, with `--owner-authorized` and `--accept-tos`) or takes it back (`off`). Not confirm-gated (reversible).
 
 > To republish an existing app (or resubmit after a rejection), use `appo ship <id>` —
 > Appo rebuilds and resubmits server-side. There is no separate `reship`/`build`/`resubmit`
@@ -179,35 +212,19 @@ appo status <id>                    # app overview
 appo status <id> --build <buildId>  # one build's status
 ```
 
-Prints the app overview, or a single build's status when `--build` is given. The
-`try` line is the readiness answer, as given by the server (the same as
-`get_app_overview`); while the app is not ready it lists what can be done meanwhile
-and when to check again, and once it is ready it prints the preview link. With
+Prints the app overview in sentences: name and address, the publication state in
+words, the next step, the pending question when there is one and the try message
+as given by the server (the same as `get_app_overview`). While the app is not
+ready it lists what can be done meanwhile and when to check again; once it is
+ready it prints the preview link. With `--build`, one build's fields. With
 `--json` it prints the raw v1 response body verbatim.
 
-## run
+## Kept for scripts
 
-```bash
-appo run [id]
-```
-
-Prints the one preview link for the app, its QR code and how to open it. The
-link opens a page that detects the phone and installs the right preview; the
-page also states when iPhone testing is still being set up. While Appo is still
-preparing or building the app, `appo run` prints what is happening, what can be
-done meanwhile and when to check again. It only reads: it starts no build
-(iPhone builds start automatically once the app is ready). Every sentence comes
-from the server, the same answer `appo status` and the MCP tool
-`get_app_overview` give.
-
-The id is optional. Without it, `appo run` targets your only app directly, or —
-when the account has several — shows a numbered picker on an interactive terminal.
-In scripts and with `--json`, several apps produce an error listing the ids instead
-of a prompt.
-
-`--json` prints the preview response verbatim, including its `try` block. Exit 1
-on any API error (including app not found, or no apps to resolve); exit 2 when
-several apps exist and no id was given outside a TTY.
+Three older forms keep working and are left out of `appo --help`: `appo run [id]`
+is `appo start [id]`; `appo apps create --name <n> --url <u> [--owner-authorized
+--accept-tos]` creates an app without starting the session; `appo publish <id>
+--confirm` is the publish step that `ship` wraps (see [publish](#publish)).
 
 ## rejection
 
@@ -260,7 +277,7 @@ Downloads the installable artifact (APK/AAB for Android, ad-hoc IPA for iOS) onc
 the build is `ready`. Without `--build` it picks the newest ready build; if the
 latest build is still running it reports that build's status instead. The filename
 derives from the artifact URL unless `--output` is given. `--json` reports
-`{ build_id, file, bytes }`. Builds start automatically once the app is ready; `appo run <id>` prints the preview link.
+`{ build_id, file, bytes }`. Builds start automatically once the app is ready; `appo install <id>` prints the preview link.
 
 ## devices
 

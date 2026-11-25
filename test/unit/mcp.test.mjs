@@ -1,5 +1,8 @@
 import { test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { runMcpInstall, connectorUrl, addArgsFor, printManual } from '../../src/mcp.mjs';
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { runMcpInstall, connectorUrl, addArgsFor, printManual, detectAgents } from '../../src/mcp.mjs';
 
 // No real agent CLI is ever spawned: spawnSyncImpl fakes PATH detection and
 // spawnImpl returns a fake child whose 'close' cb fires synchronously.
@@ -266,4 +269,18 @@ test('unsafe API base aborts before any spawn', async () => {
 test('printManual is pure presentation', () => {
   printManual(URL_PROD);
   expect(lines.length).toBeGreaterThan(3);
+});
+
+test('detectAgents returns the agent binaries found on PATH, in table order', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'appo-path-'));
+  try {
+    const bin = join(dir, process.platform === 'win32' ? 'claude.cmd' : 'claude');
+    writeFileSync(bin, '#!/bin/sh\n');
+    chmodSync(bin, 0o755);
+    expect(detectAgents({ PATH: dir })).toEqual([{ bin: 'claude', name: 'Claude Code' }]);
+    expect(detectAgents({ PATH: join(dir, 'missing') })).toEqual([]);
+    expect(detectAgents({})).toEqual([]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

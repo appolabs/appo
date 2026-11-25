@@ -1,4 +1,6 @@
 import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process';
+import { accessSync, constants } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { resolveApiBase } from './config.mjs';
 import { installInstructions, instructionsPathFor } from './agent-instructions.mjs';
 
@@ -37,6 +39,24 @@ const ON_WIN = process.platform === 'win32';
 // else (whitespace, quotes, shell and cmd.exe metacharacters, userinfo `@`,
 // query, fragment) is refused.
 const SAFE_API_BASE = /^https?:\/\/[A-Za-z0-9.:/_[\]-]+$/;
+
+/**
+ * The supported agent CLIs whose binary is present on PATH, in table order.
+ * Only file presence is checked; nothing is executed.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {{ bin: string, name: string }[]}
+ */
+export function detectAgents(env = process.env) {
+  const dirs = String(env.PATH ?? '').split(delimiter).filter(Boolean);
+  const names = (bin) => (ON_WIN ? [bin, `${bin}.cmd`, `${bin}.exe`] : [bin]);
+  const present = (file) => {
+    try { accessSync(file, constants.X_OK); return true; } catch { return false; }
+  };
+  return CLI_AGENTS
+    .filter((agent) => dirs.some((dir) => names(agent.bin).some((n) => present(join(dir, n)))))
+    .map((agent) => ({ bin: agent.bin, name: agent.label }));
+}
 
 /**
  * The connector URL for an API base: its origin plus `/mcp`. Only http(s)
