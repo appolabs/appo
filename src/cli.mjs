@@ -12,6 +12,8 @@ import * as ops from './ops.mjs';
 import { unwrap } from './ops.mjs';
 import { downloadArtifact } from './download.mjs';
 import { renderQr } from './qr.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import * as readline from 'node:readline/promises';
 import { runUpgrade } from './upgrade.mjs';
@@ -37,6 +39,7 @@ Start here:
 Other lifecycle verbs:
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
   appo suggest <id>               What Appo found on the site and how the app's web view behaves
+  appo customize <id> [--css <c>|--css-file <p|->] [--js <j>|--js-file <p|->] [--preset <name>] [--out <dir>] [--confirm]   Read or write your block of the app's injected CSS and JavaScript (dry run without --confirm)
   appo rejection <id>             Show the active App Store rejection
   appo fix-recipe <id>            Show the fix recipe for a rejection
 
@@ -48,6 +51,7 @@ Apps:
   appo apps remove <id> [--confirm]   Remove an app that was never published (dry run without --confirm)
 
 Test builds & devices:
+  appo testflight <id> --confirm     Send a new build of the app to TestFlight
   appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
   appo devices list               List your registered iOS test devices
   appo devices register           Show the iOS device registration link + QR (one-time per device)
@@ -412,6 +416,143 @@ function renderError(err) {
   }
   console.error(`\n  Error: ${err.message}\n`);
   return 1;
+}
+
+const CUSTOMIZE_FIELDS = [
+  { key: 'injected_css', label: 'CSS', bytes: 'css_bytes', file: 'appo-assistant.css' },
+  { key: 'injected_javascript', label: 'JavaScript', bytes: 'js_bytes', file: 'appo-assistant.js' },
+];
+const BLOCK_ACTION_TEXT = {
+  insert: 'create the block',
+  rewrite: 'rewrite the block',
+  remove: 'remove the block',
+  none: 'no block, nothing removed',
+};
+
+/** Whole standard input as text (the CLI's only stdin reader). */
+function readStdin() {
+  return fs.readFileSync(0, 'utf8');
+}
+
+/** Resolve one code input (inline value or file/stdin). Returns { value } or { error }. */
+function readCodeInput(inlineKey, fileKey, flags, stdinState) {
+  const inline = flags[inlineKey];
+  const file = flags[fileKey];
+  if (inline !== undefined && file !== undefined) {
+    return { error: `Use either --${inlineKey} or --${fileKey}, not both.` };
+  }
+  if (inline !== undefined) {
+    if (typeof inline !== 'string') { return { error: `--${inlineKey} needs a value (an empty value removes the block).` }; }
+    return { value: inline };
+  }
+  if (file === undefined) { return {}; }
+  if (typeof file !== 'string' || file === '') { return { error: `--${fileKey} needs a path, or - for standard input.` }; }
+  if (file === '-') {
+    stdinState.used += 1;
+    return { stdin: true };
+  }
+  try {
+    return { value: fs.readFileSync(file, 'utf8') };
+  } catch {
+    return { error: `Cannot read ${fileKey === 'css-file' ? '--css-file' : '--js-file'} ${file}.` };
+  }
+}
+
+/** Validate the customize flags and build the request body; returns { body, out } or { error }. */
+function buildCustomizeBody(flags) {
+  const stdinState = { used: 0 };
+  const css = readCodeInput('css', 'css-file', flags, stdinState);
+  const js = readCodeInput('js', 'js-file', flags, stdinState);
+  const error = css.error || js.error;
+  if (error) { return { error }; }
+  if (stdinState.used > 1) { return { error: 'Only one of --css-file and --js-file can read standard input (-).' }; }
+  if (flags.preset !== undefined && (typeof flags.preset !== 'string' || flags.preset === '')) {
+    return { error: '--preset needs a name.' };
+  }
+  if (flags.out !== undefined && (typeof flags.out !== 'string' || flags.out === '')) {
+    return { error: '--out needs a directory.' };
+  }
+  if (flags.out !== undefined && flags.confirm) { return { error: '--out reads the block; it cannot be combined with --confirm.' }; }
+  const body = {};
+  if (css.stdin) { css.value = readStdin(); }
+  if (js.stdin) { js.value = readStdin(); }
+  if (css.value !== undefined) { body.injected_css = css.value; }
+  if (js.value !== undefined) { body.injected_javascript = js.value; }
+  if (flags.preset !== undefined) { body.preset = flags.preset; }
+  if (flags.confirm) { body.confirm = true; }
+  return { body, out: flags.out };
+}
+
+/** Write the current block bodies into dir; refuses to overwrite a file that differs. */
+function writeBlockFiles(dir, block) {
+  const targets = CUSTOMIZE_FIELDS
+    .filter((f) => typeof block?.[f.key] === 'string' && block[f.key] !== '')
+    .map((f) => ({ file: path.join(dir, f.file), content: block[f.key] }));
+  for (const t of targets) {
+    if (fs.existsSync(t.file) && fs.readFileSync(t.file, 'utf8') !== t.content) {
+      return { error: `${t.file} already exists with different content; nothing written.` };
+    }
+  }
+  fs.mkdirSync(dir, { recursive: true });
+  const written = [];
+  for (const t of targets) {
+    if (!fs.existsSync(t.file)) { fs.writeFileSync(t.file, t.content); }
+    written.push(t.file);
+  }
+  return { written };
+}
+
+function printBlockBodies(block) {
+  for (const f of CUSTOMIZE_FIELDS) {
+    const body = block?.[f.key];
+    console.log(typeof body === 'string' && body !== '' ? `Current ${f.label} block:\n${cleanText(body)}` : `Current ${f.label} block: none`);
+  }
+}
+
+function printCustomizeRead(res) {
+  const limit = Number(res.limit_bytes);
+  for (const f of CUSTOMIZE_FIELDS) {
+    console.log(`${f.label}: ${Number(res[f.bytes] ?? 0)} of ${limit} bytes`);
+  }
+  printBlockBodies(res.previous_block);
+}
+
+function printCustomizeDryRun(res) {
+  console.log('Dry run: nothing written.');
+  const limit = Number(res.limit_bytes);
+  for (const f of CUSTOMIZE_FIELDS) {
+    const action = res.block?.[f.key];
+    if (action === undefined) { continue; }
+    console.log(`${f.label}: ${BLOCK_ACTION_TEXT[action] ?? cleanText(action)}; ${Number(res[f.bytes] ?? 0)} of ${limit} bytes`);
+  }
+  printBlockBodies(res.previous_block);
+  if (res.note) { console.log(cleanText(res.note)); }
+  console.log('Add --confirm to write it.');
+}
+
+function printCustomizeApplied(res) {
+  if (!res.customized) {
+    console.log('Nothing changed.');
+    return;
+  }
+  const names = CUSTOMIZE_FIELDS.filter((f) => (res.fields ?? []).includes(f.key)).map((f) => f.label);
+  console.log(`Written: ${names.length ? names.join(', ') : 'block'}.`);
+}
+
+/** appo customize: read, dry run or write the owner's block of injected code. */
+async function runCustomize(apiBase, env, flags, id) {
+  const built = buildCustomizeBody(flags);
+  if (built.error) { console.error(built.error); return 2; }
+  const res = await ops.customizeAppearance(apiBase, id, built.body, env);
+  let exitCode = res?.confirm_required ? 3 : 0;
+  if (built.out) {
+    const result = writeBlockFiles(built.out, res?.previous_block);
+    if (result.error) { console.error(result.error); return 2; }
+    if (!flags.json) { for (const file of result.written) { console.log(`Wrote ${file}`); } }
+  }
+  if (flags.json) { console.log(JSON.stringify(res)); return exitCode; }
+  if (res?.confirm_required) { printCustomizeDryRun(res); } else if (res?.customized !== undefined) { printCustomizeApplied(res); } else { printCustomizeRead(res); }
+  return exitCode;
 }
 
 /** Human rendering of the adaptation brief: site findings with their fix first,
@@ -1463,6 +1604,32 @@ export async function run(argv) {
         const res = await ops.getAdaptationBrief(apiBase, sub, env);
         if (flags.json) { console.log(JSON.stringify(res)); return 0; }
         printAdaptationBrief(sub, res);
+        return 0;
+      }
+
+      case 'customize': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo customize <id>', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
+        if (!sub) { console.error('Usage: appo customize <id> [--css <c>|--css-file <p|->] [--js <j>|--js-file <p|->] [--preset <name>] [--out <dir>] [--confirm]'); return 2; }
+        return await runCustomize(apiBase, env, flags, sub);
+      }
+
+      case 'testflight': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo testflight <id> --confirm', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
+        if (!sub) { console.error('Usage: appo testflight <id> --confirm'); return 2; }
+        const gated = await confirmGate(flags, { will: 'testflight_build', app_id: sub });
+        if (gated !== null) return gated;
+        const build = await ops.requestTestFlightBuild(apiBase, sub, env);
+        if (flags.json) { console.log(JSON.stringify(build)); return 0; }
+        console.log(`TestFlight build ${cleanText(build?.id)} started (${cleanText(build?.status)}).`);
+        console.log(`appo status ${cleanText(sub)} shows when it is ready.`);
         return 0;
       }
 
