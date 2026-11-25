@@ -1495,8 +1495,7 @@ export async function run(argv) {
             return res?.confirm_required ? 3 : 0;
           }
           if (res?.confirm_required) {
-            if (res.note) { console.log(cleanText(res.note)); }
-            console.log('Add --confirm to remove it.');
+            console.log(res.note ? cleanText(res.note) : 'Add --confirm to remove it.');
             return 3;
           }
           if (res?.message) { console.log(cleanText(res.message)); }

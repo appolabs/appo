@@ -276,6 +276,14 @@ describe('apps remove', () => {
     expect(lastRequest().method).toBe('DELETE');
     expect(lastRequest().url.endsWith('/api/v1/apps/7')).toBe(true);
     expect(lines.join('\n')).toContain('This removes Shop for good.');
+    expect(lines).not.toContain('Add --confirm to remove it.');
+  });
+
+  test('dry run without a server note prints the CLI hint', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: { will: 'delete', app: 7, name: 'Shop', confirm_required: true } });
+    const { result, lines } = await captureLog(() => run(['apps', 'remove', '7', ...API]));
+    expect(result).toBe(3);
     expect(lines).toContain('Add --confirm to remove it.');
   });
 
