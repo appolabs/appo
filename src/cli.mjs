@@ -36,6 +36,7 @@ Start here:
 
 Other lifecycle verbs:
   appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
+  appo suggest <id>               What Appo found on the site and how the app's web view behaves
   appo rejection <id>             Show the active App Store rejection
   appo fix-recipe <id>            Show the fix recipe for a rejection
 
@@ -410,6 +411,39 @@ function renderError(err) {
   }
   console.error(`\n  Error: ${err.message}\n`);
   return 1;
+}
+
+/** Human rendering of the adaptation brief: site findings with their fix first,
+ *  then the four web view contract entries and the preparation line. */
+const CONTRACT_IDS = ['insets', 'injection_timing', 'cascade', 'ascii'];
+
+function printAdaptationBrief(id, brief) {
+  const site = brief?.site ?? null;
+  if (site) {
+    const date = String(site.reading_fetched_at ?? '').slice(0, 10);
+    console.log(`Site findings (stored reading of ${cleanText(date)}):`);
+    const findings = Array.isArray(site.findings) ? site.findings : [];
+    if (findings.length === 0) {
+      console.log('  No finding bears on adapting the site.');
+    }
+    for (const f of findings) {
+      console.log(`- ${cleanText(f.label)}: ${cleanText(f.finding)}`);
+      console.log(`  Fix: ${cleanText(f.fix)}`);
+    }
+    if (brief.site_note) { console.log(cleanText(brief.site_note)); }
+  } else if (brief?.site_note) {
+    console.log(cleanText(brief.site_note));
+  }
+  console.log('');
+  console.log('Web view contract:');
+  const wrapper = Array.isArray(brief?.wrapper) ? brief.wrapper : [];
+  for (const key of CONTRACT_IDS) {
+    const entry = wrapper.find((w) => w.id === key);
+    if (entry) { console.log(`  ${key}: ${cleanText(entry.statement)}`); }
+  }
+  const prep = brief?.preparation;
+  if (prep) { console.log(`Preparation: ${cleanText(prep.mode)} (${cleanText(prep.status)})`); }
+  console.log(`Full contract and policy: appo suggest ${cleanText(String(id))} --json`);
 }
 
 /** Preview-safe app id (IN-01): coerce to a number only when the positional id is
@@ -1390,6 +1424,19 @@ export async function run(argv) {
         await ops.publishApp(apiBase, sub, stores, env);        // 200 {data: {demo_account}}
         if (flags.json) { console.log('null'); return 0; }      // Pitfall 5 / D-08: body not passed through; prints null as before the 200 answer
         console.log(`Publication started for: ${stores.join(', ')}`);
+        return 0;
+      }
+
+      case 'suggest': {
+        if (!sub && isInteractive(flags)) {
+          const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo suggest <id>', selectLabel: 'Select an app:' });
+          if (resolved.exit !== undefined) { return resolved.exit; }
+          sub = String(resolved.id);
+        }
+        if (!sub) { console.error('Usage: appo suggest <id>'); return 2; }
+        const res = await ops.getAdaptationBrief(apiBase, sub, env);
+        if (flags.json) { console.log(JSON.stringify(res)); return 0; }
+        printAdaptationBrief(sub, res);
         return 0;
       }
 
