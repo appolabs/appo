@@ -1,4 +1,4 @@
-import { test, afterEach, expect } from 'vitest';
+import { test, describe, afterEach, expect } from 'vitest';
 import { run } from '../../src/cli.mjs';
 import {
   installMockFetch,
@@ -259,4 +259,99 @@ test('push missing --body returns 2', async () => {
   stubToken();
   const result = await silentRun(['push', '7', '--title', 'Hi', ...API]);
   expect(result).toBe(2);
+});
+
+// --- apps remove (DELETE, server-side dry run) -----------------------------
+
+describe('apps remove', () => {
+  const dryRun = { will: 'delete', app: 7, name: 'Shop', confirm_required: true, note: 'This removes Shop for good.' };
+  const removed = { deleted: true, app: 7, name: 'Shop', message: 'Shop was removed.' };
+
+  test('without --confirm sends one DELETE without a query and exits 3', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: dryRun });
+    const { result, lines } = await captureLog(() => run(['apps', 'remove', '7', ...API]));
+    expect(result).toBe(3);
+    expect(requests.length).toBe(1);
+    expect(lastRequest().method).toBe('DELETE');
+    expect(lastRequest().url.endsWith('/api/v1/apps/7')).toBe(true);
+    expect(lines.join('\n')).toContain('This removes Shop for good.');
+    expect(lines).toContain('Add --confirm to remove it.');
+  });
+
+  test('with --confirm sends ?confirm=1, prints the message, exits 0', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: removed });
+    const { result, lines } = await captureLog(() => run(['apps', 'remove', '7', '--confirm', ...API]));
+    expect(result).toBe(0);
+    expect(requests.length).toBe(1);
+    expect(lastRequest().url.endsWith('/api/v1/apps/7?confirm=1')).toBe(true);
+    expect(lines.join('\n')).toContain('Shop was removed.');
+  });
+
+  test('--json dry run prints the body and exits 3', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: dryRun });
+    const { result, lines } = await captureLog(() => run(['apps', 'remove', '7', '--json', ...API]));
+    expect(result).toBe(3);
+    expect(JSON.parse(lines.join('\n'))).toEqual(dryRun);
+  });
+
+  test('--json --confirm prints the body and exits 0', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: removed });
+    const { result, lines } = await captureLog(() => run(['apps', 'remove', '7', '--json', '--confirm', ...API]));
+    expect(result).toBe(0);
+    expect(JSON.parse(lines.join('\n'))).toEqual(removed);
+  });
+
+  test('refused removal prints Blocked and Next, exits 1, no second request', async () => {
+    stubToken();
+    installMockFetch({
+      status: 422,
+      body: {
+        error: 'prerequisite_failed',
+        code: 'app_published',
+        message: 'The app is published.',
+        details: { next_action: 'Contact support', dashboard_url: 'https://example.test/apps/7' },
+      },
+    });
+    const original = console.error;
+    const errors = [];
+    console.error = (...args) => errors.push(args.join(' '));
+    let result;
+    try {
+      result = await run(['apps', 'remove', '7', '--confirm', ...API]);
+    } finally {
+      console.error = original;
+    }
+    expect(result).toBe(1);
+    expect(requests.length).toBe(1);
+    const out = errors.join('\n');
+    expect(out).toContain('Blocked: The app is published.');
+    expect(out).toContain('Next: Contact support -> https://example.test/apps/7');
+  });
+
+  test('404 exits 1', async () => {
+    stubToken();
+    installMockFetch({ status: 404, body: { message: 'Not found' } });
+    expect(await silentRun(['apps', 'remove', '99', '--confirm', ...API])).toBe(1);
+  });
+
+  test('missing id without a terminal exits 2 with usage', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: dryRun });
+    const original = console.error;
+    const errors = [];
+    console.error = (...args) => errors.push(args.join(' '));
+    let result;
+    try {
+      result = await run(['apps', 'remove', ...API]);
+    } finally {
+      console.error = original;
+    }
+    expect(result).toBe(2);
+    expect(errors.join('\n')).toContain('Usage: appo apps remove <id> [--confirm]');
+    expect(requests.length).toBe(0);
+  });
 });

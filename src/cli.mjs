@@ -45,6 +45,7 @@ Apps:
   appo apps show <id>             Show one app
   appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>] [--prepare on|off [--owner-authorized --accept-tos]]   Update name, URL, icon, permissions; hand preparation to Appo or take it back
   appo apps check <id>            Check the site of an app again
+  appo apps remove <id> [--confirm]   Remove an app that was never published (dry run without --confirm)
 
 Test builds & devices:
   appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
@@ -72,7 +73,7 @@ Options:
   --env <name>   Select the environment/profile (env: APPO_ENV)
   --token <pat>  Personal access token for \`login --token\` (never stored elsewhere)
   --json         Print the raw v1 response body (machine-readable)
-  --confirm      Perform the write for a destructive verb (push)
+  --confirm      Perform the write for a destructive verb (push, customize, apps remove, testflight)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
   --stores <l>   Override target stores for \`ship\` (default: the app's stores)
   --build <n>    Target a specific build id (\`status\`/\`download\`; default: latest)
@@ -1334,6 +1335,31 @@ export async function run(argv) {
             return 0;
           }
           printSiteCheck(site);
+          return 0;
+        }
+        if (sub === 'remove') {
+          let id = rest[0];
+          if (!id && isInteractive(flags)) {
+            const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo apps remove <id> [--confirm]', selectLabel: 'Select an app to remove:' });
+            if (resolved.exit !== undefined) { return resolved.exit; }
+            id = String(resolved.id);
+          }
+          if (!id) {
+            console.error('Usage: appo apps remove <id> [--confirm]');
+            return 2;
+          }
+          // The server holds the gate: no ?confirm=1 means a dry run (D-16).
+          const res = await ops.removeApp(apiBase, id, { confirm: Boolean(flags.confirm) }, env);
+          if (flags.json) {
+            console.log(JSON.stringify(res));
+            return res?.confirm_required ? 3 : 0;
+          }
+          if (res?.confirm_required) {
+            if (res.note) { console.log(cleanText(res.note)); }
+            console.log('Add --confirm to remove it.');
+            return 3;
+          }
+          if (res?.message) { console.log(cleanText(res.message)); }
           return 0;
         }
         console.error(`Unknown apps subcommand: ${sub ?? '(none)'}`);
