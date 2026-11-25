@@ -294,3 +294,32 @@ test('start with no argument resolves the only app; with none it asks the addres
   expect(quiet.result).toBe(1);
   expect(quiet.errs.join('\n')).toContain('No apps yet. Run: appo start <url>');
 });
+
+test('the link is printed without ANSI or QR rows when there is no terminal', async () => {
+  stubToken();
+  installMockFetch([started({ try: readyTry })]);
+  const { result, all } = await capture(() => run(['install', '7', ...API]));
+  expect(result).toBe(0);
+  expect(all).toContain('https://p.example/abc');
+  expect(all).not.toContain('\x1b');
+  expect(all).not.toMatch(/[▀▄█]/);
+});
+
+test('on a terminal the QR rows carry the contrast escape, except under NO_COLOR', async () => {
+  stubToken();
+  setTty(true);
+  installMockFetch([started({ try: readyTry })]);
+  const coloured = await capture(() => run(['install', '7', ...API]));
+  expect(coloured.all).toContain('\x1b[30;47m');
+
+  resetMockFetch();
+  installMockFetch([started({ try: readyTry })]);
+  process.env.NO_COLOR = '1';
+  try {
+    const plain = await capture(() => run(['install', '7', ...API]));
+    expect(plain.all).toMatch(/[▀▄█]/);
+    expect(plain.all).not.toContain('\x1b');
+  } finally {
+    delete process.env.NO_COLOR;
+  }
+});

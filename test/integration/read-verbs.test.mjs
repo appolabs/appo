@@ -72,7 +72,7 @@ test('status renders try options as plain lines, without tool names', async () =
     },
   });
   const { lines } = await captureLog(() => run(['status', '7', ...API]));
-  const prep = lines.findIndex((l) => /preparation\s+appo_managed \(in_progress\)/.test(l));
+  const prep = lines.findIndex((l) => /Appo adapts the website \(in_progress\)\./.test(l));
   expect(prep).toBeGreaterThan(-1);
   expect(lines[prep + 1]).toMatch(/try\s+Appo is preparing the app\.$/);
   expect(lines[prep + 2]).toMatch(/^\s+- Wait for Appo to finish preparing the app\.$/);
@@ -88,7 +88,7 @@ test('status without preparation options prints only the preparation line', asyn
     body: { data: { id: 7, preparation: { mode: 'self_managed', status: 'completed' } } },
   });
   const { lines } = await captureLog(() => run(['status', '7', ...API]));
-  expect(lines.some((l) => /preparation\s+self_managed \(completed\)/.test(l))).toBe(true);
+  expect(lines.some((l) => /You adapt the website \(completed\)\./.test(l))).toBe(true);
   expect(lines.some((l) => /^\s+- /.test(l))).toBe(false);
 });
 
@@ -100,22 +100,22 @@ const demoStatus = async (demo_account) => {
 
 test('status prints the demo_account line when needed and not provided', async () => {
   const out = await demoStatus({ needed: true, provided: false, url: 'http://x.test/apps/7' });
-  expect(out).toMatch(/demo_account\s+needed, not provided: http:\/\/x\.test\/apps\/7/);
+  expect(out).toMatch(/Demo account for the store review: needed, not provided yet \(http:\/\/x\.test\/apps\/7\)/);
 });
 
 test('status prints provided when provided, needed or not', async () => {
   for (const needed of [false, true]) {
     const out = await demoStatus({ needed, provided: true, url: 'http://x.test/apps/7' });
-    expect(out).toMatch(/demo_account\s+provided: http:\/\/x\.test\/apps\/7/);
+    expect(out).toMatch(/Demo account for the store review: provided \(http:\/\/x\.test\/apps\/7\)/);
     expect(out).not.toMatch(/not provided/);
     resetMockFetch();
   }
 });
 
 test('status prints no demo_account line when neither or absent', async () => {
-  expect(await demoStatus({ needed: false, provided: false, url: null })).not.toMatch(/demo_account/);
+  expect(await demoStatus({ needed: false, provided: false, url: null })).not.toMatch(/Demo account/);
   resetMockFetch();
-  expect(await demoStatus(undefined)).not.toMatch(/demo_account/);
+  expect(await demoStatus(undefined)).not.toMatch(/Demo account/);
 });
 
 test('status --json keeps the demo_account envelope verbatim', async () => {
@@ -225,14 +225,14 @@ const TRY_READY_BODY = {
   },
 };
 
-test('run hits GET /api/v1/apps/7/preview, returns 0', async () => {
+test('run 7 behaves as start 7: POST /api/v1/apps/7/start, returns 0', async () => {
   stubToken();
-  installMockFetch({ status: 200, body: TRY_READY_BODY });
+  installMockFetch({ status: 200, body: { data: { id: 7, decision: null, try: TRY_READY_BODY.try } } });
   const { result } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
-  expect(req.method).toBe('GET');
-  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+  expect(req.method).toBe('POST');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/start$/);
 });
 
 test('run 404 returns 1 (renderError)', async () => {
@@ -276,7 +276,7 @@ test('status while preparing prints the try message, option descriptions and rec
   expect(out).toContain('Appo is adapting the site.');
   expect(out).toContain('Wait for it to finish.');
   expect(out).toContain('check again in about 6 hours');
-  expect(out).toContain('appo_managed (pending)');
+  expect(out).toContain('Appo adapts the website (pending)');
   expect(out).not.toContain('OLD OPTION LINE');
   expect(out).not.toMatch(/[▀▄█]/);
 });
@@ -316,21 +316,21 @@ const RESOLVED_PREVIEW_BODY = {
   try: TRY_READY_BODY.try,
 };
 
-test('run with no id and a single app resolves it and hits its preview', async () => {
+test('run with no id and a single app resolves it and starts it', async () => {
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
-    { status: 200, body: RESOLVED_PREVIEW_BODY },
+    { status: 200, body: { data: { id: 7, decision: null, try: RESOLVED_PREVIEW_BODY.try } } },
   ]);
   const { result, lines } = await captureLog(() => run(['run', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
-  expect(req.method).toBe('GET');
-  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+  expect(req.method).toBe('POST');
+  expect(req.path).toMatch(/\/api\/v1\/apps\/7\/start$/);
   expect(lines.join('\n')).toContain('Using Shop (id 7)');
 });
 
-test('run with no id and no apps exits 1 with the create hint', async () => {
+test('run with no id and no apps exits 1 with the start hint', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: [] } });
   const errors = [];
@@ -343,7 +343,7 @@ test('run with no id and no apps exits 1 with the create hint', async () => {
     console.error = originalErr;
   }
   expect(result).toBe(1);
-  expect(errors.join('\n')).toContain('appo new --url');
+  expect(errors.join('\n')).toContain('appo start <url>');
 });
 
 test('run with no id and several apps (non-TTY) exits 2 listing them', async () => {
@@ -368,7 +368,7 @@ test('run with no id and several apps (non-TTY) exits 2 listing them', async () 
   }
   expect(result).toBe(2);
   const out = errors.join('\n');
-  expect(out).toContain('appo run <id>');
+  expect(out).toContain('appo start <id>');
   expect(out).not.toContain('appo preview');
   expect(out).toContain('Shop');
   expect(out).toContain('Blog');

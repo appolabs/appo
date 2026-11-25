@@ -20,6 +20,39 @@ import { EnvironmentError } from './environment-errors.mjs';
 
 const USAGE = `appo — create and manage Appo apps from the terminal
 
+Start here:
+  appo new <url> [--name <n>]     Create your app from a website address and walk it to your phone
+  appo start [url|id]             Resume the guided session: asks what is still needed, ends with the app on your phone
+  appo install [url|id]           Show the link to open the app on a phone and stop
+  appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
+  appo status <id>                Where the app stands and what comes next
+
+  Answer the questions up front, for scripts and agents:
+    --fix self|appo               Who adapts the website
+    --phone iphone|android        Which phone you try it on
+    --iphone direct|testflight    How an iPhone installs it
+    --appo-help yes|no            Whether Appo's team helps with the next step
+    --owner-authorized --accept-tos   Confirm you own the site and accept the Terms
+
+Other lifecycle verbs:
+  appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
+  appo rejection <id>             Show the active App Store rejection
+  appo fix-recipe <id>            Show the fix recipe for a rejection
+
+Apps:
+  appo apps list                  List your apps
+  appo apps show <id>             Show one app
+  appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>] [--prepare on|off [--owner-authorized --accept-tos]]   Update name, URL, icon, permissions; hand preparation to Appo or take it back
+  appo apps check <id>            Check the site of an app again
+
+Test builds & devices:
+  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready
+  appo devices list               List your registered iOS test devices
+  appo devices register           Show the iOS device registration link + QR (one-time per device)
+
+AI editor:
+  appo mcp [--agent-instructions]  Connect your AI agent to Appo (Claude Code, Codex, Cursor): registers the Appo MCP connector; asks before adding a section to CLAUDE.md / AGENTS.md (without a terminal, only with --agent-instructions)
+
 Auth:
   appo login [--api <url>]        Authenticate via the browser (device flow)
   appo login --token <pat>        Authenticate non-interactively with a dashboard PAT
@@ -33,42 +66,14 @@ Packaging:
   appo upgrade                    Update to the latest @appolabs/appo via npm
   appo --version, -v              Print the CLI + Node version
 
-Apps:
-  appo apps create --name <n> --url <u>   Create a new app
-  appo apps list                  List your apps
-  appo apps show <id>             Show one app
-  appo apps update <id> [--name <n>] [--url <u>] [--icon <https-url>] [--permission <name>=<on|off>]   Update name, URL, icon, permissions
-  appo apps check <id>            Check the site of an app again
-  appo apps update <id> [--prepare on|off [--owner-authorized --accept-tos]]   Hand preparation to Appo, or take it back
-
-Lifecycle:
-  appo new <url> [--name <n>] [--owner-authorized --accept-tos]   Create your app and walk it to your phone — name defaults from the URL
-  appo start [url|id]             Resume the guided session: asks what the server still needs, ends with the app on your phone
-  appo install [url|id]           Show the link to open the app on a phone and stop
-  appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
-  appo status <id>                        App overview (publication state + next action)
-  appo run [id]                           Try it: print the preview link and QR code for your phone, or what Appo is still doing; no id: your only app, or a picker
-  appo rejection <id>                     Show the active App Store rejection
-  appo fix-recipe <id>                    Show the fix recipe for a rejection
-  appo publish <id> [--confirm]           Publish an already-built app to its stores
-  appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm   Send a push notification
-
-Test builds & devices:
-  appo download <id> [--build <n>] [--output <path>]   Download the installable artifact once ready (prepare one with \`appo run\`)
-  appo devices list               List your registered iOS test devices
-  appo devices register           Show the iOS device registration link + QR (one-time per device)
-
-AI editor:
-  appo mcp [--agent-instructions]  Connect your AI agent to Appo (Claude Code, Codex, Cursor): registers the Appo MCP connector; asks before adding a section to CLAUDE.md / AGENTS.md (without a terminal, only with --agent-instructions)
-
 Options:
   --api <url>    Override the API base (env: APPO_API_BASE)
   --env <name>   Select the environment/profile (env: APPO_ENV)
   --token <pat>  Personal access token for \`login --token\` (never stored elsewhere)
   --json         Print the raw v1 response body (machine-readable)
-  --confirm      Perform the write for a destructive verb (publish/push)
+  --confirm      Perform the write for a destructive verb (push)
   --yes          Confirm the publish step of \`ship\` (alias of --confirm)
-  --stores <l>   Override target stores for \`ship\`/\`publish\` (default: the app's stores)
+  --stores <l>   Override target stores for \`ship\` (default: the app's stores)
   --build <n>    Target a specific build id (\`status\`/\`download\`; default: latest)
   --output <p>   Write the downloaded artifact to this path (default: derived filename)
   -h, --help     Show this help
@@ -77,7 +82,7 @@ Options:
 Exit codes:
   0  success
   1  runtime / API error (incl. auth failure — run \`appo login\`)
-  2  usage error (missing or invalid arguments)
+  2  usage error (missing or invalid arguments, or a question still waiting for an answer)
   3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
 
   ship maps these to its final lifecycle state: 0 shipped / 1 blocked /
@@ -91,6 +96,16 @@ Environment variables:
   Create a PAT in the dashboard, then \`appo login --token <pat>\` or set APPO_TOKEN
   in your environment (e.g. CI/agents) to authenticate without the browser flow.
 `;
+
+const SHORT_USAGE = `appo — turn your website into an app
+
+  appo new <url>        Create an app from a website address
+  appo start <url>      Walk an app from your address to your phone
+  appo status <id>      Where an app stands
+  appo ship <id>        Ship it to the stores
+  appo login            Authenticate in the browser
+
+  appo --help for every command`;
 
 /** Minimal flag parser: collects --key value / --key=value / --flag and
  *  positionals. A bare `--` ends option parsing — every remaining token is
@@ -144,6 +159,11 @@ function parseArgs(argv) {
   return { flags, positional };
 }
 
+/** Colour only on a terminal, and never under NO_COLOR. */
+function useColor() {
+  return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+}
+
 /** Render the server's `try` block (the single readiness predicate). Nothing
  *  is derived here; every server string goes through cleanText. The agent-facing
  *  `tool`/`arguments` of each option are not printed. */
@@ -154,9 +174,9 @@ function printTry(tryBlock, { withQr = false } = {}) {
   if (tryBlock.state === 'ready') {
     if (tryBlock.preview_url) console.log(`  ${'preview_url'.padEnd(18)} ${cleanText(tryBlock.preview_url)}`);
     if (tryBlock.how_to_open) console.log(`  ${pad} ${cleanText(tryBlock.how_to_open)}`);
-    if (withQr && tryBlock.preview_url) {
-      const CONTRAST = '\x1b[30;47m'; // black fg on white bg
-      const RESET = '\x1b[0m';
+    if (withQr && tryBlock.preview_url && process.stdout.isTTY) {
+      const CONTRAST = useColor() ? '\x1b[30;47m' : ''; // black fg on white bg
+      const RESET = useColor() ? '\x1b[0m' : '';
       console.log('');
       for (const row of renderQr(tryBlock.preview_url).split('\n')) {
         console.log(`${CONTRAST}${row}${RESET}`);
@@ -178,26 +198,44 @@ function printTry(tryBlock, { withQr = false } = {}) {
   }
 }
 
+const PUBLICATION_SENTENCES = {
+  not_ready: 'Not published yet.',
+  ready: 'Ready to ship to the stores.',
+  in_review: 'In review at Apple and Google.',
+  rejected: 'A store rejected the app.',
+  live: 'Live in the stores.',
+  removing: 'Being removed from the stores.',
+};
+
+const NEXT_STEP_SENTENCES = {
+  preview: 'Next: start it on your phone with appo start',
+  publish: 'Next: ship it to the stores with appo ship',
+  resubmit: 'Next: resubmit it after the fixes with appo ship',
+  setup: 'Next: finish the setup with appo start',
+  fix_site: 'Next: fix the findings on the website, then run appo apps check',
+};
+
 function printApp(app) {
   if (!app) return;
-  const line = (k, v) => v !== undefined && v !== null && console.log(`  ${k.padEnd(18)} ${v}`);
-  line('id', app.id);
-  line('name', app.name);
-  line('base_url', app.base_url);
-  line('publication_state', app.publication_state);
-  line('primary_action', app.primary_action);
+  const say = (text) => console.log(`  ${text}`);
+  const address = app.base_url ? ` (${cleanText(app.base_url)})` : '';
+  say(`${cleanText(app.name ?? `App ${app.id}`)}${address}, id ${app.id}.`);
+  const state = PUBLICATION_SENTENCES[app.publication_state];
+  if (state) say(state);
+  const next = NEXT_STEP_SENTENCES[app.primary_action];
+  if (next) say(`${next}.`);
+  if (app.decision?.question) say(`Next question: ${cleanText(app.decision.question)}`);
   if (app.demo_account?.provided) {
-    line('demo_account', `provided: ${app.demo_account.url}`);
+    say(`Demo account for the store review: provided (${cleanText(app.demo_account.url)}).`);
   } else if (app.demo_account?.needed) {
-    line('demo_account', `needed, not provided: ${app.demo_account.url}`);
+    say(`Demo account for the store review: needed, not provided yet (${cleanText(app.demo_account.url)}).`);
   }
   if (app.preparation) {
-    line('preparation', `${app.preparation.mode} (${app.preparation.status})`);
+    const who = app.preparation.mode === 'appo_managed' ? 'Appo adapts the website' : 'You adapt the website';
+    say(`${who} (${cleanText(app.preparation.status)}).`);
   }
   printTry(app.try, { withQr: false });
-  if (app.stores) line('stores', `apple=${app.stores.apple} google=${app.stores.google}`);
-  line('ios_bundle_id', app.ios_bundle_id);
-  line('android_package', app.android_package_name);
+  if (app.stores) say(`Stores: Apple ${cleanText(app.stores.apple)}, Google ${cleanText(app.stores.google)}.`);
 }
 
 /** Curated render of a build — the 9-key `CuratedBuild::for()` projection
@@ -544,7 +582,7 @@ async function maybeOfferMcp(flags, apiBase) {
  *  since scripts and --json runs cannot answer a prompt. Returns { id } on
  *  success or { exit } when the caller should stop with that code. */
 async function resolveTargetApp(apiBase, env, flags, {
-  usageHint = 'appo run <id>',
+  usageHint = 'appo start <id>',
   selectLabel = 'Select an app to run:',
   quietEmpty = false,
 } = {}) {
@@ -839,6 +877,19 @@ async function runGuidedVerb(command, apiBase, env, flags, target) {
   return createAndStart(apiBase, env, flags, address, usage, { installOnly });
 }
 
+/** `appo` alone: resume the only app through the start loop; otherwise a short help. */
+async function runWithoutArguments(apiBase, env, flags) {
+  if (!storedToken(env)) { console.log(SHORT_USAGE); return 0; }
+  const apps = await ops.listApps(apiBase, env);
+  if (apps.length === 1) { return runStart(apiBase, env, flags, apps[0].id); }
+  console.log(SHORT_USAGE);
+  if (apps.length > 1) {
+    console.log('');
+    for (const a of apps) { console.log(`  ${String(a.id).padEnd(5)} ${cleanText(a.name)}  ${cleanText(a.base_url)}`); }
+  }
+  return 0;
+}
+
 /** Default to both canonical store tokens; map friendly aliases apple/google. */
 function parseStores(raw) {
   if (!raw || raw === true) return ['apple_appstore', 'google_playstore'];
@@ -879,7 +930,7 @@ export async function run(argv) {
     return 0;
   }
 
-  if (flags.help || positional[0] === 'help' || positional.length === 0) {
+  if (flags.help || positional[0] === 'help') {
     console.log(USAGE);
     return 0;
   }
@@ -910,6 +961,7 @@ export async function run(argv) {
   let [command, sub, ...rest] = positional;
 
   try {
+    if (positional.length === 0) { return await runWithoutArguments(apiBase, env, flags); }
     switch (command) {
       case 'login': {
         // Non-interactive branch: validate the pasted PAT (loginWithToken probes
@@ -1270,30 +1322,6 @@ export async function run(argv) {
         return 0;
       }
 
-      case 'run': {
-        let id = sub;
-        if (!id) {
-          const resolved = await resolveTargetApp(apiBase, env, flags);
-          if (resolved.exit !== undefined) { return resolved.exit; }
-          id = resolved.id;
-        }
-        // Read-only: the server owns readiness and the one link (D-01, D-13).
-        // No build is triggered; iPhone builds start server-side.
-        if (flags.json) {
-          try {
-            const res = await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env);
-            console.log(JSON.stringify(res));
-            return 0;
-          } catch (err) {
-            if (err.envelope) { console.log(JSON.stringify(err.envelope)); return 1; }
-            throw err;
-          }
-        }
-        const d = await ops.getPreview(apiBase, id, env);
-        printTry(d?.try, { withQr: true });
-        return 0;
-      }
-
       case 'rejection': {
         if (!sub && isInteractive(flags)) {
           const resolved = await resolveTargetApp(apiBase, env, flags, { usageHint: 'appo rejection <id>', selectLabel: 'Select an app:' });
@@ -1408,7 +1436,7 @@ export async function run(argv) {
           if (!buildId) {
             const builds = unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${sub}/builds`, null, env)) || [];
             if (builds.length === 0) {
-              console.log(`No builds yet. Prepare one: appo run ${sub}`);
+              console.log(`No builds yet. Prepare one: appo install ${sub}`);
               return 1;
             }
             const ready = builds.find((b) => b.status === 'ready' && b.artifact_url);
@@ -1450,7 +1478,7 @@ export async function run(argv) {
             console.log(`${CONTRAST}${row}${RESET}`);
           }
           console.log('');
-          console.log('Then run: appo run <id>   (shows the preview link for your phone)');
+          console.log('Then run: appo install <id>   (shows the preview link for your phone)');
           return 0;
         }
         if (sub === 'list' || sub === undefined) {
@@ -1474,6 +1502,10 @@ export async function run(argv) {
       case 'start':
       case 'install':
         return await runGuidedVerb(command, apiBase, env, flags, sub);
+
+      // Kept for scripts: `run` is the old name of `start`.
+      case 'run':
+        return await runGuidedVerb('start', apiBase, env, flags, sub);
 
       case 'ship': {
         // Store-publication verb — `ship <id>` signals publish-intent on an
@@ -1531,7 +1563,7 @@ export async function run(argv) {
         }
         record({ step: 'publish', status: 'ok', target_stores: stores });
         log(`ok submitted: ${stores.join(', ')} — Appo will build and submit it.`);
-        log(`  track: appo status ${appId}   run: appo run ${appId}`);
+        log(`  track: appo status ${appId}   phone: appo install ${appId}`);
         return finish('shipped', EXIT.shipped);
       }
 
