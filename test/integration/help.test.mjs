@@ -110,7 +110,7 @@ test('no args with one app runs the start loop for it', async () => {
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
-    { status: 200, body: { data: { id: 7, decision: null, try: { state: 'preparing', message: 'Appo is adapting the site.' } } } },
+    { status: 200, body: { data: { id: 7, decision: null, install: { state: 'preparing', message: 'Appo is adapting the site.' } } } },
   ]);
   const { result, lines } = await captureLog(() => run(['--api', 'http://test.local']));
   expect(result).toBe(0);
@@ -125,7 +125,7 @@ test('status prints sentences, not raw keys', async () => {
     id: 7, name: 'Shop', base_url: 'https://shop.example', publication_state: 'in_review',
     primary_action: 'preview', ios_bundle_id: 'com.x.y', android_package_name: 'com.x.y',
     decision: { key: 'fix', question: 'Who adapts the website?' },
-    try: { state: 'preparing', message: 'Appo is adapting the site.' },
+    install: { state: 'preparing', message: 'Appo is adapting the site.' },
   } } });
   const { lines } = await captureLog(() => run(['status', '7', '--api', 'http://test.local']));
   const out = lines.join('\n');
@@ -137,4 +137,10 @@ test('status prints sentences, not raw keys', async () => {
   for (const key of ['publication_state', 'primary_action', 'ios_bundle_id', 'android_package']) {
     expect(out).not.toContain(key);
   }
+});
+
+test('--help carries no preview or try wording', async () => {
+  const { lines } = await captureLog(() => run(['--help']));
+  const out = lines.join('\n');
+  expect(out).not.toMatch(/preview|\btry it\b|\btry\b/i);
 });

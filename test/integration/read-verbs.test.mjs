@@ -54,7 +54,7 @@ test('status renders try options as plain lines, without tool names', async () =
           mode: 'appo_managed',
           status: 'in_progress',
         },
-        try: {
+        install: {
           state: 'preparing',
           message: 'Appo is preparing the app.',
           options: [
@@ -74,7 +74,7 @@ test('status renders try options as plain lines, without tool names', async () =
   const { lines } = await captureLog(() => run(['status', '7', ...API]));
   const prep = lines.findIndex((l) => /Appo adapts the website \(in_progress\)\./.test(l));
   expect(prep).toBeGreaterThan(-1);
-  expect(lines[prep + 1]).toMatch(/try\s+Appo is preparing the app\.$/);
+  expect(lines[prep + 1]).toMatch(/Appo is preparing the app\.$/);
   expect(lines[prep + 2]).toMatch(/^\s+- Wait for Appo to finish preparing the app\.$/);
   expect(lines[prep + 3]).toMatch(/^\s+- Prepare the app yourself and try it now\.$/);
   const out = lines.join('\n');
@@ -213,13 +213,13 @@ test('rejection missing id returns 2', async () => {
 // --- run: GET /preview and render the try block (detail in run.test.mjs) ---
 
 const TRY_READY_BODY = {
-  preview_url: 'https://app.appo.io/preview/tok',
-  preview_ready: { ios: false, android: true },
-  try: {
+  install_url: 'https://app.appo.io/preview/tok',
+  install_ready: { ios: false, android: true },
+  install: {
     state: 'ready',
     message_code: 'ready',
     message: 'Ready to try.',
-    preview_url: 'https://app.appo.io/preview/tok',
+    install_url: 'https://app.appo.io/preview/tok',
     how_to_open: 'Open the link on your phone.',
     options: [],
   },
@@ -227,7 +227,7 @@ const TRY_READY_BODY = {
 
 test('run 7 behaves as start 7: POST /api/v1/apps/7/start, returns 0', async () => {
   stubToken();
-  installMockFetch({ status: 200, body: { data: { id: 7, decision: null, try: TRY_READY_BODY.try } } });
+  installMockFetch({ status: 200, body: { data: { id: 7, decision: null, install: TRY_READY_BODY.install } } });
   const { result } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   const req = lastRequest();
@@ -257,9 +257,9 @@ const SHOW_PREPARING = {
   data: {
     id: 7, name: 'Shop', base_url: 'https://shop.example',
     preparation: { mode: 'appo_managed', status: 'pending', options: [{ action: 'x', description: 'OLD OPTION LINE' }] },
-    try: {
+    install: {
       state: 'preparing', message_code: 'preparing', message: 'Appo is adapting the site.',
-      preview_url: null, how_to_open: null,
+      install_url: null, how_to_open: null,
       options: [{ action: 'wait', description: 'Wait for it to finish.', tool: 'get_app_overview' }],
       recheck_after_minutes: 360,
     },
@@ -281,17 +281,17 @@ test('status while preparing prints the try message, option descriptions and rec
   expect(out).not.toMatch(/[▀▄█]/);
 });
 
-test('status when ready fetches /preview and prints its try.preview_url, no QR', async () => {
+test('status when ready fetches /install and prints its install_url, no QR', async () => {
   stubToken();
   installMockFetch([
-    { status: 200, body: { data: { id: 7, name: 'Shop', try: { state: 'ready', message_code: 'ready_iphone_soon', message: 'Ready on Android; iPhone is being set up.', preview_url: null, how_to_open: null, options: [] } } } },
+    { status: 200, body: { data: { id: 7, name: 'Shop', install: { state: 'ready', message_code: 'ready_iphone_soon', message: 'Ready on Android; iPhone is being set up.', install_url: null, how_to_open: null, options: [] } } } },
     { status: 200, body: TRY_READY_BODY },
   ]);
   const { result, lines } = await captureLog(() => run(['status', '7', ...API]));
   expect(result).toBe(0);
   expect(requests.length).toBe(2);
   expect(requests[1].method).toBe('GET');
-  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7\/preview$/);
+  expect(requests[1].path).toMatch(/\/api\/v1\/apps\/7\/install$/);
   const out = lines.join('\n');
   expect(out).toContain('Ready on Android; iPhone is being set up.');
   expect(out).toContain('https://app.appo.io/preview/tok');
@@ -311,16 +311,16 @@ test('status --json passes the payload through verbatim with a single request', 
 const RESOLVED_PREVIEW_BODY = {
   ios_testflight_url: null,
   android_deeplink: 'appo://preview?token=t',
-  preview_url: 'https://app.appo.io/preview/tok',
-  preview_ready: { ios: false, android: true },
-  try: TRY_READY_BODY.try,
+  install_url: 'https://app.appo.io/preview/tok',
+  install_ready: { ios: false, android: true },
+  install: TRY_READY_BODY.install,
 };
 
 test('run with no id and a single app resolves it and starts it', async () => {
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 7, name: 'Shop', base_url: 'https://shop.example' }] } },
-    { status: 200, body: { data: { id: 7, decision: null, try: RESOLVED_PREVIEW_BODY.try } } },
+    { status: 200, body: { data: { id: 7, decision: null, install: RESOLVED_PREVIEW_BODY.install } } },
   ]);
   const { result, lines } = await captureLog(() => run(['run', ...API]));
   expect(result).toBe(0);

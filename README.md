@@ -53,7 +53,7 @@ browser; without a terminal it prints `Not authenticated. Run: appo login` and
 exits `1`.
 
 The session asks, in the order the server decides: consent, then who adapts the
-website, which phone to try on, how an iPhone installs the app, and whether
+website, which phone to install it on, how an iPhone installs the app, and whether
 Appo's team should help with the next step. Consent is two answers: the website
 is yours or you may publish it (`--owner-authorized`) and you accept the Terms
 of Service, https://goappo.io/en/terms (`--accept-tos`). Every other question
@@ -67,11 +67,11 @@ appo start <url> --fix appo --phone iphone --iphone direct --appo-help no
 | Flag | Values | Question |
 | --- | --- | --- |
 | `--fix` | `self`, `appo` | Who adapts the website to the app |
-| `--phone` | `iphone`, `android` | Which phone you try it on |
+| `--phone` | `iphone`, `android` | Which phone you install it on |
 | `--iphone` | `direct`, `testflight` | How an iPhone installs the app |
 | `--appo-help` | `yes`, `no` | Whether Appo's team helps with the next step |
 
-On a terminal the session ends with the app on your phone: the link, a QR code
+On a terminal the session ends with the app on your phone: the install link, a QR code
 (only on a terminal; `NO_COLOR` turns the colour off) and a wait for Enter.
 After a `--fix self` answer, if `claude` or `codex` is on your `PATH`, it asks
 whether that agent should make the fixes and, on yes, registers the Appo
@@ -121,7 +121,7 @@ republishing and resubmitting after an App Store rejection — there is no
 separate `reship`/`build`/`resubmit` verb.
 
 ```bash
-appo ship <id>                             # publish preview (gate), no write
+appo ship <id>                             # publish dry run (gate), nothing written
 appo ship <id> --yes                       # confirm and ship
 ```
 
@@ -133,7 +133,7 @@ in `{shipped, gated, blocked}` — instead of the live stream). The build platfo
 is decided by Appo (the operator) — you ship an outcome, not a build
 configuration. `ship` maps its final lifecycle state to the
 [exit codes](#exit-codes): `0` shipped, `1` blocked, `2` usage error,
-`3` gated (publish preview shown, no write — re-run with `--yes`).
+`3` gated (publish dry run shown, nothing written — re-run with `--yes`).
 
 ## appo init
 
@@ -213,10 +213,10 @@ appo status <id> --build <buildId>  # one build's status
 ```
 
 Prints the app overview in sentences: name and address, the publication state in
-words, the next step, the pending question when there is one and the try message
+words, the next step, the pending question when there is one and the install message
 as given by the server (the same as `get_app_overview`). While the app is not
 ready it lists what can be done meanwhile and when to check again; once it is
-ready it prints the preview link. With `--build`, one build's fields. With
+ready it prints the install link. With `--build`, one build's fields. With
 `--json` it prints the raw v1 response body verbatim.
 
 ## Kept for scripts
@@ -250,7 +250,7 @@ limitations. `--json` emits the raw envelope.
 appo publish <id> --confirm
 ```
 
-Publishes to the app's stores. Destructive: without `--confirm` it prints a preview
+Publishes to the app's stores. Destructive: without `--confirm` it prints a dry run
 and exits with code `3` (confirm required) — no write is performed. By default it
 targets the app's stores; `--stores <list>` is an optional override accepting the
 canonical store tokens or the `apple`/`google` aliases.
@@ -261,8 +261,8 @@ canonical store tokens or the `apple`/`google` aliases.
 appo push <id> --title <t> --body <b> [--target-url <u>] [--image-path <p>] [--scheduled-at <when>] --confirm
 ```
 
-Sends a push notification. Destructive: without `--confirm` it prints a preview and
-exits with code `3` — no write. The preview omits the recipient count (exposed only
+Sends a push notification. Destructive: without `--confirm` it prints a dry run and
+exits with code `3` — nothing is written. The dry run omits the recipient count (exposed only
 after send). On success it reports the number of devices reached.
 
 ## download
@@ -277,7 +277,7 @@ Downloads the installable artifact (APK/AAB for Android, ad-hoc IPA for iOS) onc
 the build is `ready`. Without `--build` it picks the newest ready build; if the
 latest build is still running it reports that build's status instead. The filename
 derives from the artifact URL unless `--output` is given. `--json` reports
-`{ build_id, file, bytes }`. Builds start automatically once the app is ready; `appo install <id>` prints the preview link.
+`{ build_id, file, bytes }`. Builds start automatically once the app is ready; `appo install <id>` prints the install link.
 
 ## devices
 
@@ -372,7 +372,7 @@ flow. The default API base is `https://apps.goappo.io` (production); override it
 | `3`  | confirm required (destructive verb invoked without `--confirm`; no write)    |
 
 `ship` maps these to its final lifecycle state: `0` shipped, `1` blocked,
-`2` usage, `3` gated (publish preview shown, no write — re-run with `--yes`).
+`2` usage, `3` gated (publish dry run shown, nothing written — re-run with `--yes`).
 
 ## CI auth
 
@@ -424,12 +424,12 @@ reuse the same lifecycle calls, auth resolution and profiles instead of
 maintaining a parallel client:
 
 ```js
-import { getPreview, listApps } from "@appolabs/appo/ops";
+import { getInstall, listApps } from "@appolabs/appo/ops";
 import { resolveApiBase, activeProfileName, storedToken } from "@appolabs/appo/config";
 
 const env = activeProfileName();
 const apiBase = resolveApiBase(undefined, env);
-const preview = await getPreview(apiBase, 128, env);
+const install = await getInstall(apiBase, 128, env);
 ```
 
 Token resolution matches the CLI: `APPO_TOKEN` first, then the active profile's

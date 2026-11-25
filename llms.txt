@@ -42,7 +42,7 @@ the flags itself; then it re-runs with the flags the envelope names. See
 - [appo login / logout / whoami](README.md#auth)
 - [appo env list / env use](README.md#environments)
 - [appo apps list / apps show / apps check / apps update](README.md#apps)
-- [appo status](README.md#status): app overview; the try line is the readiness answer
+- [appo status](README.md#status): app overview; the install line is the readiness answer
 - [appo run, apps create, publish](README.md#kept-for-scripts): older forms kept for scripts
 - [appo rejection](README.md#rejection)
 - [appo fix-recipe](README.md#fix-recipe)

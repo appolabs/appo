@@ -23,7 +23,7 @@ export function startApp(
   answers: {
     fix?: 'self' | 'appo';
     phone?: 'iphone' | 'android';
-    iphone_try?: 'direct' | 'testflight';
+    iphone_install?: 'direct' | 'testflight';
     appo_help?: 'yes' | 'no';
     install_only?: boolean;
     owner_authorized?: boolean;
@@ -54,8 +54,8 @@ export function publishApp(
   env?: string,
 ): Promise<null>;
 
-/** Flat payload: { ios_testflight_url, android_deeplink, preview_url, preview_ready }. */
-export function getPreview(apiBase: string, id: string | number, env?: string): Promise<any>;
+/** Flat payload: { ios_testflight_url, android_deeplink, install_url, install_ready, install }. */
+export function getInstall(apiBase: string, id: string | number, env?: string): Promise<any>;
 
 /** Flat payload: { icon_url }. */
 export function setIcon(

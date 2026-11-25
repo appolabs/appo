@@ -96,6 +96,21 @@ test('no appo preview references remain (renamed to appo run)', () => {
   expect(LLMS).not.toContain('appo preview');
 });
 
+// 278 D-21/D-23: start is the act, the install link is what it prints. The retired
+// words stay out of both docs; `appo run` is named once, in "Kept for scripts".
+test('no retired preview or try wording in README and llms.txt', () => {
+  for (const doc of [README, LLMS]) {
+    expect(doc).not.toMatch(/preview/i);
+    expect(doc).not.toMatch(/\btry it\b|\btry on\b|\bthe try\b|iphone_try/i);
+  }
+});
+
+test('CLI source reads the install names, not the retired ones', () => {
+  const src = ['cli.mjs', 'ops.mjs', 'ops.d.mts'].map((f) => readFileSync(`src/${f}`, 'utf-8')).join('\n');
+  expect(src).not.toMatch(/preview_url|iphone_try|preview_ready|getPreview/);
+  expect(src).toContain('/install');
+});
+
 // An agent that lands on either doc must find the connector: the command that
 // registers it and the address it registers.
 test('both docs give the MCP connector address', () => {

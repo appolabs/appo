@@ -23,9 +23,9 @@ export async function createApp(apiBase, { name, base_url, prep_mode, owner_auth
   return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env));
 }
 
-// POST /api/v1/apps/{id}/start -> 200 { data: AppResource + decision + try }.
+// POST /api/v1/apps/{id}/start -> 200 { data: AppResource + decision + install }.
 // The body carries only the answers present; the server computes the next decision.
-const START_KEYS = ['fix', 'phone', 'iphone_try', 'appo_help', 'install_only', 'owner_authorized', 'accepted_tos'];
+const START_KEYS = ['fix', 'phone', 'iphone_install', 'appo_help', 'install_only', 'owner_authorized', 'accepted_tos'];
 export async function startApp(apiBase, id, answers, env) {
   const body = {};
   for (const key of START_KEYS) {
@@ -59,10 +59,10 @@ export async function publishApp(apiBase, id, app_stores, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/publish`, { app_stores }, env);
 }
 
-// GET /api/v1/apps/{id}/preview -> 200 { ios_testflight_url, android_deeplink, preview_url, preview_ready }
+// GET /api/v1/apps/{id}/install -> 200 { ios_testflight_url, android_deeplink, install_url, install_ready, install }
 // Flat object (no {data:} envelope) — unwrap is a harmless no-op here.
-export async function getPreview(apiBase, id, env) {
-  return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/preview`, null, env));
+export async function getInstall(apiBase, id, env) {
+  return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/install`, null, env));
 }
 
 // POST /api/v1/apps/{id}/icon -> 200 { icon_url } (flat, NOT a {data:} envelope).

@@ -48,37 +48,37 @@ const READY_PREVIEW = {
   ios: { mode: 'appo', state: 'ready' },
   ios_testflight_url: null,
   android_deeplink: null,
-  preview_url: 'https://app.appo.io/preview/tok',
-  preview_ready: { ios: false, android: true },
-  try: {
+  install_url: 'https://app.appo.io/preview/tok',
+  install_ready: { ios: false, android: true },
+  install: {
     state: 'ready',
     message_code: 'ready_iphone_soon',
     message: 'Ready on Android. iPhone testing is being set up.',
-    preview_url: 'https://app.appo.io/preview/tok',
+    install_url: 'https://app.appo.io/preview/tok',
     how_to_open: 'Open the link on your phone.',
     options: [],
   },
 };
 
 const PREPARING_PREVIEW = {
-  preview_url: 'https://app.appo.io/preview/tok',
-  preview_ready: { ios: false, android: false },
-  try: {
+  install_url: 'https://app.appo.io/preview/tok',
+  install_ready: { ios: false, android: false },
+  install: {
     state: 'preparing',
     message_code: 'preparing',
     message: 'Appo is adapting the site to the app.',
-    preview_url: null,
+    install_url: null,
     how_to_open: null,
     options: [{ action: 'wait', description: 'Wait for the adaptation to finish.', tool: 'get_app_overview' }],
     recheck_after_minutes: 360,
   },
 };
 
-const startBody = (tryBlock) => ({ data: { id: 7, decision: null, try: tryBlock } });
+const startBody = (installBlock) => ({ data: { id: 7, decision: null, install: installBlock } });
 
 test('run <id> is the hidden alias of start: one POST to /start, link and how-to-open, no QR without a terminal', async () => {
   stubToken();
-  installMockFetch({ status: 200, body: startBody(READY_PREVIEW.try) });
+  installMockFetch({ status: 200, body: startBody(READY_PREVIEW.install) });
   const { result, lines } = await captureLog(() => run(['run', '7', ...API]));
   expect(result).toBe(0);
   expect(requests.length).toBe(1);
@@ -87,6 +87,7 @@ test('run <id> is the hidden alias of start: one POST to /start, link and how-to
   const out = lines.join('\n');
   expect(out).toContain('Ready on Android. iPhone testing is being set up.');
   expect(out).toContain('https://app.appo.io/preview/tok');
+  expect(out).toContain('Install link: https://app.appo.io/preview/tok');
   expect(out).toContain('Open the link on your phone.');
   expect(out).not.toMatch(/[▀▄█]/);
   expect(out).not.toMatch(/^\s*(ios|android)\b/m);
@@ -94,7 +95,7 @@ test('run <id> is the hidden alias of start: one POST to /start, link and how-to
 
 test('install <id> while preparing prints the message and when to check again, no QR, exit 0', async () => {
   stubToken();
-  installMockFetch({ status: 200, body: startBody(PREPARING_PREVIEW.try) });
+  installMockFetch({ status: 200, body: startBody(PREPARING_PREVIEW.install) });
   const { result, lines } = await captureLog(() => run(['install', '7', ...API]));
   expect(result).toBe(0);
   const out = lines.join('\n');
@@ -105,9 +106,9 @@ test('install <id> while preparing prints the message and when to check again, n
 
 test('install <id> strips control characters from server text', async () => {
   stubToken();
-  const tryBlock = structuredClone(PREPARING_PREVIEW.try);
-  tryBlock.message = 'Hello\x1b[31m red';
-  installMockFetch({ status: 200, body: startBody(tryBlock) });
+  const installBlock = structuredClone(PREPARING_PREVIEW.install);
+  installBlock.message = 'Hello\x1b[31m red';
+  installMockFetch({ status: 200, body: startBody(installBlock) });
   const { lines } = await captureLog(() => run(['install', '7', ...API]));
   const out = lines.join('\n');
   expect(out).toContain('Hello[31m red');
@@ -117,7 +118,7 @@ test('install <id> strips control characters from server text', async () => {
 
 test('run <id> --json prints the start body', async () => {
   stubToken();
-  const body = startBody(READY_PREVIEW.try);
+  const body = startBody(READY_PREVIEW.install);
   installMockFetch({ status: 200, body });
   const { result, lines } = await captureLog(() => run(['run', '7', '--json', ...API]));
   expect(result).toBe(0);

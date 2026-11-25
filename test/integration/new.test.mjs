@@ -48,7 +48,7 @@ const API = ['--api', 'http://test.local'];
 test('new prints the try message of the creation response', async () => {
   stubToken();
   installMockFetch([
-    { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', try: { state: 'preparing', message_code: 'preparing', message: 'Appo is getting the app ready.', preview_url: null, how_to_open: null, options: [] } } } },
+    { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', install: { state: 'preparing', message_code: 'preparing', message: 'Appo is getting the app ready.', install_url: null, how_to_open: null, options: [] } } } },
   ]);
   const { result, lines } = await captureLog(() =>
     run(['new', '--url', 'https://x.com', '--name', 'X', '--owner-authorized', '--accept-tos', ...API]));
@@ -116,14 +116,14 @@ test('new --json prints the start response body as one JSON line, exit 0', async
   stubToken();
   installMockFetch([
     { status: 201, body: { data: { id: 9, name: 'Tuosito', base_url: 'https://tuosito.com' } } },
-    { status: 200, body: { data: { id: 9, name: 'Tuosito', decision: null, try: { state: 'ready', message: 'ok', preview_url: 'https://p' } } } },
+    { status: 200, body: { data: { id: 9, name: 'Tuosito', decision: null, install: { state: 'ready', message: 'ok', install_url: 'https://p' } } } },
   ]);
   const { result, lines } = await captureLog(() =>
     run(['new', '--url', 'tuosito.com', '--owner-authorized', '--accept-tos', '--json', ...API]));
   expect(result).toBe(0);
   expect(lines.length).toBe(1);
   expect(JSON.parse(lines[0])).toEqual({
-    data: { id: 9, name: 'Tuosito', decision: null, try: { state: 'ready', message: 'ok', preview_url: 'https://p' } },
+    data: { id: 9, name: 'Tuosito', decision: null, install: { state: 'ready', message: 'ok', install_url: 'https://p' } },
   });
 });
 
@@ -282,7 +282,7 @@ test('apps check on a first decided check prints a status line and that the app 
   expect(out).toContain('- No HTTPS.');
   expect(out).toContain('Notes:');
   expect(out).toContain('- No privacy page.');
-  expect(out).toContain('Try and Publish stay closed until the site is fixed.');
+  expect(out).toContain('The install link and Publish stay closed until the site is fixed.');
 });
 
 test('apps check on a pending check says the site is still being read', async () => {
@@ -292,7 +292,7 @@ test('apps check on a pending check says the site is still being read', async ()
   expect(result).toBe(0);
   const out = lines.join('\n');
   expect(out).toContain('The site is still being read');
-  expect(out).toContain('The site does not close Try or Publish.');
+  expect(out).toContain('The site does not close the install link or Publish.');
 });
 
 test('apps check on an unverified check of a closed app prints the cause and the closing findings', async () => {
@@ -312,7 +312,7 @@ test('apps check on an unverified check of a closed app prints the cause and the
   expect(out).toContain('The site could not be reached.');
   expect(out).toContain('The app was closed because of:');
   expect(out).toContain('- The certificate expired.');
-  expect(out).toContain('Try and Publish stay closed until the site is fixed.');
+  expect(out).toContain('The install link and Publish stay closed until the site is fixed.');
 });
 
 test('apps check prints the message when no site is stored', async () => {

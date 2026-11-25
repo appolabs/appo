@@ -582,7 +582,7 @@ function getBit(x, i) {
 /**
  * Render a URL as a terminal QR code using Unicode half-block characters.
  * Returns the bare matrix string (no ANSI). Apply ANSI contrast in the printer.
- * @param {string} text - The text to encode (e.g. a preview URL)
+ * @param {string} text - The text to encode (e.g. an install URL)
  * @returns {string} Multi-line block-art string, ready to print
  */
 export function renderQr(text) {

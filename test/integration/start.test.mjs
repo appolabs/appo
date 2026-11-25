@@ -105,7 +105,7 @@ test('an invalid answer flag exits 2 naming the values, before any request', asy
 
 test('a pending decision under --json is one input_required envelope, exit 2', async () => {
   stubToken();
-  installMockFetch([{ status: 200, body: { data: { id: 7, decision: fixDecision, try: null } } }]);
+  installMockFetch([{ status: 200, body: { data: { id: 7, decision: fixDecision, install: null } } }]);
   const { result, out } = await capture(() => run(['start', '7', '--json', ...API]));
   expect(result).toBe(2);
   expect(JSON.parse(out.join(''))).toEqual({
@@ -126,7 +126,7 @@ test('a pending decision under --json is one input_required envelope, exit 2', a
 
 test('without a terminal the question and each answer with its flags go to stderr, no colour', async () => {
   stubToken();
-  installMockFetch([{ status: 200, body: { data: { id: 7, decision: fixDecision, try: null } } }]);
+  installMockFetch([{ status: 200, body: { data: { id: 7, decision: fixDecision, install: null } } }]);
   const { result, errs, all } = await capture(() => run(['start', '7', ...API]));
   expect(result).toBe(2);
   const text = errs.join('\n');
@@ -139,7 +139,7 @@ test('without a terminal the question and each answer with its flags go to stder
 test('the flags of each answer are copied from the server hint', async () => {
   stubToken();
   const odd = { ...fixDecision, options: [{ ...fixDecision.options[0], cli: { flags: ['--fix', 'self', '--extra', 'x'] } }] };
-  installMockFetch([{ status: 200, body: { data: { id: 7, decision: odd, try: null } } }]);
+  installMockFetch([{ status: 200, body: { data: { id: 7, decision: odd, install: null } } }]);
   const { out } = await capture(() => run(['start', '7', '--json', ...API]));
   expect(JSON.parse(out.join('')).details.answers[0].flags).toEqual(['--fix', 'self', '--extra', 'x']);
 });
@@ -162,8 +162,8 @@ const helpDecision = {
     { key: 'appo_help=no', value: 'no', label: 'No', wait: 'none', cli: { flags: ['--appo-help', 'no'] } },
   ],
 };
-const readyTry = { state: 'ready', message_code: 'ready', message: 'The app is ready to open.', preview_url: 'https://p.example/abc', how_to_open: 'Open the link on your phone.' };
-const started = (extra) => ({ status: 200, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', decision: null, try: null, ...extra } } });
+const readyTry = { state: 'ready', message_code: 'ready', message: 'The app is ready to open.', install_url: 'https://p.example/abc', how_to_open: 'Open the link on your phone.' };
+const started = (extra) => ({ status: 200, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', decision: null, install: null, ...extra } } });
 const created = { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } };
 const startBodies = () => requests.filter((r) => r.path.endsWith('/start')).map((r) => r.body);
 
@@ -174,9 +174,9 @@ test('new on a terminal walks consent, fix, phone, the link, Enter and the offer
     created,
     started({ decision: fixDecision }),
     started({ decision: phoneDecision }),
-    started({ try: readyTry }),
-    started({ try: readyTry, decision: helpDecision }),
-    started({ try: readyTry }),
+    started({ install: readyTry }),
+    started({ install: readyTry, decision: helpDecision }),
+    started({ install: readyTry }),
   ]);
   state.answers = ['y', 'y', '1', '2', '', '2'];
   const { result, out } = await capture(() => run(['new', 'https://x.com', ...API]));
@@ -207,7 +207,7 @@ test('start on an existing address resumes it with the answers from the flags', 
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 5, name: 'X', base_url: 'https://www.x.com/' }] } },
-    started({ try: readyTry }),
+    started({ install: readyTry }),
   ]);
   const { result, all } = await capture(() => run(['start', 'https://x.com', '--fix', 'self', '--phone', 'android', ...API]));
   expect(result).toBe(0);
@@ -229,17 +229,17 @@ test('start on an unknown address without consent flags returns attestation_requ
 test('install posts install_only, prints the link and does not wait', async () => {
   stubToken();
   setTty(true);
-  installMockFetch([started({ try: readyTry })]);
+  installMockFetch([started({ install: readyTry })]);
   const { result, out } = await capture(() => run(['install', '7', '--phone', 'iphone', '--iphone', 'direct', ...API]));
   expect(result).toBe(0);
-  expect(startBodies()).toEqual([{ phone: 'iphone', iphone_try: 'direct', install_only: true }]);
+  expect(startBodies()).toEqual([{ phone: 'iphone', iphone_install: 'direct', install_only: true }]);
   expect(out.join('\n')).toContain('https://p.example/abc');
   expect(state.prompts.length).toBe(0);
 });
 
 test('a state that is not ready prints the message and when to check again', async () => {
   stubToken();
-  installMockFetch([started({ try: { state: 'preparing', message: 'Appo is adapting the site.', recheck_after_minutes: 360 } })]);
+  installMockFetch([started({ install: { state: 'preparing', message: 'Appo is adapting the site.', recheck_after_minutes: 360 } })]);
   const { result, out } = await capture(() => run(['start', '5', ...API]));
   expect(result).toBe(0);
   expect(out.join('\n')).toContain('Appo is adapting the site.');
@@ -248,7 +248,7 @@ test('a state that is not ready prints the message and when to check again', asy
 
 test('--json on a ready start prints exactly the V1 response body', async () => {
   stubToken();
-  const body = { data: { id: 5, decision: null, try: readyTry } };
+  const body = { data: { id: 5, decision: null, install: readyTry } };
   installMockFetch([{ status: 200, body }]);
   const { result, out } = await capture(() => run(['start', '5', '--json', ...API]));
   expect(result).toBe(0);
@@ -261,7 +261,7 @@ const consent422 = { status: 422, body: { error: 'validation_failed', message: '
 test('a consent 422 on a terminal asks the two questions and retries the same start', async () => {
   stubToken();
   setTty(true);
-  installMockFetch([consent422, started({ try: readyTry })]);
+  installMockFetch([consent422, started({ install: readyTry })]);
   state.answers = ['y', 'y', ''];
   const { result } = await capture(() => run(['start', '5', '--fix', 'appo', ...API]));
   expect(result).toBe(0);
@@ -293,7 +293,7 @@ test('start with no argument resolves the only app; with none it asks the addres
   stubToken();
   installMockFetch([
     { status: 200, body: { data: [{ id: 7, name: 'Pizza', base_url: 'https://pizza.it' }] } },
-    started({ try: readyTry }),
+    started({ install: readyTry }),
   ]);
   const one = await capture(() => run(['start', ...API]));
   expect(one.result).toBe(0);
@@ -318,7 +318,7 @@ test('start with no argument resolves the only app; with none it asks the addres
 
 test('the link is printed without ANSI or QR rows when there is no terminal', async () => {
   stubToken();
-  installMockFetch([started({ try: readyTry })]);
+  installMockFetch([started({ install: readyTry })]);
   const { result, all } = await capture(() => run(['install', '7', ...API]));
   expect(result).toBe(0);
   expect(all).toContain('https://p.example/abc');
@@ -329,12 +329,12 @@ test('the link is printed without ANSI or QR rows when there is no terminal', as
 test('on a terminal the QR rows carry the contrast escape, except under NO_COLOR', async () => {
   stubToken();
   setTty(true);
-  installMockFetch([started({ try: readyTry })]);
+  installMockFetch([started({ install: readyTry })]);
   const coloured = await capture(() => run(['install', '7', ...API]));
   expect(coloured.all).toContain('\x1b[30;47m');
 
   resetMockFetch();
-  installMockFetch([started({ try: readyTry })]);
+  installMockFetch([started({ install: readyTry })]);
   process.env.NO_COLOR = '1';
   try {
     const plain = await capture(() => run(['install', '7', ...API]));
@@ -352,7 +352,7 @@ async function startWithFixAnswer(answer, answers) {
   setTty(true);
   installMockFetch([
     started({ decision: fixDecision }),
-    started({ try: readyTry }),
+    started({ install: readyTry }),
   ]);
   state.answers = answers;
   return capture(() => run(['install', '7', ...API]));

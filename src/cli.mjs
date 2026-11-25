@@ -29,7 +29,7 @@ Start here:
 
   Answer the questions up front, for scripts and agents:
     --fix self|appo               Who adapts the website
-    --phone iphone|android        Which phone you try it on
+    --phone iphone|android        Which phone you install it on
     --iphone direct|testflight    How an iPhone installs it
     --appo-help yes|no            Whether Appo's team helps with the next step
     --owner-authorized --accept-tos   Confirm you own the site and accept the Terms
@@ -83,10 +83,10 @@ Exit codes:
   0  success
   1  runtime / API error (incl. auth failure — run \`appo login\`)
   2  usage error (missing or invalid arguments, or a question still waiting for an answer)
-  3  confirm required (destructive verb invoked without --confirm; preview shown, no write)
+  3  confirm required (destructive verb invoked without --confirm; dry run shown, nothing written)
 
   ship maps these to its final lifecycle state: 0 shipped / 1 blocked /
-  2 usage / 3 gated (publish preview shown, no write — re-run with --yes).
+  2 usage / 3 gated (publish dry run shown, nothing written — re-run with --yes).
 
 Environment variables:
   APPO_TOKEN     Ephemeral token, highest precedence, never written to disk
@@ -164,34 +164,34 @@ function useColor() {
   return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
 }
 
-/** Render the server's `try` block (the single readiness predicate). Nothing
+/** Render the server's `install` block (the single readiness predicate). Nothing
  *  is derived here; every server string goes through cleanText. The agent-facing
  *  `tool`/`arguments` of each option are not printed. */
-function printTry(tryBlock, { withQr = false } = {}) {
-  if (!tryBlock || typeof tryBlock !== 'object') return;
-  const pad = ''.padEnd(18);
-  console.log(`  ${'try'.padEnd(18)} ${cleanText(tryBlock.message)}`);
-  if (tryBlock.state === 'ready') {
-    if (tryBlock.preview_url) console.log(`  ${'preview_url'.padEnd(18)} ${cleanText(tryBlock.preview_url)}`);
-    if (tryBlock.how_to_open) console.log(`  ${pad} ${cleanText(tryBlock.how_to_open)}`);
-    if (withQr && tryBlock.preview_url && process.stdout.isTTY) {
+function printInstall(installBlock, { withQr = false } = {}) {
+  if (!installBlock || typeof installBlock !== 'object') return;
+  const pad = '  ';
+  console.log(`  ${cleanText(installBlock.message)}`);
+  if (installBlock.state === 'ready') {
+    if (installBlock.install_url) console.log(`  Install link: ${cleanText(installBlock.install_url)}`);
+    if (installBlock.how_to_open) console.log(`${pad}${cleanText(installBlock.how_to_open)}`);
+    if (withQr && installBlock.install_url && process.stdout.isTTY) {
       const CONTRAST = useColor() ? '\x1b[30;47m' : ''; // black fg on white bg
       const RESET = useColor() ? '\x1b[0m' : '';
       console.log('');
-      for (const row of renderQr(tryBlock.preview_url).split('\n')) {
+      for (const row of renderQr(installBlock.install_url).split('\n')) {
         console.log(`${CONTRAST}${row}${RESET}`);
       }
     }
     return;
   }
-  if (Array.isArray(tryBlock.options)) {
-    for (const option of tryBlock.options) {
+  if (Array.isArray(installBlock.options)) {
+    for (const option of installBlock.options) {
       if (typeof option?.description === 'string' && option.description) {
         console.log(`  ${pad} - ${cleanText(option.description)}`);
       }
     }
   }
-  const minutes = Number(tryBlock.recheck_after_minutes);
+  const minutes = Number(installBlock.recheck_after_minutes);
   if (Number.isFinite(minutes) && minutes > 0) {
     const when = minutes >= 120 ? `${Math.round(minutes / 60)} hours` : `${minutes} minutes`;
     console.log(`  ${pad} check again in about ${when}`);
@@ -234,7 +234,7 @@ function printApp(app) {
     const who = app.preparation.mode === 'appo_managed' ? 'Appo adapts the website' : 'You adapt the website';
     say(`${who} (${cleanText(app.preparation.status)}).`);
   }
-  printTry(app.try, { withQr: false });
+  printInstall(app.install, { withQr: false });
   if (app.stores) say(`Stores: Apple ${cleanText(app.stores.apple)}, Google ${cleanText(app.stores.google)}.`);
 }
 
@@ -360,7 +360,7 @@ function printSiteCheck(site) {
   }
   if (site.platform_note) { console.log(`  ${cleanText(site.platform_note)}`); }
   if (!site.closed) {
-    console.log('The site does not close Try or Publish.');
+    console.log('The site does not close the install link or Publish.');
     return;
   }
   const closing = site.closed_by?.findings ?? [];
@@ -371,7 +371,7 @@ function printSiteCheck(site) {
       if (f.fix) { console.log(`    ${cleanText(f.fix)}`); }
     }
   }
-  console.log('Try and Publish stay closed until the site is fixed.');
+  console.log('The install link and Publish stay closed until the site is fixed.');
 }
 
 /** Render a thrown error to stderr and return the process exit code (1).
@@ -466,7 +466,7 @@ function parseConsentFlag(value) {
 const ANSWER_FLAGS = [
   { flag: 'fix', key: 'fix', values: ['self', 'appo'] },
   { flag: 'phone', key: 'phone', values: ['iphone', 'android'] },
-  { flag: 'iphone', key: 'iphone_try', values: ['direct', 'testflight'] },
+  { flag: 'iphone', key: 'iphone_install', values: ['direct', 'testflight'] },
   { flag: 'appo-help', key: 'appo_help', values: ['yes', 'no'] },
 ];
 
@@ -690,11 +690,11 @@ async function askDecision(decision) {
   return Number.isInteger(n) && n >= 1 && n <= options.length ? options[n - 1] : null;
 }
 
-const GATING_KEYS = ['fix', 'phone', 'iphone_try'];
+const GATING_KEYS = ['fix', 'phone', 'iphone_install'];
 const MAX_ROUNDS = 8;
 
 /** The guided session: posts the answers collected so far to start and follows the
- *  server's `decision` and `try`, nothing else. Returns the exit code. */
+ *  server's `decision` and `install`, nothing else. Returns the exit code. */
 async function runStart(apiBase, env, flags, id, { installOnly = false, url = null } = {}) {
   const parsed = parseAnswerFlags(flags);
   if (parsed.exit) { return parsed.exit; }
@@ -735,10 +735,10 @@ async function runStart(apiBase, env, flags, id, { installOnly = false, url = nu
     }
     data = data ?? {};
     const decision = data.decision ?? null;
-    const tryBlock = data.try ?? null;
+    const installBlock = data.install ?? null;
 
     const pending = decision && (GATING_KEYS.includes(decision.key)
-      || (decision.key === 'appo_help' && !installOnly && (!tryBlock || waited)));
+      || (decision.key === 'appo_help' && !installOnly && (!installBlock || waited)));
     if (pending) {
       if (!interactive) {
         printEnvelope(flags, decisionEnvelope(decision));
@@ -761,18 +761,18 @@ async function runStart(apiBase, env, flags, id, { installOnly = false, url = nu
       console.log(JSON.stringify({ data }));
       return 0;
     }
-    if (!tryBlock) {
+    if (!installBlock) {
       console.log('Nothing more to answer right now.');
       return finish(0);
     }
-    if (tryBlock.state !== 'ready') {
-      console.log(cleanText(tryBlock.message));
-      const hint = RECHECK_HINT(tryBlock.recheck_after_minutes);
+    if (installBlock.state !== 'ready') {
+      console.log(cleanText(installBlock.message));
+      const hint = RECHECK_HINT(installBlock.recheck_after_minutes);
       if (hint) { console.log(hint); }
       return finish(0);
     }
     if (!waited) {
-      printTry(tryBlock, { withQr: interactive });
+      printInstall(installBlock, { withQr: interactive });
       if (installOnly || !interactive) { return finish(0); }
       await askLine('\nPress Enter once the app is open on your phone (Ctrl-C to stop) ');
       waited = true;
@@ -1315,10 +1315,10 @@ export async function run(argv) {
         const d = unwrap(res);
         if (flags.build) { printBuild(d); return 0; }
         printApp(d);
-        if (d?.try?.state === 'ready') {
-          const preview = await ops.getPreview(apiBase, sub, env);
-          const url = preview?.try?.preview_url;
-          if (url) console.log(`  ${'preview_url'.padEnd(18)} ${cleanText(url)}`);
+        if (d?.install?.state === 'ready') {
+          const payload = await ops.getInstall(apiBase, sub, env);
+          const url = payload?.install?.install_url;
+          if (url) console.log(`  Install link: ${cleanText(url)}`);
         }
         return 0;
       }
@@ -1479,7 +1479,7 @@ export async function run(argv) {
             console.log(`${CONTRAST}${row}${RESET}`);
           }
           console.log('');
-          console.log('Then run: appo install <id>   (shows the preview link for your phone)');
+          console.log('Then run: appo install <id>   (shows the install link for your phone)');
           return 0;
         }
         if (sub === 'list' || sub === undefined) {
