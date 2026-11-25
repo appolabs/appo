@@ -16,6 +16,22 @@ export function createApp(
   env?: string,
 ): Promise<any>;
 
+/** Answers to the guided-flow questions; only the keys present are sent. */
+export function startApp(
+  apiBase: string,
+  id: string | number,
+  answers: {
+    fix?: 'self' | 'appo';
+    phone?: 'iphone' | 'android';
+    iphone_try?: 'direct' | 'testflight';
+    appo_help?: 'yes' | 'no';
+    install_only?: boolean;
+    owner_authorized?: boolean;
+    accepted_tos?: boolean;
+  },
+  env?: string,
+): Promise<any>;
+
 export function getApp(apiBase: string, id: string | number, env?: string): Promise<any>;
 
 /** Runs the site readiness check for the app; resolves to the server payload. */

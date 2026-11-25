@@ -51,30 +51,26 @@ test('new prints the try message of the creation response', async () => {
     { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com', try: { state: 'preparing', message_code: 'preparing', message: 'Appo is getting the app ready.', preview_url: null, how_to_open: null, options: [] } } } },
   ]);
   const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', 'off', ...API]));
+    run(['new', '--url', 'https://x.com', '--name', 'X', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(0);
   expect(lines.join('\n')).toContain('Appo is getting the app ready.');
+  expect(requests[1].path).toBe('/api/v1/apps/5/start');
 });
 
-// 1. Happy path with an explicit --name: one POST /api/v1/apps, human output
-//    points at the two canonical next steps (run + ship).
-test('new --url --name creates the app and prints run/ship next steps', async () => {
+// 1. Happy path with an explicit --name: one create, then the start session.
+test('new --url --name creates the app and continues into start', async () => {
   stubToken();
   installMockFetch([
     { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } },
   ]);
   const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', 'off', ...API]));
+    run(['new', '--url', 'https://x.com', '--name', 'X', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(0);
-  const req = lastRequest();
-  expect(req.method).toBe('POST');
-  expect(req.path).toMatch(/\/api\/v1\/apps$/);
-  expect(req.body).toEqual({ name: 'X', base_url: 'https://x.com', prep_mode: 'self_managed' });
-  const out = lines.join('\n');
-  expect(out).toMatch(/Created app #5 — X/);
-  expect(out).toMatch(/appo run 5/);
-  expect(out).not.toMatch(/appo preview/);
-  expect(out).toMatch(/appo ship 5/);
+  expect(requests[0].method).toBe('POST');
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps$/);
+  expect(requests[0].body).toEqual({ name: 'X', base_url: 'https://x.com', owner_authorized: true, accepted_tos: true });
+  expect(requests[1].path).toBe('/api/v1/apps/5/start');
+  expect(lines.join('\n')).toMatch(/Created X\./);
 });
 
 // 2. The canonical one-liner: a bare domain gets https:// prepended client-side
@@ -84,9 +80,9 @@ test('new --url tuosito.com derives name Tuosito and prepends https://', async (
   installMockFetch([
     { status: 201, body: { data: { id: 6, name: 'Tuosito', base_url: 'https://tuosito.com' } } },
   ]);
-  const { result } = await captureLog(() => run(['new', '--url', 'tuosito.com', '--prepare', 'off', ...API]));
+  const { result } = await captureLog(() => run(['new', '--url', 'tuosito.com', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(0);
-  expect(lastRequest().body).toEqual({ name: 'Tuosito', base_url: 'https://tuosito.com', prep_mode: 'self_managed' });
+  expect(requests[0].body).toEqual({ name: 'Tuosito', base_url: 'https://tuosito.com', owner_authorized: true, accepted_tos: true });
 });
 
 // 3. A leading `www.` is stripped BEFORE the first label is taken.
@@ -96,9 +92,9 @@ test('new strips a leading www. before deriving the name', async () => {
     { status: 201, body: { data: { id: 7, name: 'Pizza-mario', base_url: 'https://www.pizza-mario.it' } } },
   ]);
   const { result } = await captureLog(() =>
-    run(['new', '--url', 'https://www.pizza-mario.it', '--prepare', 'off', ...API]));
+    run(['new', '--url', 'https://www.pizza-mario.it', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(0);
-  expect(lastRequest().body).toEqual({ name: 'Pizza-mario', base_url: 'https://www.pizza-mario.it', prep_mode: 'self_managed' });
+  expect(requests[0].body).toEqual({ name: 'Pizza-mario', base_url: 'https://www.pizza-mario.it', owner_authorized: true, accepted_tos: true });
 });
 
 // 4. Usage error: missing --url (or a bare valueless --url) -> exit 2, no HTTP.
@@ -107,7 +103,7 @@ test('new without --url -> exit 2 with usage line, no HTTP', async () => {
   installMockFetch({ status: 201 });
   const { result, lines } = await captureAll(() => run(['new', ...API]));
   expect(result).toBe(2);
-  expect(lines.join('\n')).toMatch(/Usage: appo new --url <u>/);
+  expect(lines.join('\n')).toMatch(/Usage: appo new <url>/);
   expect(requests.length).toBe(0);
   // A bare `--url` (no value) parses as boolean true — same usage error, no HTTP.
   const bare = await captureAll(() => run(['new', '--url', ...API]));
@@ -115,117 +111,71 @@ test('new without --url -> exit 2 with usage line, no HTTP', async () => {
   expect(requests.length).toBe(0);
 });
 
-// 5. --json passthrough (D-08): the raw creation response envelope, verbatim.
-test('new --json emits the raw creation envelope verbatim, exit 0', async () => {
+// 5. --json: only the last V1 response body (the start response) is printed.
+test('new --json prints the start response body as one JSON line, exit 0', async () => {
   stubToken();
   installMockFetch([
-    { status: 201, body: { data: { id: 9, name: 'Tuosito', base_url: 'https://tuosito.com' }, extra: 'kept' } },
+    { status: 201, body: { data: { id: 9, name: 'Tuosito', base_url: 'https://tuosito.com' } } },
+    { status: 200, body: { data: { id: 9, name: 'Tuosito', decision: null, try: { state: 'ready', message: 'ok', preview_url: 'https://p' } } } },
   ]);
   const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'tuosito.com', '--prepare', 'off', '--json', ...API]));
+    run(['new', '--url', 'tuosito.com', '--owner-authorized', '--accept-tos', '--json', ...API]));
   expect(result).toBe(0);
-  expect(JSON.parse(lines.join(''))).toEqual({
-    data: { id: 9, name: 'Tuosito', base_url: 'https://tuosito.com' },
-    extra: 'kept',
+  expect(lines.length).toBe(1);
+  expect(JSON.parse(lines[0])).toEqual({
+    data: { id: 9, name: 'Tuosito', decision: null, try: { state: 'ready', message: 'ok', preview_url: 'https://p' } },
   });
 });
 
-// 6. --prepare on with both attestation flags: the Appo path.
-test('new --prepare on --owner-authorized --accept-tos sends appo_managed with the attestation', async () => {
+// Consent is asked at every creation: both flags, or an attestation_required envelope.
+test('new sends the attestation and no preparation field', async () => {
   stubToken();
   installMockFetch([
     { status: 201, body: { data: { id: 10, name: 'X', base_url: 'https://x.com' } } },
   ]);
   const { result } = await captureLog(() =>
-    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', 'on', '--owner-authorized', '--accept-tos', ...API]));
+    run(['new', '--url', 'https://x.com', '--name', 'X', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(0);
-  expect(lastRequest().body).toEqual({
-    name: 'X', base_url: 'https://x.com', prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true,
+  expect(requests[0].body).toEqual({
+    name: 'X', base_url: 'https://x.com', owner_authorized: true, accepted_tos: true,
   });
+  expect(JSON.stringify(requests[0].body)).not.toContain('prep_mode');
 });
 
-test('new with a bare --prepare keeps meaning on', async () => {
-  stubToken();
-  installMockFetch([{ status: 201, body: { data: { id: 10, name: 'X', base_url: 'https://x.com' } } }]);
-  const { result } = await captureLog(() =>
-    run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', '--owner-authorized', '--accept-tos', ...API]));
-  expect(result).toBe(0);
-  expect(lastRequest().body.prep_mode).toBe('appo_managed');
-  expect(lastRequest().body.owner_authorized).toBe(true);
-});
-
-// 7. --prepare off: self_managed, no attestation fields.
-test('new --prepare off sends self_managed without attestation fields', async () => {
-  stubToken();
-  installMockFetch([
-    { status: 201, body: { data: { id: 11, name: 'Y', base_url: 'https://y.com' } } },
-  ]);
-  await captureLog(() => run(['new', '--url', 'https://y.com', '--name', 'Y', '--prepare', 'off', ...API]));
-  expect(lastRequest().body).toEqual({ name: 'Y', base_url: 'https://y.com', prep_mode: 'self_managed' });
-});
-
-// D-11: no terminal and no --prepare -> structured question, no request.
-test('new without --prepare and without a terminal returns preparation_choice_required, exit 2, no HTTP', async () => {
+test('new without the consent flags and without a terminal returns attestation_required, exit 2, no HTTP', async () => {
   stubToken();
   installMockFetch([]);
-  const { result, lines } = await captureAll(() => run(['new', '--url', 'https://x.com', ...API]));
-  expect(result).toBe(2);
-  expect(requests.length).toBe(0);
-  expect(lines.join('\n')).toMatch(/maintain this website/);
-});
-
-test('new --json without --prepare prints the preparation_choice_required envelope on stdout', async () => {
-  stubToken();
-  installMockFetch([]);
-  const { result, lines } = await captureLog(() => run(['new', '--url', 'https://x.com', '--json', ...API]));
+  const { result, lines } = await captureLog(() =>
+    run(['new', '--url', 'https://x.com', '--accept-tos', '--json', ...API]));
   expect(result).toBe(2);
   expect(requests.length).toBe(0);
   const env = JSON.parse(lines.join(''));
   expect(env.error).toBe('input_required');
-  expect(env.code).toBe('preparation_choice_required');
-  expect(env.details.answers[0]).toEqual({ answer: 'yes', flags: ['--prepare', 'off'] });
+  expect(env.code).toBe('attestation_required');
+  expect(env.details.questions.length).toBe(2);
+  expect(env.details.flags).toEqual(['--owner-authorized', '--accept-tos']);
   expect(env.details.terms_of_service_url).toBe('https://goappo.io/en/terms');
 });
 
-test('new --prepare on without attestation flags returns attestation_required, exit 2, no HTTP', async () => {
+test('new with an invalid answer flag exits 2 with no HTTP', async () => {
   stubToken();
   installMockFetch([]);
-  const { result, lines } = await captureLog(() =>
-    run(['new', '--url', 'https://x.com', '--prepare', 'on', '--accept-tos', '--json', ...API]));
-  expect(result).toBe(2);
-  expect(requests.length).toBe(0);
-  const env = JSON.parse(lines.join(''));
-  expect(env.code).toBe('attestation_required');
-  expect(env.details.questions.length).toBe(2);
-});
-
-test('new --prepare with an invalid value exits 2 with no HTTP', async () => {
-  stubToken();
-  installMockFetch([]);
-  const { result } = await captureAll(() => run(['new', '--url', 'https://x.com', '--prepare', 'maybe', ...API]));
+  const { result } = await captureAll(() => run(['new', '--url', 'https://x.com', '--fix', 'maybe', ...API]));
   expect(result).toBe(2);
   expect(requests.length).toBe(0);
 });
 
-test('apps create settles preparation the same way', async () => {
+test('apps create settles consent the same way', async () => {
   stubToken();
   installMockFetch([{ status: 201, body: { data: { id: 3, name: 'n', base_url: 'https://x.com' } } }]);
   const none = await captureAll(() => run(['apps', 'create', '--name', 'n', '--url', 'https://x.com', ...API]));
   expect(none.result).toBe(2);
   expect(requests.length).toBe(0);
-  const noAttest = await captureAll(() =>
-    run(['apps', 'create', '--name', 'n', '--url', 'https://x.com', '--prepare', 'on', ...API]));
-  expect(noAttest.result).toBe(2);
-  expect(requests.length).toBe(0);
-  const off = await captureAll(() =>
-    run(['apps', 'create', '--name', 'n', '--url', 'https://x.com', '--prepare', 'off', ...API]));
-  expect(off.result).toBe(0);
-  expect(lastRequest().body.prep_mode).toBe('self_managed');
   const on = await captureAll(() =>
-    run(['apps', 'create', '--name', 'n', '--url', 'https://x.com', '--prepare', 'on', '--owner-authorized', '--accept-tos', ...API]));
+    run(['apps', 'create', '--name', 'n', '--url', 'https://x.com', '--owner-authorized', '--accept-tos', ...API]));
   expect(on.result).toBe(0);
   expect(lastRequest().body).toEqual({
-    name: 'n', base_url: 'https://x.com', prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true,
+    name: 'n', base_url: 'https://x.com', owner_authorized: true, accepted_tos: true,
   });
 });
 
@@ -235,8 +185,8 @@ test('new --url with a stored token still hits /api/v1/apps (authenticated path 
   installMockFetch([
     { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } },
   ]);
-  await captureLog(() => run(['new', '--url', 'https://x.com', '--name', 'X', '--prepare', 'off', ...API]));
-  expect(lastRequest().path).toMatch(/\/api\/v1\/apps$/);
+  await captureLog(() => run(['new', '--url', 'https://x.com', '--name', 'X', '--owner-authorized', '--accept-tos', ...API]));
+  expect(requests[0].path).toMatch(/\/api\/v1\/apps$/);
 });
 
 // No stored token: creation now requires an account. The anonymous
@@ -273,7 +223,7 @@ test('new prints refusal findings and exits 1', async () => {
   stubToken();
   installMockFetch([{ status: 422, body: REFUSAL }]);
   const { result, lines } = await captureAll(() =>
-    run(['new', '--url', 'https://bad.example', '--prepare', 'off', ...API]));
+    run(['new', '--url', 'https://bad.example', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(1);
   const out = lines.join('\n');
   expect(out).toContain('The site cannot be turned into an app yet.');
@@ -288,7 +238,7 @@ test('new --json prints the refusal envelope on stdout and exits 1', async () =>
   stubToken();
   installMockFetch([{ status: 422, body: REFUSAL }]);
   const { result, lines } = await captureAll(() =>
-    run(['new', '--url', 'https://bad.example', '--prepare', 'off', '--json', ...API]));
+    run(['new', '--url', 'https://bad.example', '--owner-authorized', '--accept-tos', '--json', ...API]));
   expect(result).toBe(1);
   expect(JSON.parse(lines.join('')).error).toBe('site_not_ready');
 });
@@ -297,7 +247,7 @@ test('apps create prints refusal findings', async () => {
   stubToken();
   installMockFetch([{ status: 422, body: REFUSAL }]);
   const { result, lines } = await captureAll(() =>
-    run(['apps', 'create', '--name', 'n', '--url', 'https://bad.example', '--prepare', 'off', ...API]));
+    run(['apps', 'create', '--name', 'n', '--url', 'https://bad.example', '--owner-authorized', '--accept-tos', ...API]));
   expect(result).toBe(1);
   expect(lines.join('\n')).toContain('- The site is not served over HTTPS.');
 });

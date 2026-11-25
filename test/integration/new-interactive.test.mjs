@@ -15,7 +15,7 @@ vi.mock('node:readline/promises', () => ({
 }));
 
 const { run } = await import('../../src/cli.mjs');
-const { installMockFetch, resetMockFetch, lastRequest, requests, stubToken } = await import('../helpers/mockFetch.mjs');
+const { installMockFetch, resetMockFetch, requests, stubToken } = await import('../helpers/mockFetch.mjs');
 
 const API = ['--api', 'http://test.local'];
 const realTty = { in: process.stdin.isTTY, out: process.stdout.isTTY };
@@ -50,53 +50,44 @@ afterEach(() => {
 const created = { status: 201, body: { data: { id: 5, name: 'X', base_url: 'https://x.com' } } };
 const newArgs = ['new', '--url', 'https://x.com', '--name', 'X', ...API];
 
-test('a developer maintains the code: y creates self_managed', async () => {
+test('y, y creates with both consents and asks no preparation question', async () => {
+  stubToken();
+  installMockFetch([created]);
+  state.answers = ['y', 'y'];
+  const { result, lines } = await capture(() => run(newArgs));
+  expect(result).toBe(0);
+  expect(requests[0].body).toEqual({ name: 'X', base_url: 'https://x.com', owner_authorized: true, accepted_tos: true });
+  const shown = [...state.prompts, ...lines].join('\n');
+  expect(shown).toContain('https://goappo.io/en/terms');
+  expect(shown).not.toMatch(/maintain this website|prep/i);
+  expect(state.prompts[0]).toMatch(/own this website/);
+  expect(state.prompts[1]).toMatch(/Terms of Service/);
+});
+
+test('owner confirmed, Terms refused: nothing is created, exit 1', async () => {
   stubToken();
   installMockFetch([created]);
   state.answers = ['y', 'n'];
   const { result } = await capture(() => run(newArgs));
-  expect(result).toBe(0);
-  expect(lastRequest().body).toEqual({ name: 'X', base_url: 'https://x.com', prep_mode: 'self_managed' });
+  expect(result).toBe(1);
+  expect(requests.length).toBe(0);
 });
 
-test('n then y, y creates appo_managed with the attestation and shows the Terms link', async () => {
+test('owner not confirmed: nothing is created, exit 1', async () => {
   stubToken();
   installMockFetch([created]);
-  state.answers = ['n', 'y', 'y', 'n'];
-  const { result, lines } = await capture(() => run(newArgs));
-  expect(result).toBe(0);
-  expect(lastRequest().body).toEqual({
-    name: 'X', base_url: 'https://x.com', prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true,
-  });
-  const shown = [...state.prompts, ...lines].join('\n');
-  expect(shown).toContain('https://goappo.io/en/terms');
-  expect(shown).toContain('24-48 hours');
-  expect(state.prompts.length).toBeGreaterThanOrEqual(3);
-});
-
-test('the user-facing text never uses the internal terms', async () => {
-  stubToken();
-  installMockFetch([created]);
-  state.answers = ['n', 'y', 'y', 'n'];
-  const { lines } = await capture(() => run(newArgs));
-  const shown = [...state.prompts, ...lines.filter((l) => !/^Created app|url:|appo (run|ship)/.test(l))].join('\n');
-  expect(shown).not.toMatch(/prep/i);
-});
-
-test('n then n creates nothing and exits 1', async () => {
-  stubToken();
-  installMockFetch([created]);
-  state.answers = ['n', 'n'];
+  state.answers = ['n'];
   const { result } = await capture(() => run(newArgs));
   expect(result).toBe(1);
   expect(requests.length).toBe(0);
 });
 
-test('n, y, n (Terms refused) creates nothing and exits 1', async () => {
+test('the site URL is asked when missing', async () => {
   stubToken();
   installMockFetch([created]);
-  state.answers = ['n', 'y', 'n'];
-  const { result } = await capture(() => run(newArgs));
-  expect(result).toBe(1);
-  expect(requests.length).toBe(0);
+  state.answers = ['x.com', 'y', 'y'];
+  const { result } = await capture(() => run(['new', ...API]));
+  expect(result).toBe(0);
+  expect(state.prompts[0]).toBe('Site URL: ');
+  expect(requests[0].body.base_url).toBe('https://x.com');
 });

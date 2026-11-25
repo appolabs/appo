@@ -23,6 +23,17 @@ export async function createApp(apiBase, { name, base_url, prep_mode, owner_auth
   return unwrap(await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env));
 }
 
+// POST /api/v1/apps/{id}/start -> 200 { data: AppResource + decision + try }.
+// The body carries only the answers present; the server computes the next decision.
+const START_KEYS = ['fix', 'phone', 'iphone_try', 'appo_help', 'install_only', 'owner_authorized', 'accepted_tos'];
+export async function startApp(apiBase, id, answers, env) {
+  const body = {};
+  for (const key of START_KEYS) {
+    if (answers?.[key] !== undefined && answers[key] !== null) body[key] = answers[key];
+  }
+  return unwrap(await apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/start`, body, env));
+}
+
 // GET /api/v1/apps/{id} -> 200 { data: AppResource }
 export async function getApp(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}`, null, env));

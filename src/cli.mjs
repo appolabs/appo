@@ -42,7 +42,9 @@ Apps:
   appo apps update <id> [--prepare on|off [--owner-authorized --accept-tos]]   Hand preparation to Appo, or take it back
 
 Lifecycle:
-  appo new --url <u> [--name <n>] [--prepare on|off [--owner-authorized --accept-tos]]   Create your app — name defaults from the URL
+  appo new <url> [--name <n>] [--owner-authorized --accept-tos]   Create your app and walk it to your phone — name defaults from the URL
+  appo start [url|id]             Resume the guided session: asks what the server still needs, ends with the app on your phone
+  appo install [url|id]           Show the link to open the app on a phone and stop
   appo ship <id> [--stores <list>] [--yes]   Ship it to the stores (republish / resubmit after a rejection too)
   appo status <id>                        App overview (publication state + next action)
   appo run [id]                           Try it: print the preview link and QR code for your phone, or what Appo is still doing; no id: your only app, or a picker
@@ -414,14 +416,6 @@ const confirmInstructions = (agent, path) => askYesDefault(`Add a short Appo sec
 
 const TERMS_URL = 'https://goappo.io/en/terms';
 
-/** Parses --prepare: absent -> null, bare flag or on -> 'on', off -> 'off', else 'invalid'. */
-function parsePrepareFlag(value) {
-  if (value === undefined) { return null; }
-  if (value === true) { return 'on'; }
-  const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  return v === 'on' || v === 'off' ? v : 'invalid';
-}
-
 /** Parses a consent flag: true only for the bare flag or true/yes/1; any other value declines. */
 function parseConsentFlag(value) {
   if (value === true) { return true; }
@@ -429,7 +423,32 @@ function parseConsentFlag(value) {
   return v === 'true' || v === 'yes' || v === '1';
 }
 
-function preparationEnvelope(code, message, details) {
+/** One flag per guided-flow question. The values are the enumerations the server
+ *  validates again; the CLI only rejects what could never be sent. */
+const ANSWER_FLAGS = [
+  { flag: 'fix', key: 'fix', values: ['self', 'appo'] },
+  { flag: 'phone', key: 'phone', values: ['iphone', 'android'] },
+  { flag: 'iphone', key: 'iphone_try', values: ['direct', 'testflight'] },
+  { flag: 'appo-help', key: 'appo_help', values: ['yes', 'no'] },
+];
+
+/** Reads the answer flags into start-body keys. Returns { answers } or { exit: 2 }
+ *  after naming the accepted values; never makes an HTTP request. */
+function parseAnswerFlags(flags) {
+  const answers = {};
+  for (const { flag, key, values } of ANSWER_FLAGS) {
+    if (flags[flag] === undefined) { continue; }
+    const value = typeof flags[flag] === 'string' ? flags[flag].trim().toLowerCase() : '';
+    if (!values.includes(value)) {
+      console.error(`Invalid --${flag} ${JSON.stringify(flags[flag])}. Value must be ${values.join(' or ')}.`);
+      return { exit: 2 };
+    }
+    answers[key] = value;
+  }
+  return { answers };
+}
+
+function inputEnvelope(code, message, details) {
   return { error: 'input_required', code, message, details: { ...details, terms_of_service_url: TERMS_URL } };
 }
 
@@ -438,60 +457,54 @@ function printEnvelope(flags, envelope) {
     console.log(JSON.stringify(envelope));
     return;
   }
-  console.error(envelope.message);
+  console.error(cleanText(envelope.message));
   const d = envelope.details;
   if (d.answers) {
-    for (const a of d.answers) { console.error(`  ${a.answer}: ${a.flags.join(' ')}`); }
+    for (const a of d.answers) { console.error(`  ${cleanText(a.answer)}: ${a.flags.join(' ')}`); }
   }
   if (d.flags) { console.error(`  ${d.flags.join(' ')}`); }
-  console.error(`Terms of Service: ${d.terms_of_service_url}`);
+  if (d.terms_of_service_url) { console.error(`Terms of Service: ${d.terms_of_service_url}`); }
 }
 
-/** Settles who adapts the website to the app, shared by `new` and `apps create`.
- *  Returns { attrs } to merge into the creation body, or { exit, envelope? } when
- *  nothing may be created. Never makes an HTTP request. A terminal gets plain-word
+/** Server text that may arrive as a string or as a list of strings, as lines. */
+function textLines(value) {
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter((v) => typeof v === 'string' && v).map(cleanText);
+}
+
+/** The input_required envelope of one pending decision. The flags of every
+ *  answer are copied from the server's hint (cli.flags), never built here. */
+function decisionEnvelope(decision) {
+  const answers = (decision.options ?? []).map((option) => {
+    const answer = { answer: cleanText(option.label), key: option.key, wait: option.wait, flags: option.cli?.flags ?? [] };
+    for (const field of ['steps', 'pros', 'cons']) {
+      if (option[field] !== undefined && option[field] !== null) { answer[field] = option[field]; }
+    }
+    return answer;
+  });
+  return {
+    error: 'input_required',
+    code: 'decision_required',
+    message: decision.question,
+    details: {
+      decision: decision.key,
+      question: decision.question,
+      assistant_may_answer: decision.assistant_may_answer,
+      answers,
+    },
+  };
+}
+
+/** Settles the two consents asked at every creation, shared by every surface.
+ *  Returns { attrs } to merge into the request, or { exit, envelope? } when
+ *  nothing may be created. Never makes an HTTP request. A terminal gets two
  *  questions; --json or no terminal gets the structured envelope (exit 2). */
-async function settlePreparation(flags) {
-  const mode = parsePrepareFlag(flags.prepare);
-  if (mode === 'invalid') {
-    console.error(`Invalid --prepare ${JSON.stringify(flags.prepare)}. Value must be on or off.`);
-    return { exit: 2 };
-  }
-  if (mode === 'off') { return { attrs: { prep_mode: 'self_managed' } }; }
-  const interactive = isInteractive(flags);
-  const ownerFlag = flags['owner-authorized'] === true;
-  const tosFlag = flags['accept-tos'] === true;
-
-  if (mode === null) {
-    if (!interactive) {
-      const envelope = preparationEnvelope(
-        'preparation_choice_required',
-        'Ask the user whether they, or a developer working for them, maintain this website\'s code, then re-run with the matching flags.',
-        {
-          question: 'Do you, or a developer working for you, maintain this website\'s code?',
-          answers: [
-            { answer: 'yes', flags: ['--prepare', 'off'] },
-            {
-              answer: 'no',
-              flags: ['--prepare', 'on', '--owner-authorized', '--accept-tos'],
-              requires: 'the user\'s confirmation that they own the website or may publish it, and acceptance of the Terms of Service, asked as a separate step',
-            },
-          ],
-        },
-      );
-      printEnvelope(flags, envelope);
-      return { exit: 2, envelope };
-    }
-    if (isYes(await askLine('Do you, or a developer working for you, maintain this website\'s code? [y/n] '))) {
-      return { attrs: { prep_mode: 'self_managed' } };
-    }
-    console.log('Appo\'s team will adapt the website to the app, usually within 24-48 hours; the app can be tried once that is done.');
-  }
-
-  let owner = ownerFlag;
-  let tos = tosFlag;
-  if (!(owner && tos) && !interactive) {
-    const envelope = preparationEnvelope(
+async function settleConsent(flags) {
+  let owner = parseConsentFlag(flags['owner-authorized']);
+  let tos = parseConsentFlag(flags['accept-tos']);
+  if (owner && tos) { return { attrs: { owner_authorized: true, accepted_tos: true } }; }
+  if (!isInteractive(flags)) {
+    const envelope = inputEnvelope(
       'attestation_required',
       'Ask the user to confirm, as separate questions, that they own the website or may publish it and that they accept the Terms of Service, then re-run with both flags.',
       {
@@ -499,7 +512,7 @@ async function settlePreparation(flags) {
           'Do you own this website, or are you authorized to publish it?',
           'Do you accept Appo\'s Terms of Service?',
         ],
-        flags: ['--prepare', 'on', '--owner-authorized', '--accept-tos'],
+        flags: ['--owner-authorized', '--accept-tos'],
       },
     );
     printEnvelope(flags, envelope);
@@ -508,10 +521,10 @@ async function settlePreparation(flags) {
   if (!owner) { owner = isYes(await askLine('Do you own this website, or are you authorized to publish it? [y/n] ')); }
   if (owner && !tos) { tos = isYes(await askLine(`Do you accept Appo's Terms of Service (${TERMS_URL})? [y/n] `)); }
   if (!owner || !tos) {
-    console.error('Nothing was created: Appo prepares a website only with the owner\'s confirmation and the Terms accepted.');
+    console.error('Nothing was created: an app is created only with the owner\'s confirmation and the Terms accepted.');
     return { exit: 1 };
   }
-  return { attrs: { prep_mode: 'appo_managed', owner_authorized: true, accepted_tos: true } };
+  return { attrs: { owner_authorized: true, accepted_tos: true } };
 }
 
 /** After an interactive `new`, offer to register the Appo MCP connector so the
@@ -533,9 +546,11 @@ async function maybeOfferMcp(flags, apiBase) {
 async function resolveTargetApp(apiBase, env, flags, {
   usageHint = 'appo run <id>',
   selectLabel = 'Select an app to run:',
+  quietEmpty = false,
 } = {}) {
   const apps = await ops.listApps(apiBase, env);
   if (apps.length === 0) {
+    if (quietEmpty) { return { exit: 1, empty: true }; }
     console.error('No apps yet. Create one: appo new --url <u>');
     return { exit: 1 };
   }
@@ -584,6 +599,244 @@ function ensureScheme(raw) {
 function nameFromUrl(url) {
   const label = new URL(url).hostname.replace(/^www\./, '').split('.')[0];
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Host of an address, lower-cased and without a leading www.; null when unparseable. */
+function hostOf(address) {
+  try {
+    return new URL(ensureScheme(String(address))).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+/** The caller's app whose address has the same host as `url`, or null. */
+async function findAppByAddress(apiBase, env, url) {
+  const host = hostOf(url);
+  if (!host) { return null; }
+  const apps = await ops.listApps(apiBase, env);
+  return apps.find((a) => hostOf(a.base_url) === host) ?? null;
+}
+
+/** A 422 that names the consent fields: an app created before consent was recorded
+ *  being switched to Appo's help. */
+function isConsentError(err) {
+  if (err?.status !== 422) { return false; }
+  /** @type {Record<string, unknown>} */
+  const fields = err.envelope?.details ?? err.envelope?.errors ?? {};
+  return typeof fields === 'object' && ('owner_authorized' in fields || 'accepted_tos' in fields);
+}
+
+const RECHECK_HINT = (minutes) => {
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m <= 0) { return null; }
+  return `Check again in about ${m >= 120 ? `${Math.round(m / 60)} hours` : `${m} minutes`}.`;
+};
+
+const FLAG_OF_KEY = Object.fromEntries(ANSWER_FLAGS.map(({ flag, key }) => [key, `--${flag}`]));
+
+/** Asks one decision on a terminal, one numbered option per line. Returns the chosen
+ *  option, or null when the answer is not one of the numbers. */
+async function askDecision(decision) {
+  const options = Array.isArray(decision.options) ? decision.options : [];
+  console.log(`\n${cleanText(decision.question)}`);
+  options.forEach((option, i) => {
+    const wait = option.wait ? ` (${cleanText(option.wait)})` : '';
+    console.log(`  ${i + 1}) ${cleanText(option.label)}${wait}`);
+    for (const [title, field] of [['Good', 'pros'], ['Bad', 'cons'], ['Steps', 'steps']]) {
+      for (const line of textLines(option[field])) { console.log(`       ${title}: ${line}`); }
+    }
+  });
+  const n = Number(await askLine(`Choice [1-${options.length}]: `));
+  return Number.isInteger(n) && n >= 1 && n <= options.length ? options[n - 1] : null;
+}
+
+const GATING_KEYS = ['fix', 'phone', 'iphone_try'];
+const MAX_ROUNDS = 8;
+
+/** The guided session: posts the answers collected so far to start and follows the
+ *  server's `decision` and `try`, nothing else. Returns the exit code. */
+async function runStart(apiBase, env, flags, id, { installOnly = false, url = null } = {}) {
+  const parsed = parseAnswerFlags(flags);
+  if (parsed.exit) { return parsed.exit; }
+  /** @type {Record<string, any>} */
+  const answers = { ...parsed.answers };
+  if (parseConsentFlag(flags['owner-authorized']) && parseConsentFlag(flags['accept-tos'])) {
+    answers.owner_authorized = true;
+    answers.accepted_tos = true;
+  }
+  const interactive = isInteractive(flags);
+  const given = {};
+  for (const [key, value] of Object.entries(parsed.answers)) { given[key] = [FLAG_OF_KEY[key], value]; }
+  let asked = false;
+  let consentSettled = false;
+  let waited = false;
+  let helpAnswered = false;
+
+  const finish = (code) => {
+    if (interactive && asked && Object.keys(given).length > 0) {
+      const target = url ?? id;
+      console.log(`\nNext time: appo start ${target} ${Object.values(given).flat().join(' ')}`);
+    }
+    return code;
+  };
+
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    /** @type {any} */
+    let data;
+    try {
+      data = await ops.startApp(apiBase, id, { ...answers, install_only: installOnly || undefined }, env);
+    } catch (err) {
+      if (!isConsentError(err) || consentSettled) { throw err; }
+      consentSettled = true;
+      const consent = await settleConsent(flags);
+      if (consent.exit) { return consent.exit; }
+      Object.assign(answers, consent.attrs);
+      continue;
+    }
+    data = data ?? {};
+    const decision = data.decision ?? null;
+    const tryBlock = data.try ?? null;
+
+    const pending = decision && (GATING_KEYS.includes(decision.key)
+      || (decision.key === 'appo_help' && !installOnly && (!tryBlock || waited)));
+    if (pending) {
+      if (!interactive) {
+        printEnvelope(flags, decisionEnvelope(decision));
+        return 2;
+      }
+      const option = await askDecision(decision);
+      if (!option) {
+        console.error('Invalid choice.');
+        return 2;
+      }
+      asked = true;
+      answers[decision.key] = option.value;
+      given[decision.key] = option.cli?.flags ?? [FLAG_OF_KEY[decision.key], option.value];
+      if (decision.key === 'appo_help') { helpAnswered = true; }
+      continue;
+    }
+
+    if (flags.json) {
+      console.log(JSON.stringify({ data }));
+      return 0;
+    }
+    if (!tryBlock) {
+      console.log('Nothing more to answer right now.');
+      return finish(0);
+    }
+    if (tryBlock.state !== 'ready') {
+      console.log(cleanText(tryBlock.message));
+      const hint = RECHECK_HINT(tryBlock.recheck_after_minutes);
+      if (hint) { console.log(hint); }
+      return finish(0);
+    }
+    if (!waited) {
+      printTry(tryBlock, { withQr: interactive });
+      if (installOnly || !interactive) { return finish(0); }
+      await askLine('\nPress Enter once the app is open on your phone (Ctrl-C to stop) ');
+      waited = true;
+      continue;
+    }
+    if (!helpAnswered) {
+      console.log('Once the app has been opened on a phone, appo start shows the next step.');
+    }
+    return finish(0);
+  }
+  console.error('The session needed more answers than expected. Run appo start again.');
+  return 1;
+}
+
+/** Creation requires an account (the anonymous trial was removed, 247). A terminal
+ *  offers to log in; otherwise a plain message before any request. */
+async function ensureLoggedIn(flags, apiBase, env) {
+  let token = storedToken(env);
+  if (!token && isInteractive(flags)) {
+    console.log('Creating an app requires an account.');
+    if (isYes(await askLine('Log in now? [y/N] '))) {
+      await login(apiBase, env);
+      token = storedToken(env);
+    }
+  }
+  if (!token) { console.error('Not authenticated. Run: appo login'); return false; }
+  return true;
+}
+
+/** Consent, creation, then the session; shared by new and start on an unknown address. */
+async function createAndStart(apiBase, env, flags, rawUrl, usage, { installOnly = false } = {}) {
+  const base_url = ensureScheme(rawUrl);
+  let name = typeof flags.name === 'string' && flags.name ? flags.name : null;
+  if (!name) {
+    try {
+      name = nameFromUrl(base_url);
+    } catch {
+      console.error(usage);
+      return 2;
+    }
+  }
+  const parsed = parseAnswerFlags(flags);
+  if (parsed.exit) { return parsed.exit; }
+  const settled = await settleConsent(flags);
+  if (settled.exit) { return settled.exit; }
+  let app;
+  try {
+    app = (await ops.createApp(apiBase, { name, base_url, ...settled.attrs }, env)) || {};
+  } catch (err) {
+    if (flags.json && err.envelope?.error === 'site_not_ready') {
+      console.log(JSON.stringify(err.envelope));
+      return 1;
+    }
+    throw err;
+  }
+  if (!flags.json) { console.log(`Created ${cleanText(app.name ?? name)}.`); }
+  const code = await runStart(apiBase, env, flags, app.id, { installOnly, url: base_url });
+  if (code === 0) { await maybeOfferMcp(flags, apiBase); }
+  return code;
+}
+
+/** The new, start and install verbs. `new` always creates; `start` and `install`
+ *  resume the app at the given address or id, creating it when none exists. */
+async function runGuidedVerb(command, apiBase, env, flags, target) {
+  const installOnly = command === 'install';
+  const usage = command === 'new'
+    ? 'Usage: appo new <url> [--name <n>] [--fix self|appo] [--phone iphone|android] [--iphone direct|testflight] [--appo-help yes|no] [--owner-authorized --accept-tos] [--json]'
+    : `Usage: appo ${command} [url|id] [--fix self|appo] [--phone iphone|android] [--iphone direct|testflight] [--appo-help yes|no] [--json]`;
+  const parsed = parseAnswerFlags(flags);
+  if (parsed.exit) { return parsed.exit; }
+
+  let address = typeof target === 'string' && target ? target : (typeof flags.url === 'string' ? flags.url : null);
+  if (command === 'new') {
+    if (!address && isInteractive(flags)) { address = (await askLine('Site URL: ')) || null; }
+    if (!address) { console.error(usage); return 2; }
+    if (!(await ensureLoggedIn(flags, apiBase, env))) { return 1; }
+    return createAndStart(apiBase, env, flags, address, usage);
+  }
+
+  if (address && /^\d+$/.test(address)) {
+    return runStart(apiBase, env, flags, address, { installOnly });
+  }
+  if (!address) {
+    const resolved = await resolveTargetApp(apiBase, env, flags, {
+      usageHint: `appo ${command} <id>`,
+      selectLabel: `Select an app to ${command}:`,
+      quietEmpty: true,
+    });
+    if (resolved.empty) {
+      if (!isInteractive(flags)) { console.error('No apps yet. Run: appo start <url>'); return 1; }
+      address = (await askLine('Site URL: ')) || null;
+      if (!address) { console.error(usage); return 2; }
+    } else if (resolved.exit !== undefined) {
+      return resolved.exit;
+    } else {
+      return runStart(apiBase, env, flags, resolved.id, { installOnly });
+    }
+  }
+  if (!(await ensureLoggedIn(flags, apiBase, env))) { return 1; }
+  const existing = await findAppByAddress(apiBase, env, address);
+  if (existing) {
+    return runStart(apiBase, env, flags, existing.id, { installOnly, url: address });
+  }
+  return createAndStart(apiBase, env, flags, address, usage, { installOnly });
 }
 
 /** Default to both canonical store tokens; map friendly aliases apple/google. */
@@ -818,10 +1071,10 @@ export async function run(argv) {
             if (!flags.name) { flags.name = await askLine('App name: '); }
           }
           if (!flags.name || !flags.url) {
-            console.error('Usage: appo apps create --name <n> --url <u> --prepare on|off [--owner-authorized --accept-tos]');
+            console.error('Usage: appo apps create --name <n> --url <u> [--owner-authorized --accept-tos]');
             return 2;
           }
-          const settled = await settlePreparation(flags);
+          const settled = await settleConsent(flags);
           if (settled.exit) { return settled.exit; }
           const app = await ops.createApp(apiBase, { name: flags.name, base_url: flags.url, ...settled.attrs }, env);
           console.log('Created app:');
@@ -1217,75 +1470,10 @@ export async function run(argv) {
         return 2;
       }
 
-      case 'new': {
-        // Creation verb — `new` puts the app on your phone, `ship <id>` puts it
-        // on the stores. Single-step (no ledger): errors flow to the top-level
-        // catch -> renderError like the other simple verbs.
-        const usage = 'Usage: appo new --url <u> [--name <n>] [--prepare on|off [--owner-authorized --accept-tos]] [--json]';
-        // Interactive sessions ask for the URL instead of failing on it.
-        if ((typeof flags.url !== 'string' || !flags.url) && isInteractive(flags)) {
-          const answer = await askLine('Site URL: ');
-          if (answer) { flags.url = answer; }
-        }
-        // Empty-value guard: a bare `--url` parses as boolean true; both it and
-        // a missing flag are usage errors — BEFORE any HTTP.
-        if (typeof flags.url !== 'string' || !flags.url) { console.error(usage); return 2; }
-        // `new` takes no --platform; any --platform passed is silently ignored.
-        const base_url = ensureScheme(flags.url);
-        let name = typeof flags.name === 'string' && flags.name ? flags.name : null;
-        if (!name) {
-          try {
-            name = nameFromUrl(base_url);
-          } catch {
-            console.error(usage);   // unparseable URL — usage error, no HTTP
-            return 2;
-          }
-        }
-
-        // Creation requires an account — the anonymous trial was removed (247).
-        // Interactive sessions offer to log in; otherwise fail with a friendly
-        // message before any apiFetch (which throws a rawer "Not authenticated").
-        let token = storedToken(env);
-        if (!token && isInteractive(flags)) {
-          console.log('Creating an app requires an account.');
-          if (isYes(await askLine('Log in now? [y/N] '))) {
-            await login(apiBase, env);
-            token = storedToken(env);
-          }
-        }
-        if (!token) {
-          console.error('Not authenticated. Run: appo login');
-          return 1;
-        }
-
-        const settled = await settlePreparation(flags);
-        if (settled.exit) { return settled.exit; }
-        // --json: verbatim creation envelope (D-08). Direct apiFetch — never
-        // reaches the human renderer.
-        if (flags.json) {
-          const body = { name, base_url, ...settled.attrs };
-          try {
-            const res = await apiFetch(apiBase, 'POST', '/api/v1/apps', body, env);
-            console.log(JSON.stringify(res));
-            return 0;
-          } catch (err) {
-            if (err.envelope?.error === 'site_not_ready') {
-              console.log(JSON.stringify(err.envelope));
-              return 1;
-            }
-            throw err;
-          }
-        }
-        const attrs = { name, base_url, ...settled.attrs };
-        const app = (await ops.createApp(apiBase, attrs, env)) || {};
-        console.log(`Created app #${app.id} — ${app.name}`);
-        console.log(`  url: ${app.base_url}`);
-        printTry(app.try, { withQr: false });
-        console.log(`  run it on your device: appo run ${app.id}`);
-        console.log(`  ship to the stores:    appo ship ${app.id}`);
-        await maybeOfferMcp(flags, apiBase);
-        return 0;
-      }
+      case 'new':
+      case 'start':
+      case 'install':
+        return await runGuidedVerb(command, apiBase, env, flags, sub);
 
       case 'ship': {
         // Store-publication verb — `ship <id>` signals publish-intent on an
