@@ -208,7 +208,7 @@ const PUBLICATION_SENTENCES = {
 };
 
 const NEXT_STEP_SENTENCES = {
-  preview: 'Next: start it on your phone with appo start',
+  start: 'Next: start it on your phone with appo start',
   publish: 'Next: ship it to the stores with appo ship',
   resubmit: 'Next: resubmit it after the fixes with appo ship',
   setup: 'Next: finish the setup with appo start',

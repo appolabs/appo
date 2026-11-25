@@ -54,7 +54,7 @@ export function publishApp(
   env?: string,
 ): Promise<null>;
 
-/** Flat payload: { ios_testflight_url, android_deeplink, install_url, install_ready, install }. */
+/** Flat payload: { install }. */
 export function getInstall(apiBase: string, id: string | number, env?: string): Promise<any>;
 
 /** Flat payload: { icon_url }. */

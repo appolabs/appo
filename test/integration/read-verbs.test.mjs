@@ -213,8 +213,6 @@ test('rejection missing id returns 2', async () => {
 // --- run: GET /preview and render the try block (detail in run.test.mjs) ---
 
 const TRY_READY_BODY = {
-  install_url: 'https://app.appo.io/preview/tok',
-  install_ready: { ios: false, android: true },
   install: {
     state: 'ready',
     message_code: 'ready',
@@ -309,10 +307,6 @@ test('status --json passes the payload through verbatim with a single request', 
 // --- run without id: app resolution ----------------------------------------
 
 const RESOLVED_PREVIEW_BODY = {
-  ios_testflight_url: null,
-  android_deeplink: 'appo://preview?token=t',
-  install_url: 'https://app.appo.io/preview/tok',
-  install_ready: { ios: false, android: true },
   install: TRY_READY_BODY.install,
 };
 

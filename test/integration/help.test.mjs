@@ -123,7 +123,7 @@ test('status prints sentences, not raw keys', async () => {
   stubToken();
   installMockFetch({ status: 200, body: { data: {
     id: 7, name: 'Shop', base_url: 'https://shop.example', publication_state: 'in_review',
-    primary_action: 'preview', ios_bundle_id: 'com.x.y', android_package_name: 'com.x.y',
+    primary_action: 'start', ios_bundle_id: 'com.x.y', android_package_name: 'com.x.y',
     decision: { key: 'fix', question: 'Who adapts the website?' },
     install: { state: 'preparing', message: 'Appo is adapting the site.' },
   } } });

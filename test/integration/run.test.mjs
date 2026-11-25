@@ -44,12 +44,6 @@ const API = ['--api', 'http://test.local'];
 // --- run: the one-link verb (D-13) -------------------------------------------
 
 const READY_PREVIEW = {
-  android: { state: 'ready' },
-  ios: { mode: 'appo', state: 'ready' },
-  ios_testflight_url: null,
-  android_deeplink: null,
-  install_url: 'https://app.appo.io/preview/tok',
-  install_ready: { ios: false, android: true },
   install: {
     state: 'ready',
     message_code: 'ready_iphone_soon',
@@ -61,8 +55,6 @@ const READY_PREVIEW = {
 };
 
 const PREPARING_PREVIEW = {
-  install_url: 'https://app.appo.io/preview/tok',
-  install_ready: { ios: false, android: false },
   install: {
     state: 'preparing',
     message_code: 'preparing',

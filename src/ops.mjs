@@ -59,7 +59,7 @@ export async function publishApp(apiBase, id, app_stores, env) {
   return apiFetch(apiBase, 'POST', `/api/v1/apps/${id}/publish`, { app_stores }, env);
 }
 
-// GET /api/v1/apps/{id}/install -> 200 { ios_testflight_url, android_deeplink, install_url, install_ready, install }
+// GET /api/v1/apps/{id}/install -> 200 { install }
 // Flat object (no {data:} envelope) — unwrap is a harmless no-op here.
 export async function getInstall(apiBase, id, env) {
   return unwrap(await apiFetch(apiBase, 'GET', `/api/v1/apps/${id}/install`, null, env));
