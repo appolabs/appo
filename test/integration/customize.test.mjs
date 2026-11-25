@@ -92,12 +92,33 @@ describe('appo customize', () => {
     expect(lastRequest().body).toEqual({ injected_css: 'a{}' });
     expect('confirm' in lastRequest().body).toBe(false);
     expect('mode' in lastRequest().body).toBe(false);
-    expect(out).toContain('Dry run: nothing written.');
+    expect(out.split('\n')[0]).toBe('Server note.');
     expect(out).toContain('CSS: rewrite the block; 4 of 50000 bytes');
     expect(out).toContain('JavaScript: no block, nothing removed');
     expect(out).toContain('a{color:red}');
-    expect(out).toContain('Add --confirm to write it.');
     expect(out).not.toMatch(/preview/i);
+  });
+
+  test('dry run with the server note prints it once, without a repeated hint', async () => {
+    stubToken();
+    const note = 'Dry run: nothing was written. Add --confirm to write it.';
+    installMockFetch({ status: 200, body: { ...dryBody, note } });
+    const { result, out } = await capture(['customize', '7', '--css', 'a{}', ...API]);
+    expect(result).toBe(3);
+    expect(out.split('\n')[0]).toBe(note);
+    expect(out.match(/Add --confirm/g)).toHaveLength(1);
+    expect(out.match(/Dry run/g)).toHaveLength(1);
+  });
+
+  test('dry run without a server note prints the CLI header and hint', async () => {
+    stubToken();
+    const withoutNote = { ...dryBody };
+    delete withoutNote.note;
+    installMockFetch({ status: 200, body: withoutNote });
+    const { result, out } = await capture(['customize', '7', '--css', 'a{}', ...API]);
+    expect(result).toBe(3);
+    expect(out).toContain('Dry run: nothing written.');
+    expect(out).toContain('Add --confirm to write it.');
   });
 
   test('action words for insert and remove', async () => {

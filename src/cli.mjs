@@ -518,7 +518,7 @@ function printCustomizeRead(res) {
 }
 
 function printCustomizeDryRun(res) {
-  console.log('Dry run: nothing written.');
+  console.log(res.note ? cleanText(res.note) : 'Dry run: nothing written.');
   const limit = Number(res.limit_bytes);
   for (const f of CUSTOMIZE_FIELDS) {
     const action = res.block?.[f.key];
@@ -526,8 +526,7 @@ function printCustomizeDryRun(res) {
     console.log(`${f.label}: ${BLOCK_ACTION_TEXT[action] ?? cleanText(action)}; ${Number(res[f.bytes] ?? 0)} of ${limit} bytes`);
   }
   printBlockBodies(res.previous_block);
-  if (res.note) { console.log(cleanText(res.note)); }
-  console.log('Add --confirm to write it.');
+  if (!res.note) { console.log('Add --confirm to write it.'); }
 }
 
 function printCustomizeApplied(res) {
