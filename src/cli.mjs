@@ -148,7 +148,11 @@ function parseArgs(argv) {
     } else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       if (eq !== -1) {
-        assign(a.slice(2, eq), a.slice(eq + 1));
+        const key = a.slice(2, eq);
+        const value = a.slice(eq + 1);
+        // An explicit value on a boolean flag is read as a boolean; only yes/true/1
+        // turn it on, so `--confirm=false` (or a typo) never confirms a write.
+        assign(key, boolean.has(key) && !consent.has(key) ? /^(yes|true|1)$/i.test(value) : value);
         continue;
       }
       const key = a.slice(2);

@@ -363,3 +363,62 @@ describe('apps remove', () => {
     expect(requests.length).toBe(0);
   });
 });
+
+// --- explicit values on the boolean confirm flag ---------------------------
+
+describe('--confirm with an explicit value', () => {
+  const dryRun = { will: 'delete', app: 7, name: 'Shop', confirm_required: true, note: 'This removes Shop for good.' };
+  const removed = { deleted: true, app: 7, name: 'Shop', message: 'Shop was removed.' };
+
+  for (const value of ['false', 'no', '0', 'FALSE']) {
+    test(`apps remove --confirm=${value} stays a dry run`, async () => {
+      stubToken();
+      installMockFetch({ status: 200, body: dryRun });
+      const { result } = await captureLog(() => run(['apps', 'remove', '7', `--confirm=${value}`, ...API]));
+      expect(result).toBe(3);
+      expect(lastRequest().url.endsWith('/api/v1/apps/7')).toBe(true);
+    });
+  }
+
+  for (const value of ['true', 'yes', '1']) {
+    test(`apps remove --confirm=${value} removes`, async () => {
+      stubToken();
+      installMockFetch({ status: 200, body: removed });
+      const { result } = await captureLog(() => run(['apps', 'remove', '7', `--confirm=${value}`, ...API]));
+      expect(result).toBe(0);
+      expect(lastRequest().url.endsWith('/api/v1/apps/7?confirm=1')).toBe(true);
+    });
+  }
+
+  test('an unrecognised value is not a confirmation', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: dryRun });
+    const { result } = await captureLog(() => run(['apps', 'remove', '7', '--confirm=maybe', ...API]));
+    expect(result).toBe(3);
+    expect(lastRequest().url.endsWith('/api/v1/apps/7')).toBe(true);
+  });
+
+  test('publish --confirm=false issues no write', async () => {
+    stubToken();
+    installMockFetch({ status: 204 });
+    const { result } = await captureLog(() => run(['publish', '7', '--stores', 'apple_appstore', '--confirm=false', ...API]));
+    expect(result).toBe(3);
+    expect(requests.length).toBe(0);
+  });
+
+  test('testflight --confirm=no issues no request', async () => {
+    stubToken();
+    installMockFetch({ status: 202, body: {} });
+    const { result } = await captureLog(() => run(['testflight', '7', '--confirm=no', ...API]));
+    expect(result).toBe(3);
+    expect(requests.length).toBe(0);
+  });
+
+  test('customize --confirm=0 sends no confirm in the body', async () => {
+    stubToken();
+    installMockFetch({ status: 200, body: { confirm_required: true, block: { css: 'create' }, css_bytes: 10, js_bytes: 0, limit_bytes: 50000 } });
+    const { result } = await captureLog(() => run(['customize', '7', '--css', 'body{}', '--confirm=0', ...API]));
+    expect(result).toBe(3);
+    expect(lastRequest().body.confirm).toBeUndefined();
+  });
+});
